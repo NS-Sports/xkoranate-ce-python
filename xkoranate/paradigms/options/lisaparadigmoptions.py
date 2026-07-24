@@ -61,6 +61,21 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         homeAdvantageEARRowLayout.addWidget(self.homeAdvantageEAR)
         homeAdvantageEARRowLayout.addWidget(self.restoreHomeAdvantageEAR)
 
+        # per-team home advantage: each side's own H rating (entered as a
+        # participant column, 0-100, defaulting to 50) replaces the fixed
+        # EAR magnitude above. Must be set before participants are entered
+        # since it changes newAthleteWidget()'s columns.
+        self.perTeamHomeAdvantage = QCheckBox("Use per-team home advantage rating")
+        if toString(self.options.get("perTeamHomeAdvantage")) == "true":
+            self.perTeamHomeAdvantage.setCheckState(Qt.Checked)
+        else:
+            self.perTeamHomeAdvantage.setCheckState(Qt.Unchecked)
+        self.setPerTeamHomeAdvantage(self.perTeamHomeAdvantage.checkState())
+        self.perTeamHomeAdvantage.stateChanged.connect(self.setPerTeamHomeAdvantage)
+        self.perTeamHomeAdvantage.stateChanged.connect(self._updateHomeAdvantageEARRowVisible)
+        self.homeAdvantage.stateChanged.connect(self._updatePerTeamHomeAdvantageEnabled)
+        self._updatePerTeamHomeAdvantageEnabled(self.homeAdvantage.checkState())
+
         # LISA formula constants: rank/EAR conversion (power scalar, reference
         # rank, REAR) and margin shaping (margin divisor). These are always
         # active (no enable/disable toggle like home advantage has).
@@ -107,11 +122,14 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         self.advancedSection = XkorCollapsibleSection("Advanced options")
         self.advancedSection.setContent(advancedContent)
 
-        form = QFormLayout(self)
-        form.addRow("", self.homeAdvantage)
-        form.addRow(self.homeAdvantageEARLabel, self.homeAdvantageEARRow)
-        form.addRow("", self.showTLAs)
-        form.addRow(self.advancedSection)
+        self.form = QFormLayout(self)
+        self.form.addRow("", self.homeAdvantage)
+        self.form.addRow(self.homeAdvantageEARLabel, self.homeAdvantageEARRow)
+        self.form.addRow("", self.perTeamHomeAdvantage)
+        self.form.addRow("", self.showTLAs)
+        self.form.addRow(self.advancedSection)
+
+        self._updateHomeAdvantageEARRowVisible(self.perTeamHomeAdvantage.checkState())
 
     def setHomeAdvantage(self, x):
         if Qt.CheckState(x) == Qt.Checked:
@@ -132,6 +150,22 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         self.homeAdvantageEARLabel.setEnabled(enabled)
         self.homeAdvantageEAR.setEnabled(enabled)
         self.restoreHomeAdvantageEAR.setEnabled(enabled)
+
+    def setPerTeamHomeAdvantage(self, x):
+        if Qt.CheckState(x) == Qt.Checked:
+            self.options["perTeamHomeAdvantage"] = "true"
+        else:
+            self.options["perTeamHomeAdvantage"] = "false"
+        self.optionsChanged.emit(self.options)
+
+    def _updatePerTeamHomeAdvantageEnabled(self, x):
+        self.perTeamHomeAdvantage.setEnabled(Qt.CheckState(x) == Qt.Checked)
+
+    def _updateHomeAdvantageEARRowVisible(self, x):
+        # the fixed EAR magnitude is meaningless once each team supplies
+        # its own rating instead
+        visible = Qt.CheckState(x) != Qt.Checked
+        self.form.setRowVisible(self.homeAdvantageEARLabel, visible)
 
     def setPowerScalar(self, x):
         self.options["powerScalar"] = x

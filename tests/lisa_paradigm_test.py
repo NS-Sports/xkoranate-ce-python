@@ -112,4 +112,42 @@ assert p_override.powerScalar() == 1.984
 assert p_override.refRank() == 10.93
 assert p_override.marginDivisor() == 750
 
+
+# --- per-team home advantage (optional mode): each side's own H rating
+#     (0-100, defaulting to 50 when unset) sums into the home team's
+#     advantage, matching the reference design's own worked examples ---
+
+from xkoranate.athlete import XkorAthlete  # noqa: E402
+
+
+def make_athlete(homeAdvantage=None):
+    a = XkorAthlete()
+    if homeAdvantage is not None:
+        a.setProperty("homeAdvantage", str(homeAdvantage))
+    return a
+
+
+p_pth = make_paradigm(homeAdvantageEAR=120)
+p_pth.userOpt = {"perTeamHomeAdvantage": "true"}
+assert p_pth.perTeamHomeAdvantage() is True
+
+fortress = make_athlete(90)  # "an absolute fortress"
+default_ = make_athlete(50)
+assert p_pth._homeAdvantageValue(fortress, default_) == 140  # the sheet's own 140H example
+assert p_pth._homeAdvantageValue(default_, fortress) == 140  # same either way round
+
+unset = make_athlete()  # no rating entered at all
+assert p_pth._homeAdvantageValue(fortress, unset) == 140  # unset counts as 50
+
+both_unset = p_pth._homeAdvantageValue(make_athlete(), make_athlete())
+assert both_unset == 100, both_unset  # matches WC100Q's flat 100 (50+50)
+
+low_h = make_athlete(10)
+high_h = make_athlete(90)
+cancelled = p_pth._homeAdvantageValue(low_h, high_h)
+assert cancelled == 100, cancelled  # "cancels out to normal home advantage"
+
+p_pth.userOpt = {"perTeamHomeAdvantage": "false"}
+assert p_pth._homeAdvantageValue(fortress, default_) == 120  # falls back to the fixed EAR magnitude
+
 print("ALL LISA PARADIGM TESTS PASSED")

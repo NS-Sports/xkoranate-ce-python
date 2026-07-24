@@ -34,6 +34,25 @@ class XkorLISAParadigm(XkorAbstractH2HParadigm):
     def usesMinSkill(self):
         return False
 
+    def newAthleteWidget(self):
+        from ..signuplisteditor.athletewidget import XkorAthleteWidget
+        includeStyle = (toString(self.userOpt.get("styleMods")) != "false"
+                        or toString(self.userOpt.get("NSFSStyleMods")) != "false")
+
+        keys = ["name", "nation", "skill"]
+        names = ["Participant", "Team", "Skill"]
+        types = ["string", "string", "skill"]
+        if includeStyle:
+            keys.append("style")
+            names.append("Style")
+            types.append("double")
+        if self.perTeamHomeAdvantage():
+            keys.append("homeAdvantage")
+            names.append("Home Adv")  # matches the reference sheet's own header
+            types.append("homeAdvantage")
+
+        return XkorAthleteWidget(keys, names, types, -5, 5, 1)
+
     def newOptionsWidget(self, paradigmOptions):
         from .options.lisaparadigmoptions import XkorLISAParadigmOptions
         return XkorLISAParadigmOptions(
@@ -65,6 +84,15 @@ class XkorLISAParadigm(XkorAbstractH2HParadigm):
         # lets the user override it per-event
         return toDouble(self.userOpt.get("homeAdvantageEAR", self._defaultHomeAdvantageEAR()))
 
+    def perTeamHomeAdvantage(self):
+        """Whether each team's own "Home advantage" rating (entered as a
+        participant column, 0-100, defaulting to 50) replaces the fixed
+        homeAdvantageEAR() magnitude. Must be set before participants are
+        entered since it changes newAthleteWidget()'s columns -- but since
+        this is a paradigm option, that's just the natural effect of the
+        "Sport" wizard step preceding "Signups"."""
+        return toString(self.userOpt.get("perTeamHomeAdvantage")) == "true"
+
     def powerScalar(self):
         return toDouble(self.userOpt.get("powerScalar", self._defaultPowerScalar()))
 
@@ -90,9 +118,22 @@ class XkorLISAParadigm(XkorAbstractH2HParadigm):
 
     def _homeAwayEAR(self, homeAthlete, awayAthlete):
         homeAdvantage = (toString(self.userOpt.get("homeAdvantage")) == "true")
-        hEAR = self._ear(homeAthlete.rpSkill) + (self.homeAdvantageEAR() if homeAdvantage else 0)
+        hEAR = (self._ear(homeAthlete.rpSkill)
+                + (self._homeAdvantageValue(homeAthlete, awayAthlete) if homeAdvantage else 0))
         aEAR = self._ear(awayAthlete.rpSkill)
         return hEAR, aEAR
+
+    def _homeAdvantageValue(self, homeAthlete, awayAthlete):
+        if self.perTeamHomeAdvantage():
+            # each side's own H rating adds to the home team's advantage --
+            # a team that sets itself up as a fortress at home gives their
+            # opponents the exact same boost when playing away at them
+            return self._teamHomeAdvantage(homeAthlete) + self._teamHomeAdvantage(awayAthlete)
+        return self.homeAdvantageEAR()
+
+    def _teamHomeAdvantage(self, athlete):
+        raw = athlete.property("homeAdvantage")
+        return 50.0 if raw in (None, "") else toDouble(raw)
 
     def _winDrawProbabilities(self, hEAR, aEAR):
         g = hEAR - aEAR
