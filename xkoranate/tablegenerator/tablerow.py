@@ -79,21 +79,29 @@ class XkorTableRow:
                 rval += 1 if j.points(self.n) == 3 else 0
         return rval
 
-    def insertMatch(self, t2name, t1score, t2score, home):
+    def insertMatch(self, t2name, t1score, t2score, home, decider=None):
         if home:
             self.h2hResults.setdefault(t2name, []).insert(
-                0, XkorTableMatch(self.n, t2name, t1score, t2score))
+                0, XkorTableMatch(self.n, t2name, t1score, t2score, decider))
         else:
             self.h2hResults.setdefault(t2name, []).insert(
-                0, XkorTableMatch(t2name, self.n, t2score, t1score))
+                0, XkorTableMatch(t2name, self.n, t2score, t1score, decider))
             self.scores["_awayGoals"] = self.scores.get("_awayGoals", 0.0) + t1score
         self.scores["_played"] = self.scores.get("_played", 0.0) + 1
         if t1score > t2score:
             self.scores["_wins"] = self.scores.get("_wins", 0.0) + 1
+            if decider == "OT":
+                self.scores["_otWins"] = self.scores.get("_otWins", 0.0) + 1
+            elif decider == "SO":
+                self.scores["_soWins"] = self.scores.get("_soWins", 0.0) + 1
         elif t1score == t2score:
             self.scores["_draws"] = self.scores.get("_draws", 0.0) + 1
         else:
             self.scores["_losses"] = self.scores.get("_losses", 0.0) + 1
+            if decider == "OT":
+                self.scores["_otLosses"] = self.scores.get("_otLosses", 0.0) + 1
+            elif decider == "SO":
+                self.scores["_soLosses"] = self.scores.get("_soLosses", 0.0) + 1
         self.scores["_goalsFor"] = self.scores.get("_goalsFor", 0.0) + t1score
         self.scores["_goalsAgainst"] = self.scores.get("_goalsAgainst", 0.0) + t2score
         self.scores["_goalDifference"] = self.scores.get("_goalDifference", 0.0) + t1score - t2score
@@ -104,8 +112,26 @@ class XkorTableRow:
     def name(self):
         return self.n
 
+    def otLosses(self):
+        return self.scores.get("_otLosses", 0.0)
+
+    def otWins(self):
+        return self.scores.get("_otWins", 0.0)
+
     def played(self):
         return self.scores.get("_played", 0.0)
+
+    def regulationLosses(self):
+        return self.losses() - self.otLosses() - self.soLosses()
+
+    def regulationWins(self):
+        return self.wins() - self.otWins() - self.soWins()
+
+    def soLosses(self):
+        return self.scores.get("_soLosses", 0.0)
+
+    def soWins(self):
+        return self.scores.get("_soWins", 0.0)
 
     def result(self, opponent):
         rval = (-1, -1)

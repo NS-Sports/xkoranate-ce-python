@@ -61,6 +61,14 @@ class XkorTableGenerator(QWidget):
         self.pointsForDraw.valueChanged.connect(lambda: self.setFileModified())
         self.pointsForLoss = QSpinBox()
         self.pointsForLoss.valueChanged.connect(lambda: self.setFileModified())
+        self.pointsForOTWin = QSpinBox()
+        self.pointsForOTWin.valueChanged.connect(lambda: self.setFileModified())
+        self.pointsForSOWin = QSpinBox()
+        self.pointsForSOWin.valueChanged.connect(lambda: self.setFileModified())
+        self.pointsForOTLoss = QSpinBox()
+        self.pointsForOTLoss.valueChanged.connect(lambda: self.setFileModified())
+        self.pointsForSOLoss = QSpinBox()
+        self.pointsForSOLoss.valueChanged.connect(lambda: self.setFileModified())
         self.columnWidth = QSpinBox()
         self.columnWidth.valueChanged.connect(lambda: self.setFileModified())
 
@@ -69,6 +77,8 @@ class XkorTableGenerator(QWidget):
 
         self.showDraws = QCheckBox("Draws")
         self.showDraws.stateChanged.connect(lambda: self.setFileModified())
+        self.showOvertime = QCheckBox("OT/SO breakdown (OTW/SOW/OTL/SOL)")
+        self.showOvertime.stateChanged.connect(lambda: self.setFileModified())
         self.showResultsGrid = QCheckBox("Results grid")
         self.showResultsGrid.stateChanged.connect(lambda: self.setFileModified())
 
@@ -100,10 +110,25 @@ class XkorTableGenerator(QWidget):
         pointsLayout.setColumnStretch(3, 0)  # don't stretch the labels
         pointsLayout.setColumnStretch(4, 1)
 
+        otPointsLayout = QGridLayout()
+        otPointsLayout.addWidget(self.pointsForOTWin, 0, 0)
+        otPointsLayout.addWidget(QLabel("OT loss:"), 0, 1)
+        otPointsLayout.addWidget(self.pointsForOTLoss, 0, 2)
+        otPointsLayout.setContentsMargins(0, 0, 0, 0)
+
+        soPointsLayout = QGridLayout()
+        soPointsLayout.addWidget(self.pointsForSOWin, 0, 0)
+        soPointsLayout.addWidget(QLabel("SO loss:"), 0, 1)
+        soPointsLayout.addWidget(self.pointsForSOLoss, 0, 2)
+        soPointsLayout.setContentsMargins(0, 0, 0, 0)
+
         form = QFormLayout()
         form.addRow("Table sort rules:", self.scw)
         form.addRow("Points for win:", pointsLayout)
+        form.addRow("Points for OT win:", otPointsLayout)
+        form.addRow("Points for SO win:", soPointsLayout)
         form.addRow("Show columns:", self.showDraws)
+        form.addRow("", self.showOvertime)
         form.addRow("", self.showResultsGrid)
         form.addRow("Goals are called:", self.goalName)
         form.addRow("Column width:", self.columnWidth)
@@ -145,8 +170,10 @@ class XkorTableGenerator(QWidget):
 
         for line in text.split("\n"):
             # match scores of form Aquilla 3–1 Busby, with en dash,
-            # hyphen-minus, or colon as delimiter
-            rx = QRegularExpression("([0-9]+)[-–:]([0-9]+)")
+            # hyphen-minus, or colon as delimiter, and an optional trailing
+            # "OT" or "SO" marker for matches decided in overtime/extra time
+            # or by shootout/penalties, e.g. Aquilla 3–2 OT Busby
+            rx = QRegularExpression("([0-9]+)[-–:]([0-9]+)(?:\\s+(OT|SO))?")
             match = rx.match(line)
             if match.hasMatch():  # if we matched
                 index = match.capturedStart(0)
@@ -155,8 +182,9 @@ class XkorTableGenerator(QWidget):
                 awayTeam = _qRight(line, len(line) - index - matchedLength - 1)
                 homeScore = toDouble(match.captured(1))
                 awayScore = toDouble(match.captured(2))
+                decider = match.captured(3) or None
                 self.matchesList.append(
-                    XkorTableMatch(homeTeam, awayTeam, homeScore, awayScore))
+                    XkorTableMatch(homeTeam, awayTeam, homeScore, awayScore, decider))
                 if homeTeam not in self.teamsList:
                     self.teamsList.append(homeTeam)
                 if awayTeam not in self.teamsList:
@@ -200,6 +228,11 @@ class XkorTableGenerator(QWidget):
         if self.showDraws.checkState() == Qt.Checked:
             columns.append(XkorTableColumn("draws", "D", matchdayWidth + 1))
         columns.append(XkorTableColumn("losses", "L", matchdayWidth + 1))
+        if self.showOvertime.checkState() == Qt.Checked:
+            columns.append(XkorTableColumn("otWins", "OTW", matchdayWidth + 2))
+            columns.append(XkorTableColumn("soWins", "SOW", matchdayWidth + 2))
+            columns.append(XkorTableColumn("otLosses", "OTL", matchdayWidth + 2))
+            columns.append(XkorTableColumn("soLosses", "SOL", matchdayWidth + 2))
         if usesGoalAverage or usesGoalDifference or usesGoalsAgainst or usesGoalsFor:
             columns.append(XkorTableColumn("goalsFor", chosenGoalName + "F",
                                            matchdayWidth + 3))
@@ -265,10 +298,16 @@ class XkorTableGenerator(QWidget):
             self.pointsForWin.setValue(self.t.getPointsForWin())
             self.pointsForDraw.setValue(self.t.getPointsForDraw())
             self.pointsForLoss.setValue(self.t.getPointsForLoss())
+            self.pointsForOTWin.setValue(self.t.getPointsForOTWin())
+            self.pointsForSOWin.setValue(self.t.getPointsForSOWin())
+            self.pointsForOTLoss.setValue(self.t.getPointsForOTLoss())
+            self.pointsForSOLoss.setValue(self.t.getPointsForSOLoss())
             self.columnWidth.setValue(self.t.getColumnWidth())
             self.scw.setSortCriteria(self.t.getSortCriteria())
             self.showDraws.setCheckState(
                 Qt.Checked if self.t.getShowDraws() else Qt.Unchecked)
+            self.showOvertime.setCheckState(
+                Qt.Checked if self.t.getShowOvertime() else Qt.Unchecked)
             self.showResultsGrid.setCheckState(
                 Qt.Checked if self.t.getShowResultsGrid() else Qt.Unchecked)
             self.goalName.setCurrentIndex(
@@ -291,9 +330,14 @@ class XkorTableGenerator(QWidget):
             self.pointsForWin.setValue(3)
             self.pointsForDraw.setValue(1)
             self.pointsForLoss.setValue(0)
+            self.pointsForOTWin.setValue(3)
+            self.pointsForSOWin.setValue(3)
+            self.pointsForOTLoss.setValue(0)
+            self.pointsForSOLoss.setValue(0)
             self.columnWidth.setValue(2)
             self.scw.setSortCriteria(self.scw.defaultSortCriteria())
             self.showDraws.setCheckState(Qt.Checked)
+            self.showOvertime.setCheckState(Qt.Unchecked)
             self.showResultsGrid.setCheckState(Qt.Unchecked)
             self.goalName.setCurrentIndex(self.goalName.findData("G"))
 
@@ -356,9 +400,14 @@ class XkorTableGenerator(QWidget):
         self.t.setPointsForWin(self.pointsForWin.value())
         self.t.setPointsForDraw(self.pointsForDraw.value())
         self.t.setPointsForLoss(self.pointsForLoss.value())
+        self.t.setPointsForOTWin(self.pointsForOTWin.value())
+        self.t.setPointsForSOWin(self.pointsForSOWin.value())
+        self.t.setPointsForOTLoss(self.pointsForOTLoss.value())
+        self.t.setPointsForSOLoss(self.pointsForSOLoss.value())
         self.t.setSortCriteria(self.scw.sortCriteria())
         self.t.setColumnWidth(self.columnWidth.value())
         self.t.setGoalName(toString(
             self.goalName.itemData(self.goalName.currentIndex())))
         self.t.setShowDraws(self.showDraws.checkState() == Qt.Checked)
+        self.t.setShowOvertime(self.showOvertime.checkState() == Qt.Checked)
         self.t.setShowResultsGrid(self.showResultsGrid.checkState() == Qt.Checked)

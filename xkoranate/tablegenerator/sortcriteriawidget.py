@@ -11,7 +11,8 @@ class XkorSortCriteriaWidget(XkorAbstractTreeWidget):
         self.sortTypes = ["awayGoals", "goalAverage", "goalDifference",
                           "goalsAgainst", "goalsFor", "h2hAwayGoals",
                           "h2hGoalDifference", "h2hGoalsAgainst",
-                          "h2hGoalsFor", "h2hPoints", "h2hWins", "points",
+                          "h2hGoalsFor", "h2hPoints", "h2hWins", "otWins",
+                          "points", "regulationWins",
                           "winPercent", "winPercentPure", "winPercentNFL",
                           "wins"]
         self.sortNames = ["Away goals", "Goal average", "Goal difference",
@@ -20,7 +21,8 @@ class XkorSortCriteriaWidget(XkorAbstractTreeWidget):
                           "Head-to-head goal difference",
                           "Head-to-head goals against",
                           "Head-to-head goals for", "Head-to-head points",
-                          "Head-to-head wins", "Points",
+                          "Head-to-head wins", "Overtime/shootout wins",
+                          "Points", "Regulation wins",
                           "Win percentage (draws count 50%)",
                           "Win percentage (draws count 0%)",
                           "Win percentage (draws ignored)", "Wins"]

@@ -16,16 +16,23 @@ class XkorTable:
         self.pointsForWin = 0.0
         self.pointsForDraw = 0.0
         self.pointsForLoss = 0.0
+        # None means "not overridden": fall back to pointsForWin/pointsForLoss
+        # so tables that never use OT/SO deciders score exactly as before
+        self.pointsForOTWin = None
+        self.pointsForSOWin = None
+        self.pointsForOTLoss = None
+        self.pointsForSOLoss = None
         self.columnWidth = 0
         self.showDraws = False
         self.showResultsGrid = False
+        self.showOvertime = False
         self.goalName = ""
 
     def addMatchToData(self, m):
         i = self.findTeam(m.team1)
-        i.insertMatch(m.team2, m.score1, m.score2, True)
+        i.insertMatch(m.team2, m.score1, m.score2, True, m.decider)
         i = self.findTeam(m.team2)
-        i.insertMatch(m.team1, m.score2, m.score1, False)
+        i.insertMatch(m.team1, m.score2, m.score1, False, m.decider)
 
     def collapse(self, target, source):
         for i in source:
@@ -48,8 +55,13 @@ class XkorTable:
         self.collapse(self.data, self.sortTable(oldData))
 
     def getPoints(self, a):
-        return (a.wins() * self.pointsForWin + a.draws() * self.pointsForDraw
-                + a.losses() * self.pointsForLoss)
+        return (a.regulationWins() * self.pointsForWin
+                + a.draws() * self.pointsForDraw
+                + a.regulationLosses() * self.pointsForLoss
+                + a.otWins() * self.getPointsForOTWin()
+                + a.soWins() * self.getPointsForSOWin()
+                + a.otLosses() * self.getPointsForOTLoss()
+                + a.soLosses() * self.getPointsForSOLoss())
 
     def getColumns(self):
         return list(self.columns)
@@ -72,8 +84,23 @@ class XkorTable:
     def getPointsForLoss(self):
         return self.pointsForLoss
 
+    def getPointsForOTWin(self):
+        return self.pointsForOTWin if self.pointsForOTWin is not None else self.pointsForWin
+
+    def getPointsForSOWin(self):
+        return self.pointsForSOWin if self.pointsForSOWin is not None else self.pointsForWin
+
+    def getPointsForOTLoss(self):
+        return self.pointsForOTLoss if self.pointsForOTLoss is not None else self.pointsForLoss
+
+    def getPointsForSOLoss(self):
+        return self.pointsForSOLoss if self.pointsForSOLoss is not None else self.pointsForLoss
+
     def getShowDraws(self):
         return self.showDraws
+
+    def getShowOvertime(self):
+        return self.showOvertime
 
     def getShowResultsGrid(self):
         return self.showResultsGrid
@@ -81,9 +108,9 @@ class XkorTable:
     def getSortCriteria(self):
         return list(self.sortCriteria)
 
-    def insertMatch(self, m, t2=None, score1=None, score2=None):
+    def insertMatch(self, m, t2=None, score1=None, score2=None, decider=None):
         if t2 is not None:
-            m = XkorTableMatch(m, t2, score1, score2)
+            m = XkorTableMatch(m, t2, score1, score2, decider)
         self.matches.append(m)
         self.addMatchToData(m)
 
@@ -112,8 +139,27 @@ class XkorTable:
         self.pointsForLoss = pts
         self.sorter.setPointsForLoss(pts)
 
+    def setPointsForOTWin(self, pts):
+        self.pointsForOTWin = pts
+        self.sorter.setPointsForOTWin(pts)
+
+    def setPointsForSOWin(self, pts):
+        self.pointsForSOWin = pts
+        self.sorter.setPointsForSOWin(pts)
+
+    def setPointsForOTLoss(self, pts):
+        self.pointsForOTLoss = pts
+        self.sorter.setPointsForOTLoss(pts)
+
+    def setPointsForSOLoss(self, pts):
+        self.pointsForSOLoss = pts
+        self.sorter.setPointsForSOLoss(pts)
+
     def setShowDraws(self, value):
         self.showDraws = value
+
+    def setShowOvertime(self, value):
+        self.showOvertime = value
 
     def setShowResultsGrid(self, value):
         self.showResultsGrid = value
@@ -173,6 +219,14 @@ class XkorTable:
                         rval += qNumber(j.draws()).rjust(k.width)
                     elif k.columnType == "losses":
                         rval += qNumber(j.losses()).rjust(k.width)
+                    elif k.columnType == "otWins":
+                        rval += qNumber(j.otWins()).rjust(k.width)
+                    elif k.columnType == "soWins":
+                        rval += qNumber(j.soWins()).rjust(k.width)
+                    elif k.columnType == "otLosses":
+                        rval += qNumber(j.otLosses()).rjust(k.width)
+                    elif k.columnType == "soLosses":
+                        rval += qNumber(j.soLosses()).rjust(k.width)
                     elif k.columnType == "goalsFor":
                         rval += qNumber(j.goalsFor()).rjust(k.width)
                     elif k.columnType == "goalsAgainst":

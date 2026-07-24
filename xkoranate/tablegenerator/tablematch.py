@@ -1,9 +1,12 @@
 class XkorTableMatch:
-    def __init__(self, t1, t2, s1, s2):
+    def __init__(self, t1, t2, s1, s2, decider=None):
         self.team1 = t1
         self.team2 = t2
         self.score1 = s1
         self.score2 = s2
+        # None for a match decided in regulation; "OT" for one decided in
+        # overtime/extra time; "SO" for one decided by shootout/penalties
+        self.decider = decider
 
     def goalDifference(self, team):
         rval = 0

@@ -84,12 +84,22 @@ class XkorXmlTableReader(QXmlStreamReader):
                     self.m_table.setPointsForDraw(self.readDouble())
                 elif self.name() == "pointsForLoss":
                     self.m_table.setPointsForLoss(self.readDouble())
+                elif self.name() == "pointsForOTWin":
+                    self.m_table.setPointsForOTWin(self.readDouble())
+                elif self.name() == "pointsForSOWin":
+                    self.m_table.setPointsForSOWin(self.readDouble())
+                elif self.name() == "pointsForOTLoss":
+                    self.m_table.setPointsForOTLoss(self.readDouble())
+                elif self.name() == "pointsForSOLoss":
+                    self.m_table.setPointsForSOLoss(self.readDouble())
                 elif self.name() == "columnWidth":
                     self.m_table.setColumnWidth(self.readInt())
                 elif self.name() == "goalName":
                     self.m_table.setGoalName(self.readString())
                 elif self.name() == "showDraws":
                     self.m_table.setShowDraws(self.readString() == "true")
+                elif self.name() == "showOvertime":
+                    self.m_table.setShowOvertime(self.readString() == "true")
                 elif self.name() == "showResultsGrid":
                     self.m_table.setShowResultsGrid(self.readString() == "true")
                 elif self.name() == "matches":
@@ -113,8 +123,9 @@ class XkorXmlTableReader(QXmlStreamReader):
                 if self.name() == "match":
                     matchText = self.readString()
 
-                    # match scores of form Aquilla 3–1 Busby, with en dash, hyphen-minus, or colon as delimiter
-                    rx = re.compile("([0-9]+)[-–:]([0-9]+)")
+                    # match scores of form Aquilla 3–1 Busby, with en dash, hyphen-minus, or colon
+                    # as delimiter, and an optional trailing "OT"/"SO" decider marker
+                    rx = re.compile("([0-9]+)[-–:]([0-9]+)(?:\\s+(OT|SO))?")
                     m = rx.search(matchText)
                     if m is not None:  # if we matched
                         index = m.start()
@@ -123,7 +134,8 @@ class XkorXmlTableReader(QXmlStreamReader):
                         awayTeam = _qRight(matchText, len(matchText) - index - matchedLength - 1)
                         homeScore = toDouble(m.group(1))
                         awayScore = toDouble(m.group(2))
-                        matchesList.append(XkorTableMatch(homeTeam, awayTeam, homeScore, awayScore))
+                        decider = m.group(3)
+                        matchesList.append(XkorTableMatch(homeTeam, awayTeam, homeScore, awayScore, decider))
                     self.m_matches += matchText + "\n"
                 else:
                     self.readUnknownElement()

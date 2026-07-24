@@ -33,14 +33,20 @@ class XkorXmlTableWriter(QXmlStreamWriter):
         self.writeTextElement("pointsForWin", qNumber(t.getPointsForWin()))
         self.writeTextElement("pointsForDraw", qNumber(t.getPointsForDraw()))
         self.writeTextElement("pointsForLoss", qNumber(t.getPointsForLoss()))
+        self.writeTextElement("pointsForOTWin", qNumber(t.getPointsForOTWin()))
+        self.writeTextElement("pointsForSOWin", qNumber(t.getPointsForSOWin()))
+        self.writeTextElement("pointsForOTLoss", qNumber(t.getPointsForOTLoss()))
+        self.writeTextElement("pointsForSOLoss", qNumber(t.getPointsForSOLoss()))
 
         self.writeTextElement("columnWidth", str(t.getColumnWidth()))
         self.writeTextElement("showDraws", "true" if t.getShowDraws() else "false")
+        self.writeTextElement("showOvertime", "true" if t.getShowOvertime() else "false")
         self.writeTextElement("showResultsGrid", "true" if t.getShowResultsGrid() else "false")
         self.writeTextElement("goalName", t.getGoalName())
 
         self.writeStartElement("matches")
         matches = t.getMatches()
         for i in matches:
-            self.writeTextElement("match", "%s %s–%s %s" % (i.team1, qNumber(i.score1), qNumber(i.score2), i.team2))
+            decider = (" " + i.decider) if getattr(i, "decider", None) else ""
+            self.writeTextElement("match", "%s %s–%s%s %s" % (i.team1, qNumber(i.score1), qNumber(i.score2), decider, i.team2))
         self.writeEndElement()
