@@ -18,11 +18,20 @@ class XkorTableRow:
     def awayGoals(self):
         return self.scores.get("_awayGoals", 0.0)
 
+    def awayWins(self):
+        return self.scores.get("_awayWins", 0.0)
+
     def draws(self):
         return self.scores.get("_draws", 0.0)
 
     def goalsAgainst(self):
         return self.scores.get("_goalsAgainst", 0.0)
+
+    def homeGoalsAgainst(self):
+        return self.scores.get("_homeGoalsAgainst", 0.0)
+
+    def homeLosses(self):
+        return self.scores.get("_homeLosses", 0.0)
 
     def goalDifference(self):
         return self.scores.get("_goalDifference", 0.0)
@@ -90,6 +99,8 @@ class XkorTableRow:
         self.scores["_played"] = self.scores.get("_played", 0.0) + 1
         if t1score > t2score:
             self.scores["_wins"] = self.scores.get("_wins", 0.0) + 1
+            if not home:
+                self.scores["_awayWins"] = self.scores.get("_awayWins", 0.0) + 1
             if decider == "OT":
                 self.scores["_otWins"] = self.scores.get("_otWins", 0.0) + 1
             elif decider == "SO":
@@ -98,12 +109,16 @@ class XkorTableRow:
             self.scores["_draws"] = self.scores.get("_draws", 0.0) + 1
         else:
             self.scores["_losses"] = self.scores.get("_losses", 0.0) + 1
+            if home:
+                self.scores["_homeLosses"] = self.scores.get("_homeLosses", 0.0) + 1
             if decider == "OT":
                 self.scores["_otLosses"] = self.scores.get("_otLosses", 0.0) + 1
             elif decider == "SO":
                 self.scores["_soLosses"] = self.scores.get("_soLosses", 0.0) + 1
         self.scores["_goalsFor"] = self.scores.get("_goalsFor", 0.0) + t1score
         self.scores["_goalsAgainst"] = self.scores.get("_goalsAgainst", 0.0) + t2score
+        if home:
+            self.scores["_homeGoalsAgainst"] = self.scores.get("_homeGoalsAgainst", 0.0) + t2score
         self.scores["_goalDifference"] = self.scores.get("_goalDifference", 0.0) + t1score - t2score
 
     def losses(self):

@@ -104,8 +104,24 @@ class XkorXmlTableReader(QXmlStreamReader):
                     self.m_table.setShowResultsGrid(self.readString() == "true")
                 elif self.name() == "matches":
                     self.readMatches()
+                elif self.name() == "coinFlips":
+                    self.m_table.setCoinFlips(self.readCoinFlips())
                 else:
                     self.readUnknownElement()
+
+    def readCoinFlips(self):
+        rval = {}
+        while not self.atEnd():
+            self.readNext()
+            if self.isEndElement():
+                break
+            if self.isStartElement():
+                if self.name() == "coinFlip":
+                    teamName = str(self.attributes().value("team"))
+                    rval[teamName] = self.readDouble()
+                else:
+                    self.readUnknownElement()
+        return rval
 
     def readInt(self):
         return toInt(self.readElementText())

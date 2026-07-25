@@ -69,6 +69,9 @@ class XkorTable:
     def getMatches(self):
         return list(self.matches)
 
+    def getCoinFlips(self):
+        return dict(self.sorter.getCoinFlips())
+
     def getColumnWidth(self):
         return self.columnWidth
 
@@ -113,6 +116,9 @@ class XkorTable:
             m = XkorTableMatch(m, t2, score1, score2, decider)
         self.matches.append(m)
         self.addMatchToData(m)
+
+    def setCoinFlips(self, flips):
+        self.sorter.setCoinFlips(dict(flips))
 
     def setColumns(self, c):
         self.columns = list(c)

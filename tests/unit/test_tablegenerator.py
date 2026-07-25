@@ -363,3 +363,111 @@ def test_xml_round_trip_recognizes_simulator_output_format(tmp_path):
     assert row.losses() == 1  # lost the return leg's shootout
     assert row.soLosses() == 1
     assert t.getPoints(row) == 2 + 1  # 1 OT win (2) + 1 SO loss (1)
+
+
+def test_home_away_split_stats_from_issue_40_tiebreaker_list():
+    # XkorTableRow.insertMatch(opponent, ownScore, opponentScore, home)
+    row = XkorTableRow("Home")
+    row.insertMatch("Away", 3, 1, True)   # home win, conceded 1 at home
+    row.insertMatch("Away", 0, 2, True)   # home loss, conceded 2 at home
+    row.insertMatch("Away", 4, 1, False)  # away win
+
+    assert row.losses() == 1
+    assert row.homeLosses() == 1
+    assert row.homeGoalsAgainst() == 3  # 1 (won) + 2 (lost) — every home game counts
+    assert row.awayWins() == 1
+    assert row.wins() == 2
+
+
+def test_losses_home_losses_away_wins_home_goals_against_sort_criteria():
+    fewerLosses = XkorTableRow("FewerLosses")
+    fewerLosses.insertMatch("X", 3, 1, True)  # home win
+
+    moreLosses = XkorTableRow("MoreLosses")
+    moreLosses.insertMatch("X", 1, 3, True)  # home loss, conceded 3 at home
+    moreLosses.insertMatch("X", 1, 0, False)  # away win (not a home loss)
+
+    sorter = XkorTableSorter()
+
+    assert sorter.sort([fewerLosses, moreLosses], "losses") == [[fewerLosses], [moreLosses]]
+    assert sorter.sort([fewerLosses, moreLosses], "homeLosses") == [[fewerLosses], [moreLosses]]
+    assert sorter.sort([fewerLosses, moreLosses], "homeGoalsAgainst") == [[fewerLosses], [moreLosses]]
+
+    awayWinner = XkorTableRow("AwayWinner")
+    awayWinner.insertMatch("X", 2, 1, False)  # away win
+
+    noAwayWins = XkorTableRow("NoAwayWins")
+    noAwayWins.insertMatch("X", 2, 1, True)  # home win only
+
+    assert sorter.sort([awayWinner, noAwayWins], "awayWins") == [[awayWinner], [noAwayWins]]
+
+
+def _coin_flip_order(sorter, rows):
+    return [row.name() for bin in sorter.sort(rows, "coinFlip") for row in bin]
+
+
+def test_coin_flip_gives_a_valid_total_order():
+    a = XkorTableRow("Aquilla")
+    b = XkorTableRow("Busby")
+    c = XkorTableRow("Charlie")
+    sorter = XkorTableSorter()
+    order = _coin_flip_order(sorter, [a, b, c])
+    assert sorted(order) == ["Aquilla", "Busby", "Charlie"]
+
+
+def test_coin_flip_result_sticks_once_made_instead_of_rerolling():
+    # once a team's flip is recorded, regenerating the table must not
+    # reshuffle it — a coin toss isn't redone just because someone looked at
+    # the standings again
+    a = XkorTableRow("Aquilla")
+    b = XkorTableRow("Busby")
+    c = XkorTableRow("Charlie")
+    sorter = XkorTableSorter()
+
+    firstOrder = _coin_flip_order(sorter, [a, b, c])
+    for _ in range(10):
+        assert _coin_flip_order(sorter, [a, b, c]) == firstOrder
+        assert _coin_flip_order(sorter, [c, b, a]) == firstOrder  # order of input doesn't matter either
+
+
+def test_coin_flip_only_assigns_new_teams_not_already_flipped():
+    a = XkorTableRow("Aquilla")
+    b = XkorTableRow("Busby")
+    sorter = XkorTableSorter()
+    sorter.sort([a, b], "coinFlip")
+    existingFlips = dict(sorter.getCoinFlips())
+
+    # a third team joins the tie later (e.g. a new match added a new team) —
+    # the existing two teams' flips must not change
+    c = XkorTableRow("Charlie")
+    sorter.sort([a, b, c], "coinFlip")
+    assert sorter.getCoinFlips()["Aquilla"] == existingFlips["Aquilla"]
+    assert sorter.getCoinFlips()["Busby"] == existingFlips["Busby"]
+    assert "Charlie" in sorter.getCoinFlips()
+
+
+def test_coin_flip_result_survives_an_xml_save_and_reload(tmp_path):
+    filename = os.path.join(str(tmp_path), "coin_flip_table.xml")
+
+    t = XkorTable()
+    t.setColumns([])
+    t.setPointsForWin(3)
+    t.setPointsForDraw(1)
+    t.setPointsForLoss(0)
+    t.setSortCriteria(["points", "coinFlip"])
+    t.setMatches([
+        XkorTableMatch("Aquilla", "Busby", 1, 1),
+        XkorTableMatch("Busby", "Aquilla", 1, 1),
+    ])
+    t.generate()
+    originalOrder = [row[0].name() for row in t.data]
+    assert sorted(originalOrder) == ["Aquilla", "Busby"]  # tied on everything but the coin flip
+
+    XkorXmlTableWriter(filename, t)
+
+    reader = XkorXmlTableReader(filename)
+    assert not reader.hasError()
+    reloaded = reader.table()
+    reloaded.generate()
+
+    assert [row[0].name() for row in reloaded.data] == originalOrder

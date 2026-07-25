@@ -44,6 +44,19 @@ class XkorXmlTableWriter(QXmlStreamWriter):
         self.writeTextElement("showResultsGrid", "true" if t.getShowResultsGrid() else "false")
         self.writeTextElement("goalName", t.getGoalName())
 
+        coinFlips = t.getCoinFlips()
+        if coinFlips:
+            # a "coin flip" tiebreaker's result is persisted once made, so
+            # reopening this file (or just regenerating the table) doesn't
+            # re-roll it — see XkorTableSorter's "coinFlip" sort criterion
+            self.writeStartElement("coinFlips")
+            for teamName in sorted(coinFlips):
+                self.writeStartElement("coinFlip")
+                self.writeAttribute("team", teamName)
+                self.writeCharacters(qNumber(coinFlips[teamName]))
+                self.writeEndElement()
+            self.writeEndElement()
+
         self.writeStartElement("matches")
         matches = t.getMatches()
         for i in matches:
