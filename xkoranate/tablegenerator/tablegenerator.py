@@ -87,6 +87,10 @@ class XkorTableGenerator(QWidget):
         self.goalName.addItem("Korfs (K)", "K")
         self.goalName.addItem("Points (P)", "P")
         self.goalName.addItem("Runs (R)", "R")
+        # the themed QComboBox stylesheet's sizeHint() leaves no headroom past
+        # the widest item's text width, so its right edge clips against the
+        # dropdown arrow — force a little breathing room instead
+        self.goalName.setMinimumContentsLength(10)
         self.goalName.currentIndexChanged.connect(lambda: self.setFileModified())
 
         self.matches = QPlainTextEdit()
