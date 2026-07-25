@@ -111,6 +111,7 @@ class XkorXmlTableReader(QXmlStreamReader):
         return toInt(self.readElementText())
 
     def readMatches(self):
+        from ..tablegenerator.decider import stripTrailingDeciders
         from ..tablegenerator.tablematch import XkorTableMatch
 
         matchesList = []
@@ -135,6 +136,13 @@ class XkorXmlTableReader(QXmlStreamReader):
                         homeScore = toDouble(m.group(1))
                         awayScore = toDouble(m.group(2))
                         decider = m.group(3)
+                        # also recognize the simulator's own output, which tags a decider as
+                        # a trailing "(score NAME)" after the away team instead
+                        awayTeam, otherScore1, otherScore2, otherDecider = stripTrailingDeciders(
+                            awayTeam, homeScore, awayScore)
+                        if otherDecider is not None:
+                            decider = otherDecider
+                            homeScore, awayScore = otherScore1, otherScore2
                         matchesList.append(XkorTableMatch(homeTeam, awayTeam, homeScore, awayScore, decider))
                     self.m_matches += matchText + "\n"
                 else:

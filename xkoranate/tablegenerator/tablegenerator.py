@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFormLayout,
 from ..ui.dialogs import message_box, resolved_search_path
 from ..ui.fonts import monospace_font
 from ..variant import toDouble, toString
+from .decider import stripTrailingDeciders
 from .sortcriteriawidget import XkorSortCriteriaWidget
 from .table import XkorTable
 from .tablecolumn import XkorTableColumn
@@ -187,6 +188,14 @@ class XkorTableGenerator(QWidget):
                 homeScore = toDouble(match.captured(1))
                 awayScore = toDouble(match.captured(2))
                 decider = match.captured(3) or None
+                # also recognize the simulator's own output, which tags a
+                # decider as a trailing "(score NAME)" after the away team
+                # instead, e.g. Aquilla 2–2 Busby (3–2 OT)
+                awayTeam, otherScore1, otherScore2, otherDecider = stripTrailingDeciders(
+                    awayTeam, homeScore, awayScore)
+                if otherDecider is not None:
+                    decider = otherDecider
+                    homeScore, awayScore = otherScore1, otherScore2
                 self.matchesList.append(
                     XkorTableMatch(homeTeam, awayTeam, homeScore, awayScore, decider))
                 if homeTeam not in self.teamsList:

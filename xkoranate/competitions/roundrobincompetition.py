@@ -301,6 +301,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
                     scoreValue2 = score2.score()
                     print(scoreValue1, scoreValue2, file=sys.stderr)
                     decider = None  # how the match was decided, for the table's OT/SO breakdown
+                    shootoutName = None
                     if toString(self.userOpt.get("allowDraws")) == "false":
                         usedTiebreakerNames = []  # if we put extraTime + goldenGoal under the same “OT” name, we don’t want to add it twice
                         for k in range(len(tiebreakerNames)):
@@ -310,12 +311,27 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
                             # decided by shootout, so tag it as such
                             if currentTiebreaker == "shootout" and (score1.contains(name) or score2.contains(name)):
                                 decider = "SO"
+                                shootoutName = name
                             elif currentTiebreaker != "shootout" and name not in usedTiebreakerNames and (score1.contains(name) or score2.contains(name)):
                                 scoreValue1 += toDouble(score1.value(name))
                                 scoreValue2 += toDouble(score2.value(name))
                                 print("adding", currentTiebreaker, toDouble(score1.value(name)), toDouble(score2.value(name)), file=sys.stderr)
                                 usedTiebreakerNames.append(name)
                                 decider = "OT"
+                        if decider == "SO" and scoreValue1 == scoreValue2 and shootoutName is not None:
+                            # the shootout stage didn’t come after a stage that separated
+                            # the teams (e.g. overtime stayed scoreless) — a shootout always
+                            # has a winner though, so nudge the tied score by one goal
+                            # towards it rather than recording a draw, mirroring how a
+                            # shootout-decided game’s official final score credits the
+                            # winner with the shootout-winning goal (as in NHL/IIHF box
+                            # scores), without importing the shootout’s own tally as goals
+                            soValue1 = toDouble(score1.value(shootoutName))
+                            soValue2 = toDouble(score2.value(shootoutName))
+                            if soValue1 > soValue2:
+                                scoreValue1 += 1
+                            elif soValue2 > soValue1:
+                                scoreValue2 += 1
                     self.tables[groupNo].insertMatch(i.athletes[j[0]].name, i.athletes[j[1]].name, scoreValue1, scoreValue2, decider)
 
                     # insert into the resume options

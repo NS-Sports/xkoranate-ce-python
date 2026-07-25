@@ -1,0 +1,79 @@
+"""Parsing for the "(score NAME)" tiebreaker tags that
+XkorAbstractH2HParadigm._formatScoreResults() appends to a simulated match's
+printed output, e.g. "Aquilla 2–2 Busby (3–2 OT)" or, for a two-stage
+tiebreaker, "Aquilla 2–2 Busby (2–2 AET) (4–3 pen.)". Sport files name these
+tiebreakers freely — OT, SO, AET, pen., GG, ET, Sudden Death, + — so a match
+is bucketed into the table's two decider categories ("OT" for extra
+time/golden goal/replayed periods, "SO" for a shootout/penalties) by
+keyword rather than by exact name.
+"""
+
+import re
+
+from ..variant import toDouble
+
+_TRAILING_DECIDER = re.compile(r"\s*\(([0-9]+)[-–:]([0-9]+)\s+([^()]+?)\)\s*$")
+
+_SHOOTOUT_KEYWORDS = frozenset((
+    "so", "shootout", "pen", "pens", "pk", "pks", "penalty", "penalties",
+))
+
+
+def classify(name):
+    """Bucket an arbitrary tiebreaker name as "OT" or "SO"."""
+    normalized = name.strip().lower().rstrip(".")
+    return "SO" if normalized in _SHOOTOUT_KEYWORDS else "OT"
+
+
+def stripTrailingDeciders(text, baseScore1=None, baseScore2=None):
+    """Peel every trailing "(score NAME)" block off the end of `text`.
+
+    Returns (remainingText, score1, score2, decider). `decider` is the
+    classification of the last (i.e. deciding) block, or None if `text` had
+    no such block at all — in which case `remainingText == text` and
+    score1/score2 are also None, so the caller should keep its own base
+    score/decider.
+
+    When there IS a trailing block, score1/score2 are always concrete
+    numbers:
+      - if the deciding block is OT-type, its own (already-combined) score
+        is used directly, matching how the simulator prints a running
+        extra-time/golden-goal total;
+      - if the deciding block is a shootout, its own tally isn't a real
+        goal count (shootout scores don't belong in the table), but a
+        shootout always produces a winner. So the score one stage back
+        (the previous OT-type block's score, or `baseScore1`/`baseScore2`
+        if the shootout was the only stage) is used, nudged by one goal
+        towards whichever side actually won the shootout — mirroring how a
+        shootout-decided game's official final score credits the winner
+        with the shootout-winning goal (as in NHL/IIHF box scores), rather
+        than silently recording a draw.
+    """
+    blocks = []
+    remainder = text
+    while True:
+        m = _TRAILING_DECIDER.search(remainder)
+        if not m:
+            break
+        blocks.insert(0, (toDouble(m.group(1)), toDouble(m.group(2)), classify(m.group(3))))
+        remainder = remainder[:m.start()]
+
+    if not blocks:
+        return (text, None, None, None)
+
+    decider = blocks[-1][2]
+    if decider == "OT":
+        score1, score2 = blocks[-1][0], blocks[-1][1]
+    else:  # "SO" — its own tally isn't a real score; find what preceded it
+        if len(blocks) >= 2 and blocks[-2][2] == "OT":
+            score1, score2 = blocks[-2][0], blocks[-2][1]
+        else:
+            score1, score2 = baseScore1, baseScore2
+        soScore1, soScore2 = blocks[-1][0], blocks[-1][1]
+        if score1 is not None and score1 == score2 and soScore1 != soScore2:
+            if soScore1 > soScore2:
+                score1 += 1
+            else:
+                score2 += 1
+
+    return (remainder.rstrip(), score1, score2, decider)
