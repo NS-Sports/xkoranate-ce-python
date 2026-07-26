@@ -14,18 +14,20 @@ Sheets renders RAND() at ten decimal places, which is what _text() produces;
 the lap-time formula below reproduces the sheet's own cached lap times to
 float precision.
 
-Faithfulness notes, where the sheet does something that looks wrong but whose
-behaviour the port keeps:
+The model is the original's, but three of its formulas are transcription slips
+over an intent the surrounding formulas make unambiguous, and the port fixes
+them rather than reproducing them. Each is argued at the site:
 
-* The qualifying "mistake" test compares a *text* cell against a number.
-  Sheets sorts text above every number, so the test is always true and the
-  1.02 penalty always applies. See _qualifyingTime().
-* The experience multiplier and the same-nation 0.9 factor in the RP bonus
-  apply only to the engine term, because that is where the sheet's
-  parentheses put them. See _rpBonus().
-* The fourth elimination-qualifying session reuses the third session's laps.
-* RANK() with no order argument is descending, including where the ranked
-  values are elapsed times. See _safetyCarTime().
+* the qualifying mistake test, which the original can never fail, and whose
+  clean branch is missing a pair of brackets — see _bestOfThree()
+* the experience and shared-nation scalings in the RP bonus, which the
+  original applies to the engine term alone — see _rpBonus()
+* the fourth elimination-qualifying session, a character-for-character copy of
+  the third in the original — see _eliminationQualifying()
+
+Anything else that reads oddly is deliberate and explained where it happens;
+the safety-car rank in _safetyCarTime() is the one most likely to look like a
+bug and isn't.
 """
 
 import math
@@ -52,6 +54,13 @@ SAFETY_CAR_CHANCE_ROW = 28  # row 65
 WEATHER_ROW = 19  # row 56
 WEATHER_COLUMN = 6  # column H
 TAIL_DIGIT_COLUMN = 6  # RIGHT(H37) in the tiered-qualifying formulas
+QUALIFYING_MISTAKE_COLUMN = 72  # BV37, the die behind a scruffy qualifying lap
+
+# The 2% a scruffy qualifying lap costs, and how much reliability protects
+# against one: the die must beat R × this to be a mistake, so the more reliable
+# the driver, the rarer it is.
+QUALIFYING_MISTAKE_PENALTY = 1.02
+QUALIFYING_MISTAKE_RELIABILITY = 0.125
 
 # ED3:FG3 — the practice/qualifying flying-lap columns.
 QUALIFYING_LAPS = 30
@@ -349,9 +358,14 @@ class XkorScorinatorParadigm(XkorAbstractParadigm):
     # ------------------------------------------------------------------ ratings
 
     def _rpBonus(self, driver, experience):
-        """Standings!T — the combined RP bonus. The experience multiplier and
-        the same-nation discount multiply only the engine term; that is how
-        the sheet's parentheses fall."""
+        """Standings!T — the combined RP bonus, weighted across the driver's
+        own nation and those of its team and suppliers, then scaled by
+        experience and discounted for a shared nation.
+
+        In the original both of those scalings land on the engine term alone,
+        because that is where its brackets close — so the same-nation discount
+        came out as about 1% instead of 10%. Applying them to the whole sum is
+        plainly what was meant."""
         rpDriver = toDouble(self._opt("rpWeightDrivers"))
         rpTeam = toDouble(self._opt("rpWeightTeams"))
         rpTyres = toDouble(self._opt("rpWeightTyres"))
@@ -370,9 +384,8 @@ class XkorScorinatorParadigm(XkorAbstractParadigm):
         bonus = self._nationRP(driver.athlete.nation) * rpDriver
         bonus += self._nationRP(driver.team.nation) * rpTeam
         bonus += self._nationRP(driver.tyres.nation) * rpTyres
-        bonus += (self._nationRP(driver.engine.nation) * rpEngines
-                  * experienceFactor * driver.teammateFactor)
-        return bonus
+        bonus += self._nationRP(driver.engine.nation) * rpEngines
+        return bonus * experienceFactor * driver.teammateFactor
 
     def _nationRP(self, nation):
         return toDouble(self.rpByNation.get(nation, 0.0))
@@ -611,15 +624,29 @@ class XkorScorinatorParadigm(XkorAbstractParadigm):
                 time += _trailingFraction(die) / (driver.r * 0.5)
         return time * (1.05 if session == "practice" else 1.0)
 
-    def _bestOfThree(self, laps, multiplier=1.02, offset=0, count=None):
-        """The sheet's qualifying time: the mean of a driver's three best laps
-        in the window, with a mistake penalty that always applies (the test
-        it guards compares text against a number, so it is always true)."""
+    def _bestOfThree(self, driver, row, multiplier=1.0, offset=0, count=None):
+        """A qualifying time: the mean of a driver's three best laps in the
+        window, 2% slower if it rolls a scruffy one.
+
+        The original never actually applies that penalty — it tests a text cell
+        against a number, and a spreadsheet sorts text above every number, so
+        the test is always true and every driver takes the 2%. Its clean branch
+        is also missing a pair of brackets, which would have made a clean lap
+        two laps long. Both are transcription slips over an unambiguous intent,
+        so the port rolls the die properly and averages the three laps."""
+        laps = driver.qualifyingLaps
         window = laps[offset:offset + count] if count else laps[offset:]
         best = [_small(window, i) for i in (1, 2, 3)]
         if any(i is None for i in best):
             return None
-        return sum(best) / 3.0 * multiplier
+        time = sum(best) / 3.0 * multiplier
+        if self._madeMistake(driver, row):
+            time *= QUALIFYING_MISTAKE_PENALTY
+        return time
+
+    def _madeMistake(self, driver, row):
+        die = toDouble(self._die(row, QUALIFYING_MISTAKE_COLUMN))
+        return die > driver.r * QUALIFYING_MISTAKE_RELIABILITY
 
     def _meanOfPair(self, laps, a, b, multiplier=1.0):
         first, second = _small(laps, a), _small(laps, b)
@@ -643,12 +670,12 @@ class XkorScorinatorParadigm(XkorAbstractParadigm):
 
         fmt = self.qualifyingFormat.upper()
         if session == "practice" or fmt not in ("OS", "TT", "E"):
-            times = [self._bestOfThree(d.qualifyingLaps) for d in drivers]
+            times = [self._bestOfThree(d, i) for i, d in enumerate(drivers)]
             sessionNames = ["Practice" if session == "practice" else "Qualifying"]
             sessionTimes = [times]
         elif fmt == "OS":
-            times = [self._bestOfThree(d.qualifyingLaps, count=ONE_SHOT_LAPS)
-                     for d in drivers]
+            times = [self._bestOfThree(d, i, count=ONE_SHOT_LAPS)
+                     for i, d in enumerate(drivers)]
             sessionNames = ["One-shot qualifying"]
             sessionTimes = [times]
         elif fmt == "TT":
@@ -689,7 +716,8 @@ class XkorScorinatorParadigm(XkorAbstractParadigm):
         """Calculation!FN:FR — everyone runs, then the top ten run again on
         the laps from the eighth onward."""
         advance = 10
-        first = [self._bestOfThree(d.qualifyingLaps, multiplier=1.0006) for d in drivers]
+        first = [self._bestOfThree(d, i, multiplier=1.0006)
+                 for i, d in enumerate(drivers)]
         firstRanks = self._rankAscending(first)
 
         second = []
@@ -697,8 +725,7 @@ class XkorScorinatorParadigm(XkorAbstractParadigm):
             rank = firstRanks[index]
             if rank is not None and rank < advance + 1:
                 second.append(self._bestOfThree(
-                    d.qualifyingLaps, multiplier=1.0,
-                    offset=SECOND_TIER_FIRST_LAP - 1))
+                    d, index, offset=SECOND_TIER_FIRST_LAP - 1))
             elif first[index] is not None:
                 second.append(first[index] * _trailingMultiplier(
                     self._die(index, TAIL_DIGIT_COLUMN)))
@@ -734,11 +761,14 @@ class XkorScorinatorParadigm(XkorAbstractParadigm):
 
     def _eliminationQualifying(self, drivers):
         """Calculation!FS:GC — four sessions, cutting to 75%, 50% and 25% of
-        the grid. The fourth session reuses the third's laps, as in the
-        sheet."""
+        the grid, each run on a better pair of the driver's laps than the last.
+
+        The original's fourth session is a copy of its third, down to the
+        character, so the pair it should have moved on to — a driver's two best
+        laps — went unused. The progression makes the intended value plain."""
         cuts = [int(self.driversOnGrid * 0.75), int(self.driversOnGrid * 0.5),
                 int(self.driversOnGrid * 0.25)]
-        pairs = [(8, 7, 1.0), (6, 5, 1.014), (4, 3, 1.01), (4, 3, 1.01)]
+        pairs = [(8, 7, 1.0), (6, 5, 1.014), (4, 3, 1.01), (2, 1, 1.0)]
 
         sessionTimes = []
         sessionRanks = []
@@ -812,8 +842,14 @@ class XkorScorinatorParadigm(XkorAbstractParadigm):
 
     def _safetyCarTime(self, cumulative, leaderCumulative, allCumulative):
         """Calculation!DB69 — under a real safety car the field concertinas up
-        behind the leader. RANK() here has no order argument, so it counts
-        down from the slowest car, as in the sheet."""
+        behind the leader.
+
+        RANK() with no order argument counts down, so the rank here is 1 for the
+        slowest car and highest for the leader. That looks like an oversight over
+        elapsed times, but it is what makes the field close up: the added term
+        is largest for the leader and smallest for the backmarkers. Ranking the
+        other way would spread the field out under a safety car, so this stands
+        as it is."""
         if cumulative is None or leaderCumulative is None:
             return self.paradeLap * 1.8
         gap = cumulative - leaderCumulative

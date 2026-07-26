@@ -15,8 +15,10 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from xkoranate.athlete import XkorAthlete
 from xkoranate.competitions.seasoncompetition import XkorSeasonCompetition
-from xkoranate.paradigms.scorinatorparadigm import (DEFAULTS, RETIRED,
-                                                    TOTAL_COLUMNS,
+from xkoranate.paradigms.scorinatorparadigm import (DEFAULTS,
+                                                    QUALIFYING_MISTAKE_COLUMN,
+                                                    QUALIFYING_MISTAKE_PENALTY,
+                                                    RETIRED, TOTAL_COLUMNS,
                                                     _crashNumber, _digitSum,
                                                     _Driver, _leadingFraction,
                                                     _spinNumber, _text,
@@ -219,6 +221,68 @@ def make_suppliers(firstIndex=1000):
                              experience=0))
         index += 1
     return rval
+
+
+# --- the three formulas the port fixes rather than reproduces ----------------
+# The original's qualifying mistake test compares a text cell against a number,
+# which a spreadsheet always answers "greater", so every driver took the 2%
+# penalty and the clean branch — itself missing a pair of brackets, which would
+# have made a clean lap two laps long — was dead. Rolling it properly:
+mistakep = calibrated()
+mistaken = _Driver(XkorAthlete(uuid.UUID(int=1)))
+mistaken.r = 4.0  # so the die has to beat 4 × 0.125 = 0.5
+mistaken.qualifyingLaps = [60.0, 61.0, 62.0, 70.0]  # three best average to 61
+
+mistakep.matrix[0][QUALIFYING_MISTAKE_COLUMN] = "0.9000000000"  # 0.9 > 0.5
+assert approx(mistakep._bestOfThree(mistaken, 0), 61.0 * QUALIFYING_MISTAKE_PENALTY), \
+    mistakep._bestOfThree(mistaken, 0)
+mistakep.matrix[0][QUALIFYING_MISTAKE_COLUMN] = "0.1000000000"  # 0.1 > 0.5 is false
+assert approx(mistakep._bestOfThree(mistaken, 0), 61.0), mistakep._bestOfThree(mistaken, 0)
+# reliability is what protects against it: nobody with R × 0.125 above the die
+assert mistakep._madeMistake(mistaken, 0) is False
+mistaken.r = 0.0
+assert mistakep._madeMistake(mistaken, 0) is True
+# and a clean lap is the mean of three laps, not the sum of two plus a third
+assert mistakep._bestOfThree(mistaken, 0) < 65, "the missing brackets are back"
+
+# The RP bonus scales by experience and by a shared nation. The original closes
+# its brackets so both land on the engine term alone, making the shared-nation
+# discount worth about 1% instead of 10%.
+rpp = calibrated()
+rpp.rpByNation = {"DRV": 100.0, "TEA": 100.0, "TYR": 100.0, "ENG": 100.0}
+rpp.userOpt = dict(rpp.userOpt)
+rpp.userOpt.update({"rpWeightDrivers": 1, "rpWeightTeams": 1,
+                    "rpWeightTyres": 1, "rpWeightEngines": 1})
+shared = _Driver(XkorAthlete(uuid.UUID(int=1)))
+shared.athlete.nation = "DRV"
+shared.team.nation, shared.tyres.nation, shared.engine.nation = "TEA", "TYR", "ENG"
+assert approx(rpp._rpBonus(shared, 0), 400.0), rpp._rpBonus(shared, 0)
+shared.teammateFactor = 0.9
+# 10% off the whole 400, not 10% off the engine's 100
+assert approx(rpp._rpBonus(shared, 0), 360.0), rpp._rpBonus(shared, 0)
+
+# Elimination qualifying runs each session on a better pair of laps than the
+# last — 8th and 7th, then 6th and 5th, then 4th and 3rd. The original's fourth
+# session is a character-for-character copy of its third, so the two best laps
+# it should have used went unused.
+elimp = calibrated()
+elimp.driversOnGrid = 4  # cuts at 3, 2 and 1, so the quickest reaches session 4
+elimDrivers = []
+for index in range(4):
+    d = _Driver(XkorAthlete(uuid.UUID(int=index + 1)))
+    d.r = 5.0
+    # eight laps, the fastest driver's fastest; two best are 1.0 apart per driver
+    d.qualifyingLaps = [60.0 + index + step for step in range(8)]
+    elimDrivers.append(d)
+    elimp.matrix[index][QUALIFYING_MISTAKE_COLUMN] = "0.1000000000"  # no mistakes
+_final, names, sessionTimes = elimp._eliminationQualifying(elimDrivers)
+assert names == ["Q1", "Q2", "Q3", "Q4"], names
+quickest = elimDrivers[0]
+best, second = sorted(quickest.qualifyingLaps)[:2]
+assert approx(sessionTimes[3][0], (best + second) / 2.0), \
+    (sessionTimes[3][0], (best + second) / 2.0)
+# and that is quicker than the third session's pair, as the progression implies
+assert sessionTimes[3][0] < sessionTimes[2][0], (sessionTimes[3][0], sessionTimes[2][0])
 
 
 def make_drivers(count=20, withSuppliers=True):
