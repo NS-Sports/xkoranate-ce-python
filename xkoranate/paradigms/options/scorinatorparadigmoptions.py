@@ -67,6 +67,9 @@ WEIGHT_ROWS = (("ratingWeight", "RATing",
                 "everywhere means experience is ignored"))
 WEIGHT_COLUMNS = ("Drivers", "Teams", "Tyres", "Engines")
 
+# The widest grid a season allows, and so the longest the points table can get.
+MAXIMUM_GRID = 30
+
 
 def _headerMetrics():
     return QFontMetrics(QFont())
@@ -76,10 +79,15 @@ class XkorScorinatorParadigmOptions(XkorAbstractOptionsWidget):
     def __init__(self, opts, parent=None):
         super().__init__(opts, parent)
 
+        self.isFillingPoints = False
+
+        # the points tab is built first: the grid size on the season tab drives
+        # how many rows it has, so it has to exist before that spin box is wired
         self.tabs = QTabWidget()
+        points = self._pointsTab()
         self.tabs.addTab(self._seasonTab(), "Season")
         self.tabs.addTab(self._modelTab(), "Model")
-        self.tabs.addTab(self._pointsTab(), "Points")
+        self.tabs.addTab(points, "Points")
 
         layout = QGridLayout(self)
         layout.addWidget(self.tabs, 0, 0)
@@ -142,8 +150,10 @@ class XkorScorinatorParadigmOptions(XkorAbstractOptionsWidget):
                      self._spin("kmPerRace", 1, 2000, 5, 0))
         self._addRow(form, "Car speed (% of lap record):", "speedPercent",
                      self._spin("speedPercent", 10, 300, 1, 1))
-        self._addRow(form, "Drivers on grid:", "driversOnGrid",
-                     self._intSpin("driversOnGrid", 2, 30))
+        grid = self._intSpin("driversOnGrid", 2, MAXIMUM_GRID)
+        # a shorter grid means fewer positions to score
+        grid.valueChanged.connect(lambda _v: self._fillPoints())
+        self._addRow(form, "Drivers on grid:", "driversOnGrid", grid)
         self._addRow(form, "Safety car:", "safetyCar",
                      self._combo("safetyCar", (("Real", "R"), ("Virtual", "V"))))
         self._addRow(form, "Pole position bonus:", "polePositionBonus",
@@ -229,28 +239,61 @@ class XkorScorinatorParadigmOptions(XkorAbstractOptionsWidget):
     def _pointsTab(self):
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.addWidget(QLabel("Points awarded for each finishing position"))
+        self.pointsCaption = QLabel()
+        layout.addWidget(self.pointsCaption)
 
+        # everything the user has typed, kept at the widest grid the season
+        # allows: shrinking the grid hides the tail rather than discarding it,
+        # so nudging the spin box down and back up doesn't cost you the table
         values = toList(self.options.get("pointsPerPosition",
                                         defaultValue("pointsPerPosition")))
-        table = QTableWidget(len(defaultValue("pointsPerPosition")), 1)
-        table.setHorizontalHeaderLabels(["Points"])
-        table.setVerticalHeaderLabels([str(i + 1) for i in range(table.rowCount())])
-        table.setGridStyle(Qt.NoPen)
-        table.setAlternatingRowColors(True)
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        table.verticalHeader().setDefaultSectionSize(_headerMetrics().height() + 2)
-        for row in range(table.rowCount()):
-            value = values[row] if row < len(values) else 0
-            table.setItem(row, 0, QTableWidgetItem(toString(toDouble(value))))
+        self.pointsValues = [toDouble(values[row]) if row < len(values) else 0.0
+                             for row in range(MAXIMUM_GRID)]
 
-        table.cellChanged.connect(lambda row, column, t=table: self._setPoints(t))
-        layout.addWidget(table)
+        self.pointsTable = QTableWidget(0, 1)
+        self.pointsTable.setHorizontalHeaderLabels(["Points"])
+        self.pointsTable.setGridStyle(Qt.NoPen)
+        self.pointsTable.setAlternatingRowColors(True)
+        self.pointsTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.pointsTable.verticalHeader().setDefaultSectionSize(
+            _headerMetrics().height() + 2)
+        self.pointsTable.cellChanged.connect(self._pointsEdited)
+
+        self._fillPoints(store=False)
+        layout.addWidget(self.pointsTable)
         return page
 
-    def _setPoints(self, table):
-        values = []
-        for row in range(table.rowCount()):
-            item = table.item(row, 0)
-            values.append(toDouble(item.text()) if item is not None else 0.0)
-        self.setOption("pointsPerPosition", values)
+    def _gridSize(self):
+        return max(1, min(toInt(self.options.get("driversOnGrid",
+                                                DEFAULTS["driversOnGrid"])),
+                          MAXIMUM_GRID))
+
+    def _fillPoints(self, store=True):
+        """Show one row per starter. Called on setup and whenever the grid size
+        changes, so the table can't offer points for a position nobody can
+        finish in — or hide one they can."""
+        rows = self._gridSize()
+        self.isFillingPoints = True
+        try:
+            self.pointsTable.setRowCount(rows)
+            self.pointsTable.setVerticalHeaderLabels(
+                [str(row + 1) for row in range(rows)])
+            for row in range(rows):
+                self.pointsTable.setItem(row, 0, QTableWidgetItem(
+                    toString(self.pointsValues[row])))
+        finally:
+            self.isFillingPoints = False
+
+        self.pointsCaption.setText(
+            "Points awarded for each finishing position, one row per starter "
+            "(%d on the grid)" % rows)
+        if store:
+            self.setOption("pointsPerPosition", self.pointsValues[:rows])
+
+    def _pointsEdited(self, row, _column):
+        if self.isFillingPoints:
+            return  # our own repopulating, not the user typing
+        item = self.pointsTable.item(row, 0)
+        self.pointsValues[row] = toDouble(item.text()) if item is not None else 0.0
+        self.setOption("pointsPerPosition",
+                       self.pointsValues[:self.pointsTable.rowCount()])
