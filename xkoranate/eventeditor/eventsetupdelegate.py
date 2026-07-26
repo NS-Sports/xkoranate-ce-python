@@ -1,5 +1,7 @@
 from PySide6.QtCore import QModelIndex, Qt
-from PySide6.QtWidgets import QComboBox, QItemDelegate, QLineEdit
+from PySide6.QtWidgets import QItemDelegate, QLineEdit
+
+from ..ui.fonts import XkorComboBox
 
 from ..variant import toString
 
@@ -19,7 +21,7 @@ class XkorEventSetupDelegate(QItemDelegate):
 
     def createEditor(self, parent, option, index):
         if index.parent() != QModelIndex():  # if this is an athlete, not a group name
-            comboBox = QComboBox(parent)
+            comboBox = XkorComboBox(parent)
             comboBox.setFrame(False)
             comboBox.insertItems(0, self.availableAthleteNames)
             comboBox.currentIndexChanged.connect(self.prepareToCommit)

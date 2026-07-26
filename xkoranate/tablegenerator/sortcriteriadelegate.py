@@ -1,5 +1,7 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QComboBox, QStyledItemDelegate
+from PySide6.QtWidgets import QStyledItemDelegate
+
+from ..ui.fonts import XkorComboBox
 
 from ..variant import toString
 
@@ -11,7 +13,7 @@ class XkorSortCriteriaDelegate(QStyledItemDelegate):
         self.sortNames = list(names)
 
     def createEditor(self, parent, option, index):
-        comboBox = QComboBox(parent)
+        comboBox = XkorComboBox(parent)
         comboBox.setFrame(False)
         comboBox.insertItems(0, self.sortNames)
         return comboBox

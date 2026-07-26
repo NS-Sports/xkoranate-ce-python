@@ -1,7 +1,7 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QComboBox, QGridLayout, QWidget
 
-from ..ui.fonts import widen_combo_popup
+from ..ui.fonts import XkorComboBox
 from ..ui.typography import heading_label
 from ..variant import toString
 
@@ -16,12 +16,11 @@ class XkorCompetitionSelector(QWidget):
         self.optionsWidget = None
         self.currentOptions = {}
 
-        self.comboBox = QComboBox()
+        self.comboBox = XkorComboBox()
         self.comboBox.setInsertPolicy(QComboBox.InsertAlphabetically)
-        # its items are replaced whenever the sport changes (setSport()), so
-        # AdjustToContents keeps it sized to the current items rather than
+        # its items are replaced whenever the sport changes (setSport()), and
+        # XkorComboBox keeps it sized to the current items rather than to
         # whatever was longest the first time it was shown
-        self.comboBox.setSizeAdjustPolicy(QComboBox.AdjustToContents)
         self.comboBox.currentIndexChanged.connect(self.updateCompetition)
 
         self.layout = QGridLayout(self)
@@ -64,7 +63,6 @@ class XkorCompetitionSelector(QWidget):
         for key, value in competitionTypes.items():
             if p.supportsCompetition(key):
                 self.comboBox.insertItem(0, value, key)
-        widen_combo_popup(self.comboBox)
 
         newIndex = self.comboBox.findData(currentCompetitionType, Qt.UserRole)
         if newIndex == -1:

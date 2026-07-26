@@ -1,12 +1,13 @@
 import sys
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import (QButtonGroup, QComboBox, QDoubleSpinBox,
+from PySide6.QtWidgets import (QButtonGroup, QDoubleSpinBox,
                                QFormLayout, QGridLayout, QHBoxLayout,
                                QMessageBox, QRadioButton, QVBoxLayout,
                                QWidget)
 
 from ..ui.dialogs import message_box
+from ..ui.fonts import XkorComboBox
 from ..variant import toString
 from .rpbonuswidgets.olympicrpbonuswidget import XkorOlympicRPBonusWidget
 from .rpbonuswidgets.wc36rpbonuswidget import XkorWC36RPBonusWidget
@@ -47,7 +48,7 @@ class XkorRPEditor(QWidget):
         self.m_bonusEffect.setValue(15)
         self.m_bonusEffect.valueChanged.connect(self.setDataChanged)
 
-        self.m_rpCalcType = QComboBox()
+        self.m_rpCalcType = XkorComboBox()
         self.m_rpCalcType.addItem("Absolute", "olympic")
         self.m_rpCalcType.addItem("Relative", "relative")
         self.m_rpCalcType.addItem("World Cup 36", "wc36")
