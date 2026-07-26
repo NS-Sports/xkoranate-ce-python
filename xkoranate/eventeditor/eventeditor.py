@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (QGridLayout, QLabel, QPushButton, QStackedLayout,
                                QWidget)
 
 from ..event import XkorEvent
+from ..group import XkorGroup
 from ..rplist import XkorRPList
 from ..signuplist import XkorSignupList
 from ..signuplisteditor.signuplisteditor import XkorSignupListEditor
@@ -16,6 +17,8 @@ from .scorinatewidget import (XkorScorinateWidget, _cloneEvent, _cloneRPList,
 from .sportselector import XkorSportSelector
 
 _STEP_NAMES = ["Sport", "Signups", "Competition", "Groups", "Scorinate"]
+_PLANNER_STEP = 3  # the step a competition may replace with a planner of its own
+_EVERYONE = "Entries"  # the group a groupless competition fields
 
 
 class XkorEventEditor(QWidget):
@@ -28,6 +31,8 @@ class XkorEventEditor(QWidget):
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.selectionModel = None
         self.stack = None
+        self.stepNames = list(_STEP_NAMES)
+        self.usesGroups = True
         self.signupListEditor = None
         self.isLoading = False
 
@@ -72,7 +77,7 @@ class XkorEventEditor(QWidget):
         # read-only reflection of the current stack page
         active = self.stack.currentIndex()
         parts = []
-        for i, name in enumerate(_STEP_NAMES):
+        for i, name in enumerate(self.stepNames):
             if i == active:
                 parts.append(
                     '<span style="color:%s; font-weight:600;">%d&nbsp;%s</span>'
@@ -95,13 +100,55 @@ class XkorEventEditor(QWidget):
         self.eventSetupWidget.viewScheduleRequested.connect(self.viewSchedule)
         self.signupListEditor.itemDeleted.connect(self.eventSetupWidget.deleteAthlete)
 
+        # step 4 is the groups editor for most competitions, but one that fields
+        # everybody can put something more useful there — a season calendar, say
+        self.plannerWidget = None
+        self.plannerHost = QWidget()
+        self.plannerStack = QStackedLayout(self.plannerHost)
+        self.plannerStack.setContentsMargins(0, 0, 0, 0)
+        self.plannerStack.addWidget(self.eventSetupWidget)
+
+    def updatePlanner(self, competition):
+        """Swap step 4 between the group editor and the competition's own
+        planner, and rename it in the breadcrumb to match."""
+        from ..competitions.competitionfactory import XkorCompetitionFactory
+
+        try:
+            c = XkorCompetitionFactory.newCompetition(competition)
+        except ImportError:
+            return
+
+        if self.plannerWidget:
+            self.plannerStack.removeWidget(self.plannerWidget)
+            self.plannerWidget.setParent(None)
+            self.plannerWidget.deleteLater()
+            self.plannerWidget = None
+
+        self.plannerWidget = c.newPlannerWidget(self.m_data.competitionOptions())
+        if self.plannerWidget is not None:
+            self.plannerStack.addWidget(self.plannerWidget)
+            self.plannerStack.setCurrentWidget(self.plannerWidget)
+            self.plannerWidget.optionsChanged.connect(self.updateCompetitionOptions)
+        else:
+            self.plannerStack.setCurrentWidget(self.eventSetupWidget)
+
+        self.stepNames[_PLANNER_STEP] = c.plannerStepName()
+        self.usesGroups = c.usesGroups()
+        self.updateStepIndicator()
+
+    def fieldEveryone(self):
+        """The single group a groupless competition races: everyone signed up.
+        Without it makeStartList() would hand the paradigm an empty field."""
+        signupList = self.signupListEditor.data()
+        return [XkorGroup(_EVERYONE, [a.id for a in signupList.athletes()])]
+
     def initLayout(self):
         # stacked layout
         self.stack = QStackedLayout()
         self.stack.addWidget(self.sportSelector)
         self.stack.addWidget(self.signupListEditor)
         self.stack.addWidget(self.competitionSelector)
-        self.stack.addWidget(self.eventSetupWidget)
+        self.stack.addWidget(self.plannerHost)
         self.stack.addWidget(self.scorinateWidget)
         self.stack.setCurrentWidget(self.sportSelector)
 
@@ -213,6 +260,9 @@ class XkorEventEditor(QWidget):
 
     def updateCompetition(self, competition):
         self.m_data.setCompetition(competition)
+        self.updatePlanner(competition)
+        if not self.usesGroups:
+            self.m_data.setGroups(self.fieldEveryone())
         self.setDataChanged()
 
     def updateCompetitionOptions(self, options):
@@ -222,7 +272,10 @@ class XkorEventEditor(QWidget):
     def updateData(self):
         # bring the event up-to-date with whatever’s been going on in the GUI
         self.m_data.setSignupList(self.signupListEditor.data())
-        self.m_data.setGroups(self.eventSetupWidget.groups())
+        if self.usesGroups:
+            self.m_data.setGroups(self.eventSetupWidget.groups())
+        else:
+            self.m_data.setGroups(self.fieldEveryone())
 
     def updateParadigmOptions(self, options):
         # update the signup list editor
@@ -233,6 +286,9 @@ class XkorEventEditor(QWidget):
     def updateSignupList(self):
         self.m_data.setSignupList(self.signupListEditor.data())
         self.eventSetupWidget.setSignupList(self.signupListEditor.data())
+        if not self.usesGroups:
+            # a new signup joins the field straight away
+            self.m_data.setGroups(self.fieldEveryone())
         self.setDataChanged()
 
     def updateSport(self, s):

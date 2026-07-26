@@ -51,6 +51,24 @@ class XkorAbstractCompetition:
     def newOptionsWidget(self, options):
         return None
 
+    def usesGroups(self):
+        """Whether the event needs its participants split into groups. A
+        competition that simply fields everyone who signed up — a racing season,
+        say — doesn't, and the event editor fills a single group for it instead
+        of making the user do it by hand."""
+        return True
+
+    def newPlannerWidget(self, options):
+        """A widget to put in place of the groups step, for a competition that
+        has something more useful to do with it (a season calendar, say). It
+        edits the same competition options as newOptionsWidget() and emits the
+        same optionsChanged signal. None keeps the group editor."""
+        return None
+
+    def plannerStepName(self):
+        """What to call the planner step in the breadcrumb."""
+        return "Groups"
+
     def schedule(self):
         """Full fixture list across every matchday, before any results are
         generated. Returns None for competition types that don't have a
