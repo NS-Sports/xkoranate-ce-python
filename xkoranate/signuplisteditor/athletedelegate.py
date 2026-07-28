@@ -45,13 +45,24 @@ class XkorAthleteDelegate(QItemDelegate):
             spinBox.setSingleStep(0.01)
             spinBox.setFrame(False)
             return spinBox
+        elif self.m_columnTypes[index.column()] == "homeAdvantage":
+            # LISA's per-team home advantage rating: always 0-100,
+            # regardless of this widget's generic double/skill ranges
+            spinBox = QDoubleSpinBox(parent)
+            spinBox.setAlignment(Qt.AlignRight)
+            spinBox.setDecimals(0)
+            spinBox.setMinimum(0)
+            spinBox.setMaximum(100)
+            spinBox.setSingleStep(5)
+            spinBox.setFrame(False)
+            return spinBox
         else:
             lineEdit = QLineEdit(parent)
             lineEdit.setFrame(False)
             return lineEdit
 
     def setEditorData(self, editor, index):
-        if self.m_columnTypes[index.column()] in ("double", "skill"):
+        if self.m_columnTypes[index.column()] in ("double", "skill", "homeAdvantage"):
             spinBox = editor
             spinBox.setValue(toDouble(index.model().data(index, Qt.DisplayRole)))
         else:
@@ -65,7 +76,7 @@ class XkorAthleteDelegate(QItemDelegate):
         self.minRank = newMin
 
     def setModelData(self, editor, model, index):
-        if self.m_columnTypes[index.column()] in ("double", "skill"):
+        if self.m_columnTypes[index.column()] in ("double", "skill", "homeAdvantage"):
             spinBox = editor
             model.setData(index, spinBox.value())
         else:

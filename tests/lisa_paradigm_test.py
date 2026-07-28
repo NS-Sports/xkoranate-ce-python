@@ -1,10 +1,8 @@
 """Unit checks for the LISA v1.093 paradigm's math helpers.
 
-Expected values are taken from the worked examples in the design post
-(https://forum.nationstates.net/viewtopic.php?p=42898867#p42898867) and from
-formulas read directly out of the mock spreadsheet's cells (confirmed via the
-live sheet, not just the prose) at
-https://docs.google.com/spreadsheets/d/1glbWWYG1yG8iRO-3f-ct6IfPGEW3l0BTo2-BoOqhUD0
+Expected values are taken from the worked examples in the original design
+write-up, cross-checked against formulas read directly out of a reference
+spreadsheet's cells rather than relying on the write-up's prose alone.
 """
 
 import math
@@ -85,5 +83,69 @@ assert approx(p750._losingScoreLambda(netStyle=9.0, margin=2), 0.690, tol=0.001)
 lam_small_margin = p750._losingScoreLambda(netStyle=0, margin=1)
 lam_large_margin = p750._losingScoreLambda(netStyle=0, margin=8)
 assert lam_large_margin < lam_small_margin, (lam_small_margin, lam_large_margin)
+
+
+# --- extra-time decisive-result probability (t) and favourite-win-given-
+#     decisive probability (w), checked against the sheet's CL/CM columns
+#     (CL5=MAX(0.4,...), not the forum prose's approximated gAbs>10 cutoff) ---
+
+p_et = make_paradigm()
+t_small_gap = p_et._etDecisiveProbability(5)
+assert approx(t_small_gap, 0.4), t_small_gap  # floored below the ~9.99 crossover
+
+t_big_gap = p_et._etDecisiveProbability(350)
+assert approx(t_big_gap, 0.58987, tol=1e-4), t_big_gap
+w_big_gap = p_et._etFavouriteWinProbability(t_big_gap)
+assert approx(w_big_gap, 0.70265, tol=1e-4), w_big_gap
+
+assert p_et._etFavouriteWinProbability(0.4) == 0.5  # floored t always splits 50/50
+
+# --- per-event overrides: a user-set value in userOpt wins over the sport
+#     file's default, and untouched constants still fall back to it ---
+
+p_override = make_paradigm(powerScalar=1.984, refRank=10.93, REAR=300, marginDivisor=750)
+p_override.userOpt = {"REAR": 450}
+assert p_override.REAR() == 450
+assert p_override.powerScalar() == 1.984
+assert p_override.refRank() == 10.93
+assert p_override.marginDivisor() == 750
+
+
+# --- per-team home advantage (optional mode): each side's own H rating
+#     (0-100, defaulting to 50 when unset) sums into the home team's
+#     advantage, matching the reference design's own worked examples ---
+
+from xkoranate.athlete import XkorAthlete  # noqa: E402
+
+
+def make_athlete(homeAdvantage=None):
+    a = XkorAthlete()
+    if homeAdvantage is not None:
+        a.setProperty("homeAdvantage", str(homeAdvantage))
+    return a
+
+
+p_pth = make_paradigm(homeAdvantageEAR=120)
+p_pth.userOpt = {"perTeamHomeAdvantage": "true"}
+assert p_pth.perTeamHomeAdvantage() is True
+
+fortress = make_athlete(90)  # "an absolute fortress"
+default_ = make_athlete(50)
+assert p_pth._homeAdvantageValue(fortress, default_) == 140  # the sheet's own 140H example
+assert p_pth._homeAdvantageValue(default_, fortress) == 140  # same either way round
+
+unset = make_athlete()  # no rating entered at all
+assert p_pth._homeAdvantageValue(fortress, unset) == 140  # unset counts as 50
+
+both_unset = p_pth._homeAdvantageValue(make_athlete(), make_athlete())
+assert both_unset == 100, both_unset  # matches WC100Q's flat 100 (50+50)
+
+low_h = make_athlete(10)
+high_h = make_athlete(90)
+cancelled = p_pth._homeAdvantageValue(low_h, high_h)
+assert cancelled == 100, cancelled  # "cancels out to normal home advantage"
+
+p_pth.userOpt = {"perTeamHomeAdvantage": "false"}
+assert p_pth._homeAdvantageValue(fortress, default_) == 120  # falls back to the fixed EAR magnitude
 
 print("ALL LISA PARADIGM TESTS PASSED")
