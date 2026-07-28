@@ -1,0 +1,868 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scorinationFile version="0.3">
+	<rpList>
+		<useTeams>true</useTeams>
+		<competitionName>Example Season</competitionName>
+		<rpEffect>15</rpEffect>
+		<rpCalculationType>olympic</rpCalculationType>
+		<minBonus>0</minBonus>
+		<maxBonus>1</maxBonus>
+		<rpOptions/>
+		<nation name="A+B">
+			<property type="bonus">150</property>
+		</nation>
+		<nation name="AAA">
+			<property type="bonus">146.5</property>
+		</nation>
+		<nation name="BBB">
+			<property type="bonus">143</property>
+		</nation>
+		<nation name="C/D">
+			<property type="bonus">139.5</property>
+		</nation>
+		<nation name="CCC">
+			<property type="bonus">136</property>
+		</nation>
+		<nation name="DDD">
+			<property type="bonus">132.5</property>
+		</nation>
+		<nation name="EEE">
+			<property type="bonus">129</property>
+		</nation>
+		<nation name="FFF">
+			<property type="bonus">125.5</property>
+		</nation>
+		<nation name="GGG">
+			<property type="bonus">122</property>
+		</nation>
+		<nation name="HHH">
+			<property type="bonus">118.5</property>
+		</nation>
+		<nation name="III">
+			<property type="bonus">115</property>
+		</nation>
+		<nation name="JJJ">
+			<property type="bonus">111.5</property>
+		</nation>
+		<nation name="KKK">
+			<property type="bonus">108</property>
+		</nation>
+		<nation name="LLL">
+			<property type="bonus">104.5</property>
+		</nation>
+		<nation name="M&amp;O">
+			<property type="bonus">101</property>
+		</nation>
+		<nation name="MMM">
+			<property type="bonus">97.5</property>
+		</nation>
+		<nation name="NNN">
+			<property type="bonus">94</property>
+		</nation>
+		<nation name="OOO">
+			<property type="bonus">90.5</property>
+		</nation>
+		<nation name="PPP">
+			<property type="bonus">87</property>
+		</nation>
+		<nation name="QQQ">
+			<property type="bonus">83.5</property>
+		</nation>
+		<nation name="RRR">
+			<property type="bonus">80</property>
+		</nation>
+		<nation name="SSS">
+			<property type="bonus">76.5</property>
+		</nation>
+		<nation name="TTT">
+			<property type="bonus">73</property>
+		</nation>
+		<nation name="UUU">
+			<property type="bonus">69.5</property>
+		</nation>
+		<nation name="VVV">
+			<property type="bonus">66</property>
+		</nation>
+		<nation name="WWW">
+			<property type="bonus">62.5</property>
+		</nation>
+		<nation name="XXX">
+			<property type="bonus">59</property>
+		</nation>
+		<nation name="Y*Z">
+			<property type="bonus">55.5</property>
+		</nation>
+		<nation name="YYY">
+			<property type="bonus">52</property>
+		</nation>
+		<nation name="ZZZ">
+			<property type="bonus">48.5</property>
+		</nation>
+	</rpList>
+	<event id="{00000000-0000-0000-0000-000000002329}" name="Example Season">
+		<sport>Auto racing—Racing Scorinator</sport>
+		<competition>season</competition>
+		<paradigmOptions>
+			<int type="driversOnGrid">30</int>
+			<int type="kmPerRace">305</int>
+		</paradigmOptions>
+		<competitionOptions>
+			<list type="circuitNations">
+				<string>CCC</string>
+				<string>DDD</string>
+				<string>EEE</string>
+				<string>FFF</string>
+				<string>GGG</string>
+				<string>HHH</string>
+				<string>III</string>
+				<string>JJJ</string>
+				<string>KKK</string>
+				<string>LLL</string>
+				<string>AAA</string>
+				<string>BBB</string>
+			</list>
+			<list type="circuitNames">
+				<string>Aries Raceway</string>
+				<string>The Bullrun</string>
+				<string>Twins Peak</string>
+				<string>Cancer Research Autodrome</string>
+				<string>Circuit del Leon</string>
+				<string>Virgo Race Circuit</string>
+				<string>Libra Scalextric</string>
+				<string>The Scorpion</string>
+				<string>Archway</string>
+				<string>Capricorn International</string>
+				<string>Aquarius Wetlands</string>
+				<string>Fishtail Raceway</string>
+			</list>
+			<list type="circuitTypes">
+				<string>Race</string>
+				<string>Race</string>
+				<string>Race</string>
+				<string>Testing</string>
+				<string>Race</string>
+				<string>Race</string>
+				<string>Race</string>
+				<string>Testing</string>
+				<string>Race</string>
+				<string>Race</string>
+				<string>Race</string>
+				<string>Race</string>
+			</list>
+			<list type="lapRecords">
+				<double>60</double>
+				<double>65</double>
+				<double>70</double>
+				<double>75</double>
+				<double>80</double>
+				<double>85</double>
+				<double>90</double>
+				<double>60</double>
+				<double>65</double>
+				<double>70</double>
+				<double>75</double>
+				<double>80</double>
+			</list>
+			<list type="trackLengths">
+				<double>4</double>
+				<double>4.5</double>
+				<double>5</double>
+				<double>5.5</double>
+				<double>6</double>
+				<double>6.5</double>
+				<double>7</double>
+				<double>3.75</double>
+				<double>4.25</double>
+				<double>4.75</double>
+				<double>5.25</double>
+				<double>5.75</double>
+			</list>
+			<list type="aggressiveness">
+				<double>5</double>
+				<double>4</double>
+				<double>3</double>
+				<double>2</double>
+				<double>5</double>
+				<double>6</double>
+				<double>7</double>
+				<double>8</double>
+				<double>5</double>
+				<double>4.5</double>
+				<double>5.5</double>
+				<double>5</double>
+			</list>
+			<list type="technicality">
+				<double>5</double>
+				<double>6</double>
+				<double>7</double>
+				<double>8</double>
+				<double>5</double>
+				<double>4</double>
+				<double>3</double>
+				<double>2</double>
+				<double>5</double>
+				<double>5.5</double>
+				<double>4.5</double>
+				<double>5</double>
+			</list>
+			<list type="qualifyingFormats">
+				<string>Trad</string>
+				<string>TT</string>
+				<string>OS</string>
+				<string>Trad</string>
+				<string>OS</string>
+				<string>Trad</string>
+				<string>E</string>
+				<string>Trad</string>
+				<string>OS</string>
+				<string>Trad</string>
+				<string>E</string>
+				<string>TT</string>
+			</list>
+			<list type="rainChances">
+				<double>3</double>
+				<double>6</double>
+				<double>5</double>
+				<double>4</double>
+				<double>5</double>
+				<double>8</double>
+				<double>3</double>
+				<double>6</double>
+				<double>3</double>
+				<double>7</double>
+				<double>25</double>
+				<double>25</double>
+			</list>
+			<list type="overtakingDifficulties">
+				<double>2</double>
+				<double>3</double>
+				<double>4</double>
+				<double>2</double>
+				<double>3</double>
+				<double>4</double>
+				<double>2</double>
+				<double>3</double>
+				<double>4</double>
+				<double>2</double>
+				<double>3</double>
+				<double>4</double>
+			</list>
+			<list type="errorPunishments">
+				<double>2</double>
+				<double>3</double>
+				<double>4</double>
+				<double>2</double>
+				<double>3</double>
+				<double>4</double>
+				<double>2</double>
+				<double>3</double>
+				<double>4</double>
+				<double>2</double>
+				<double>3</double>
+				<double>4</double>
+			</list>
+		</competitionOptions>
+		<results/>
+		<signupList>
+			<minRank>0</minRank>
+			<maxRank>1</maxRank>
+			<signup id="{00000000-0000-0000-0000-000000000001}" name="Andy Alpha" nation="AAA" skill="0.95">
+				<int type="number">1</int>
+				<string type="tla">ALP</string>
+				<string type="team">Racing do Janeiro</string>
+				<string type="tyres">I</string>
+				<string type="engines">H</string>
+				<int type="reliability">4</int>
+				<int type="aggression">4</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000002}" name="Bertha Bravo" nation="NNN" skill="0.93">
+				<int type="number">2</int>
+				<string type="tla">BRA</string>
+				<string type="team">Racing do Janeiro</string>
+				<string type="tyres">I</string>
+				<string type="engines">P</string>
+				<int type="reliability">4</int>
+				<int type="aggression">4</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000003}" name="Carla Charlie" nation="BBB" skill="0.91">
+				<int type="number">3</int>
+				<string type="tla">CHA</string>
+				<string type="team">Scuderia Febbraio</string>
+				<string type="tyres">R</string>
+				<string type="engines">T</string>
+				<int type="reliability">5</int>
+				<int type="aggression">3</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000004}" name="Danny Delta" nation="OOO" skill="0.89">
+				<int type="number">4</int>
+				<string type="tla">DEL</string>
+				<string type="team">Scuderia Febbraio</string>
+				<string type="tyres">R</string>
+				<string type="engines">T</string>
+				<int type="reliability">5</int>
+				<int type="aggression">3</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000005}" name="Ezekiel Echo" nation="CCC" skill="0.87">
+				<int type="number">5</int>
+				<string type="tla">ECH</string>
+				<string type="team">March</string>
+				<string type="tyres">R</string>
+				<string type="engines">A</string>
+				<int type="reliability">3</int>
+				<int type="aggression">5</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000006}" name="Freddy Foxtrot" nation="PPP" skill="0.85">
+				<int type="number">6</int>
+				<string type="tla">FOX</string>
+				<string type="team">March</string>
+				<string type="tyres">S</string>
+				<string type="engines">A</string>
+				<int type="reliability">3</int>
+				<int type="aggression">5</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000007}" name="Gertrude Golf" nation="DDD" skill="0.83">
+				<int type="number">7</int>
+				<string type="tla">GLF</string>
+				<string type="team">Racing Avril</string>
+				<string type="tyres">S</string>
+				<string type="engines">A</string>
+				<int type="reliability">4</int>
+				<int type="aggression">3</int>
+				<int type="technique">5</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000008}" name="Hamish Hotel" nation="QQQ" skill="0.81">
+				<int type="number">8</int>
+				<string type="tla">HTL</string>
+				<string type="team">Racing Avril</string>
+				<string type="tyres">S</string>
+				<string type="engines">A</string>
+				<int type="reliability">4</int>
+				<int type="aggression">3</int>
+				<int type="technique">5</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000009}" name="Iwan India" nation="EEE" skill="0.79">
+				<int type="number">9</int>
+				<string type="tla">IND</string>
+				<string type="team">Maycedes</string>
+				<string type="tyres">A</string>
+				<string type="engines">C</string>
+				<int type="reliability">4</int>
+				<int type="aggression">5</int>
+				<int type="technique">3</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000000a}" name="João Juliet" nation="RRR" skill="0.77">
+				<int type="number">10</int>
+				<string type="tla">JUL</string>
+				<string type="team">Maycedes</string>
+				<string type="tyres">A</string>
+				<string type="engines">C</string>
+				<int type="reliability">4</int>
+				<int type="aggression">5</int>
+				<int type="technique">3</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000000b}" name="Kev Kilo" nation="FFF" skill="0.75">
+				<int type="number">11</int>
+				<string type="tla">KIL</string>
+				<string type="team">June F1</string>
+				<string type="tyres">A</string>
+				<string type="engines">C</string>
+				<int type="reliability">4</int>
+				<int type="aggression">4</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000000c}" name="Liam Lima" nation="SSS" skill="0.73">
+				<int type="number">12</int>
+				<string type="tla">LIM</string>
+				<string type="team">June F1</string>
+				<string type="tyres">I</string>
+				<string type="engines">C</string>
+				<int type="reliability">4</int>
+				<int type="aggression">4</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000000d}" name="Mika Mike" nation="GGG" skill="0.71">
+				<int type="number">13</int>
+				<string type="tla">MIK</string>
+				<string type="team">Julius Motorsports</string>
+				<string type="tyres">G</string>
+				<string type="engines">C</string>
+				<int type="reliability">5</int>
+				<int type="aggression">3</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000000e}" name="Nigel November" nation="TTT" skill="0.69">
+				<int type="number">14</int>
+				<string type="tla">NOV</string>
+				<string type="team">Julius Motorsports</string>
+				<string type="tyres">I</string>
+				<string type="engines">P</string>
+				<int type="reliability">5</int>
+				<int type="aggression">3</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000000f}" name="Oswald Oscar" nation="HHH" skill="0.67">
+				<int type="number">15</int>
+				<string type="tla">OSC</string>
+				<string type="team">ART</string>
+				<string type="tyres">G</string>
+				<string type="engines">C</string>
+				<int type="reliability">3</int>
+				<int type="aggression">5</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000010}" name="Pietro Papa" nation="UUU" skill="0.65">
+				<int type="number">16</int>
+				<string type="tla">PAP</string>
+				<string type="team">ART</string>
+				<string type="tyres">G</string>
+				<string type="engines">C</string>
+				<int type="reliability">3</int>
+				<int type="aggression">5</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000011}" name="Quentin Quebec" nation="III" skill="0.63">
+				<int type="number">17</int>
+				<string type="tla">QUE</string>
+				<string type="team">September Motorsport</string>
+				<string type="tyres">S</string>
+				<string type="engines">T</string>
+				<int type="reliability">4</int>
+				<int type="aggression">3</int>
+				<int type="technique">5</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000012}" name="Randy Romeo" nation="VVV" skill="0.61">
+				<int type="number">18</int>
+				<string type="tla">ROM</string>
+				<string type="team">September Motorsport</string>
+				<string type="tyres">S</string>
+				<string type="engines">T</string>
+				<int type="reliability">4</int>
+				<int type="aggression">3</int>
+				<int type="technique">5</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000013}" name="Sebastian Sierra" nation="JJJ" skill="0.59">
+				<int type="number">19</int>
+				<string type="tla">SIE</string>
+				<string type="team">Super Car Team October</string>
+				<string type="tyres">R</string>
+				<string type="engines">H</string>
+				<int type="reliability">4</int>
+				<int type="aggression">5</int>
+				<int type="technique">3</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000014}" name="Tom Tango" nation="WWW" skill="0.57">
+				<int type="number">20</int>
+				<string type="tla">TAN</string>
+				<string type="team">Super Car Team October</string>
+				<string type="tyres">R</string>
+				<string type="engines">H</string>
+				<int type="reliability">4</int>
+				<int type="aggression">5</int>
+				<int type="technique">3</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000015}" name="Uwe Uniform" nation="KKK" skill="0.55">
+				<int type="number">21</int>
+				<string type="tla">UNI</string>
+				<string type="team">November GPE</string>
+				<string type="tyres">A</string>
+				<string type="engines">P</string>
+				<int type="reliability">4</int>
+				<int type="aggression">4</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000016}" name="Vinnie Victor" nation="XXX" skill="0.53">
+				<int type="number">22</int>
+				<string type="tla">VIC</string>
+				<string type="team">November GPE</string>
+				<string type="tyres">A</string>
+				<string type="engines">P</string>
+				<int type="reliability">4</int>
+				<int type="aggression">4</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000017}" name="Willy Whisky" nation="LLL" skill="0.51">
+				<int type="number">23</int>
+				<string type="tla">WHY</string>
+				<string type="team">Rennsport Dezember</string>
+				<string type="tyres">I</string>
+				<string type="engines">A</string>
+				<int type="reliability">5</int>
+				<int type="aggression">3</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000018}" name="Xavier X-Ray" nation="YYY" skill="0.49">
+				<int type="number">24</int>
+				<string type="tla">XRY</string>
+				<string type="team">Rennsport Dezember</string>
+				<string type="tyres">I</string>
+				<string type="engines">A</string>
+				<int type="reliability">5</int>
+				<int type="aggression">3</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000019}" name="Yames Yankee" nation="MMM" skill="0.47">
+				<int type="number">25</int>
+				<string type="tla">YHT</string>
+				<string type="team">WGPC: Gregoria</string>
+				<string type="tyres">G</string>
+				<string type="engines">C</string>
+				<int type="reliability">3</int>
+				<int type="aggression">5</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000001a}" name="Zack Zulu" nation="ZZZ" skill="0.45">
+				<int type="number">26</int>
+				<string type="tla">ZUL</string>
+				<string type="team">WGPC: Gregoria</string>
+				<string type="tyres">G</string>
+				<string type="engines">C</string>
+				<int type="reliability">3</int>
+				<int type="aggression">5</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000001b}" name="Adam Boy" nation="A+B" skill="0.43">
+				<int type="number">27</int>
+				<string type="tla">BOY</string>
+				<string type="team">Leap Racing Engines</string>
+				<string type="tyres">S</string>
+				<string type="engines">T</string>
+				<int type="reliability">4</int>
+				<int type="aggression">3</int>
+				<int type="technique">5</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000001c}" name="Charles David" nation="M&amp;O" skill="0.41">
+				<int type="number">28</int>
+				<string type="tla">DVD</string>
+				<string type="team">Leap Racing Engines</string>
+				<string type="tyres">S</string>
+				<string type="engines">T</string>
+				<int type="reliability">4</int>
+				<int type="aggression">3</int>
+				<int type="technique">5</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000001d}" name="Mary Nora" nation="C/D" skill="0.39">
+				<int type="number">29</int>
+				<string type="tla">NOR</string>
+				<string type="team">Schrikkelseconde</string>
+				<string type="tyres">I</string>
+				<string type="engines">H</string>
+				<int type="reliability">4</int>
+				<int type="aggression">5</int>
+				<int type="technique">3</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000001e}" name="Young Zebra" nation="Y*Z" skill="0.37">
+				<int type="number">30</int>
+				<string type="tla">ZBR</string>
+				<string type="team">Schrikkelseconde</string>
+				<string type="tyres">I</string>
+				<string type="engines">H</string>
+				<int type="reliability">4</int>
+				<int type="aggression">5</int>
+				<int type="technique">3</int>
+				<int type="experience">0</int>
+				<string type="kind">driver</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000001f}" name="Racing do Janeiro" nation="AAA" skill="0.5">
+				<int type="reliability">4</int>
+				<int type="aggression">4</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">team</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000020}" name="Scuderia Febbraio" nation="BBB" skill="0.5">
+				<int type="reliability">5</int>
+				<int type="aggression">3</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">team</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000021}" name="March" nation="CCC" skill="0.5">
+				<int type="reliability">3</int>
+				<int type="aggression">5</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">team</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000022}" name="Racing Avril" nation="DDD" skill="0.5">
+				<int type="reliability">4</int>
+				<int type="aggression">3</int>
+				<int type="technique">5</int>
+				<int type="experience">0</int>
+				<string type="kind">team</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000023}" name="Maycedes" nation="EEE" skill="0.5">
+				<int type="reliability">4</int>
+				<int type="aggression">5</int>
+				<int type="technique">3</int>
+				<int type="experience">0</int>
+				<string type="kind">team</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000024}" name="June F1" nation="FFF" skill="0.5">
+				<int type="reliability">4</int>
+				<int type="aggression">4</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">team</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000025}" name="Julius Motorsports" nation="GGG" skill="0.5">
+				<int type="reliability">5</int>
+				<int type="aggression">3</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">team</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000026}" name="ART" nation="HHH" skill="0.5">
+				<int type="reliability">3</int>
+				<int type="aggression">5</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">team</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000027}" name="September Motorsport" nation="III" skill="0.5">
+				<int type="reliability">4</int>
+				<int type="aggression">3</int>
+				<int type="technique">5</int>
+				<int type="experience">0</int>
+				<string type="kind">team</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000028}" name="Super Car Team October" nation="JJJ" skill="0.5">
+				<int type="reliability">4</int>
+				<int type="aggression">5</int>
+				<int type="technique">3</int>
+				<int type="experience">0</int>
+				<string type="kind">team</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000029}" name="November GPE" nation="KKK" skill="0.5">
+				<int type="reliability">4</int>
+				<int type="aggression">4</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">team</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000002a}" name="Rennsport Dezember" nation="LLL" skill="0.5">
+				<int type="reliability">5</int>
+				<int type="aggression">3</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">team</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000002b}" name="WGPC: Gregoria" nation="MMM" skill="0.5">
+				<int type="reliability">3</int>
+				<int type="aggression">5</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">team</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000002c}" name="Leap Racing Engines" nation="NNN" skill="0.5">
+				<int type="reliability">2</int>
+				<int type="aggression">2</int>
+				<int type="technique">2</int>
+				<int type="experience">0</int>
+				<string type="kind">team</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000002d}" name="Schrikkelseconde" nation="OOO" skill="0.5">
+				<int type="reliability">3</int>
+				<int type="aggression">5</int>
+				<int type="technique">4</int>
+				<int type="experience">0</int>
+				<string type="kind">team</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000002e}" name="Springy Rubber" nation="AAA" skill="0.5">
+				<string type="monogram">R</string>
+				<int type="reliability">-1</int>
+				<int type="technique">1</int>
+				<int type="experience">0</int>
+				<string type="kind">tyre</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-00000000002f}" name="Summertime" nation="BBB" skill="0.5">
+				<string type="monogram">S</string>
+				<int type="reliability">0</int>
+				<int type="technique">0</int>
+				<int type="experience">0</int>
+				<string type="kind">tyre</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000030}" name="Autumn Tyres" nation="CCC" skill="0.5">
+				<string type="monogram">A</string>
+				<double type="reliability">0.5</double>
+				<double type="technique">-0.5</double>
+				<int type="experience">0</int>
+				<string type="kind">tyre</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000031}" name="Inverno" nation="DDD" skill="0.5">
+				<string type="monogram">I</string>
+				<double type="reliability">-0.7</double>
+				<double type="technique">0.7</double>
+				<int type="experience">0</int>
+				<string type="kind">tyre</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000032}" name="Goodyear" nation="EEE" skill="0.5">
+				<string type="monogram">G</string>
+				<double type="reliability">0.1</double>
+				<double type="technique">-0.1</double>
+				<int type="experience">0</int>
+				<string type="kind">tyre</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000033}" name="Hilary Climax" nation="AAA" skill="0.5">
+				<string type="monogram">H</string>
+				<double type="reliability">-0.5</double>
+				<double type="aggression">-0.5</double>
+				<int type="technique">1</int>
+				<int type="experience">0</int>
+				<string type="kind">engine</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000034}" name="Pasquadelta SpA" nation="BBB" skill="0.5">
+				<string type="monogram">P</string>
+				<int type="reliability">-1</int>
+				<int type="aggression">1</int>
+				<int type="technique">0</int>
+				<int type="experience">0</int>
+				<string type="kind">engine</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000035}" name="Trinity Racing Motors" nation="CCC" skill="0.5">
+				<string type="monogram">T</string>
+				<int type="reliability">0</int>
+				<int type="aggression">0</int>
+				<int type="technique">0</int>
+				<int type="experience">0</int>
+				<string type="kind">engine</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000036}" name="Michaeli AMG" nation="DDD" skill="0.5">
+				<string type="monogram">A</string>
+				<int type="reliability">0</int>
+				<double type="aggression">-0.5</double>
+				<double type="technique">0.5</double>
+				<int type="experience">0</int>
+				<string type="kind">engine</string>
+			</signup>
+			<signup id="{00000000-0000-0000-0000-000000000037}" name="Oxford Cosworth" nation="EEE" skill="0.5">
+				<string type="monogram">C</string>
+				<double type="reliability">-0.4</double>
+				<double type="aggression">0.2</double>
+				<double type="technique">0.2</double>
+				<int type="experience">0</int>
+				<string type="kind">engine</string>
+			</signup>
+		</signupList>
+		<group name="Entries">
+			<signup>{00000000-0000-0000-0000-000000000001}</signup>
+			<signup>{00000000-0000-0000-0000-000000000002}</signup>
+			<signup>{00000000-0000-0000-0000-000000000003}</signup>
+			<signup>{00000000-0000-0000-0000-000000000004}</signup>
+			<signup>{00000000-0000-0000-0000-000000000005}</signup>
+			<signup>{00000000-0000-0000-0000-000000000006}</signup>
+			<signup>{00000000-0000-0000-0000-000000000007}</signup>
+			<signup>{00000000-0000-0000-0000-000000000008}</signup>
+			<signup>{00000000-0000-0000-0000-000000000009}</signup>
+			<signup>{00000000-0000-0000-0000-00000000000a}</signup>
+			<signup>{00000000-0000-0000-0000-00000000000b}</signup>
+			<signup>{00000000-0000-0000-0000-00000000000c}</signup>
+			<signup>{00000000-0000-0000-0000-00000000000d}</signup>
+			<signup>{00000000-0000-0000-0000-00000000000e}</signup>
+			<signup>{00000000-0000-0000-0000-00000000000f}</signup>
+			<signup>{00000000-0000-0000-0000-000000000010}</signup>
+			<signup>{00000000-0000-0000-0000-000000000011}</signup>
+			<signup>{00000000-0000-0000-0000-000000000012}</signup>
+			<signup>{00000000-0000-0000-0000-000000000013}</signup>
+			<signup>{00000000-0000-0000-0000-000000000014}</signup>
+			<signup>{00000000-0000-0000-0000-000000000015}</signup>
+			<signup>{00000000-0000-0000-0000-000000000016}</signup>
+			<signup>{00000000-0000-0000-0000-000000000017}</signup>
+			<signup>{00000000-0000-0000-0000-000000000018}</signup>
+			<signup>{00000000-0000-0000-0000-000000000019}</signup>
+			<signup>{00000000-0000-0000-0000-00000000001a}</signup>
+			<signup>{00000000-0000-0000-0000-00000000001b}</signup>
+			<signup>{00000000-0000-0000-0000-00000000001c}</signup>
+			<signup>{00000000-0000-0000-0000-00000000001d}</signup>
+			<signup>{00000000-0000-0000-0000-00000000001e}</signup>
+			<signup>{00000000-0000-0000-0000-00000000001f}</signup>
+			<signup>{00000000-0000-0000-0000-000000000020}</signup>
+			<signup>{00000000-0000-0000-0000-000000000021}</signup>
+			<signup>{00000000-0000-0000-0000-000000000022}</signup>
+			<signup>{00000000-0000-0000-0000-000000000023}</signup>
+			<signup>{00000000-0000-0000-0000-000000000024}</signup>
+			<signup>{00000000-0000-0000-0000-000000000025}</signup>
+			<signup>{00000000-0000-0000-0000-000000000026}</signup>
+			<signup>{00000000-0000-0000-0000-000000000027}</signup>
+			<signup>{00000000-0000-0000-0000-000000000028}</signup>
+			<signup>{00000000-0000-0000-0000-000000000029}</signup>
+			<signup>{00000000-0000-0000-0000-00000000002a}</signup>
+			<signup>{00000000-0000-0000-0000-00000000002b}</signup>
+			<signup>{00000000-0000-0000-0000-00000000002c}</signup>
+			<signup>{00000000-0000-0000-0000-00000000002d}</signup>
+			<signup>{00000000-0000-0000-0000-00000000002e}</signup>
+			<signup>{00000000-0000-0000-0000-00000000002f}</signup>
+			<signup>{00000000-0000-0000-0000-000000000030}</signup>
+			<signup>{00000000-0000-0000-0000-000000000031}</signup>
+			<signup>{00000000-0000-0000-0000-000000000032}</signup>
+			<signup>{00000000-0000-0000-0000-000000000033}</signup>
+			<signup>{00000000-0000-0000-0000-000000000034}</signup>
+			<signup>{00000000-0000-0000-0000-000000000035}</signup>
+			<signup>{00000000-0000-0000-0000-000000000036}</signup>
+			<signup>{00000000-0000-0000-0000-000000000037}</signup>
+		</group>
+	</event>
+</scorinationFile>

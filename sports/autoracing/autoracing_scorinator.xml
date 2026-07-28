@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sport version="0.3">
+	<name>Auto racing—Racing Scorinator</name>
+	<alphabetizedName>Auto racing—Racing Scorinator</alphabetizedName>
+	<discipline>Auto racing</discipline>
+	<!-- the competition step picks the format, a whole season or a single
+	     race weekend, so the sport itself doesn't name one -->
+	<event>Racing Scorinator</event>
+	<scorinator/>
+
+	<paradigm>scorinator</paradigm>
+	<paradigmOptions>
+		<!-- the season settings, the calendar and the team/tyre/engine
+		     registries all live in the event's own options, where the
+		     paradigm and competition options widgets can edit them; only
+		     the output-format constants belong here -->
+		<int type="displayDigits">3</int>
+		<int type="tiebreakerDigits">5</int>
+		<int type="resultWidth">13</int>
+		<int type="teamWidth">22</int>
+	</paradigmOptions>
+</sport>

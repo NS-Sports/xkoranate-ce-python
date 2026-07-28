@@ -17,6 +17,7 @@ from .pgsparadigm import XkorPGSParadigm
 from .pointsraceparadigm import XkorPointsRaceParadigm
 from .progressivethrowparadigm import XkorProgressiveThrowParadigm
 from .scoredparadigm import XkorScoredParadigm
+from .scorinatorparadigm import XkorScorinatorParadigm
 from .shootingparadigm import XkorShootingParadigm
 from .shorttrackparadigm import XkorShortTrackParadigm
 from .sqisparadigm import XkorSQISParadigm
@@ -64,6 +65,8 @@ class XkorParadigmFactory:
             rval = XkorProgressiveThrowParadigm()
         elif type == "scored":
             rval = XkorScoredParadigm()
+        elif type == "scorinator":
+            rval = XkorScorinatorParadigm()
         elif type == "shooting":
             rval = XkorShootingParadigm()
         elif type == "shorttrack":

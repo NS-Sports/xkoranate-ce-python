@@ -1,12 +1,12 @@
 import math
 
 from PySide6.QtCore import QDir, QFileInfo, QRegularExpression, Qt, Signal
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFormLayout,
+from PySide6.QtWidgets import (QCheckBox, QFileDialog, QFormLayout,
                                QGridLayout, QLabel, QMessageBox,
                                QPlainTextEdit, QSpinBox, QWidget)
 
 from ..ui.dialogs import message_box, resolved_search_path
-from ..ui.fonts import monospace_font
+from ..ui.fonts import monospace_font, XkorComboBox
 from ..variant import toDouble, toString
 from .sortcriteriawidget import XkorSortCriteriaWidget
 from .table import XkorTable
@@ -72,7 +72,7 @@ class XkorTableGenerator(QWidget):
         self.showResultsGrid = QCheckBox("Results grid")
         self.showResultsGrid.stateChanged.connect(lambda: self.setFileModified())
 
-        self.goalName = QComboBox()
+        self.goalName = XkorComboBox()
         self.goalName.addItem("Goals (G)", "G")
         self.goalName.addItem("Korfs (K)", "K")
         self.goalName.addItem("Points (P)", "P")

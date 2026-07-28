@@ -1,5 +1,7 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QComboBox, QItemDelegate, QLineEdit, QSpinBox
+from PySide6.QtWidgets import QItemDelegate, QLineEdit, QSpinBox
+
+from ...ui.fonts import XkorComboBox
 
 from ...variant import toInt, toString
 
@@ -10,7 +12,7 @@ class XkorWC36RPBonusDelegate(QItemDelegate):
 
     def createEditor(self, parent, option, index):
         if index.column() == 1:
-            comboBox = QComboBox(parent)
+            comboBox = XkorComboBox(parent)
             comboBox.setFrame(False)
             comboBox.addItem("Slani", 0)
             comboBox.addItem("Poor", 1)
