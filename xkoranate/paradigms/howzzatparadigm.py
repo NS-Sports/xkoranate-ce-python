@@ -10,6 +10,12 @@ class XkorHowzzatParadigm(XkorAbstractH2HParadigm):
     def hasOptionsWidget(self):
         return True
 
+    def usesMaxSkill(self):
+        # generateFTScore below only ever compares
+        # home.rpSkill / (home.rpSkill + away.rpSkill) between the two
+        # specific competitors, which is invariant to any common rescale
+        return False
+
     def newOptionsWidget(self, paradigmOptions):
         from .options.howzzatparadigmoptions import XkorHowzzatParadigmOptions
         return XkorHowzzatParadigmOptions(paradigmOptions, self._defaultHomeAdvantageMagnitude())

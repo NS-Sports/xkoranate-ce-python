@@ -13,30 +13,97 @@ class XkorNSFSParadigm(XkorAbstractH2HParadigm):
 
     def newOptionsWidget(self, paradigmOptions):
         from .options.nsfsparadigmoptions import XkorNSFSParadigmOptions
-        return XkorNSFSParadigmOptions(paradigmOptions, self._defaultHomeAdvantageMagnitude())
+        return XkorNSFSParadigmOptions(
+            paradigmOptions,
+            self._defaultHomeAdvantageMagnitude(),
+            self._defaultBaseAttackCoeff(),
+            self._defaultRankDiffModifier(),
+            self._defaultRankCoeff(),
+            self._defaultRankScalar(),
+            self._defaultBaseAttackSuccessThreshold(),
+            self._defaultBaseAttacksSuperior(),
+            self._defaultBaseAttacksInferior(),
+            self._defaultAttackCoeffSuperior(),
+            self._defaultAttackCoeffInferior(),
+        )
 
     def _defaultHomeAdvantageMagnitude(self):
         return toDouble(self.opt.get("homeAdvantage", 4.0 / 3.0))
+
+    def _defaultBaseAttackCoeff(self):
+        return toDouble(self.opt.get("baseAttackCoeff", 667.5))
+
+    def _defaultRankDiffModifier(self):
+        return toDouble(self.opt.get("rankDiffModifier", 12))
+
+    def _defaultRankCoeff(self):
+        return toDouble(self.opt.get("rankCoeff", 31.5))
+
+    def _defaultRankScalar(self):
+        return toDouble(self.opt.get("rankScalar", 0.5))
+
+    def _defaultBaseAttackSuccessThreshold(self):
+        return toDouble(self.opt.get("baseAttackSuccessThreshold", 580))
+
+    def _defaultBaseAttacksSuperior(self):
+        return toDouble(self.opt.get("baseAttacksSuperior", 10))
+
+    def _defaultBaseAttacksInferior(self):
+        return toDouble(self.opt.get("baseAttacksInferior", 10))
+
+    def _defaultAttackCoeffSuperior(self):
+        return toDouble(self.opt.get("attackCoeffSuperior", 10))
+
+    def _defaultAttackCoeffInferior(self):
+        return toDouble(self.opt.get("attackCoeffInferior", 0))
 
     def homeAdvantageMagnitude(self):
         # the sport file provides a default magnitude; the options widget
         # lets the user override it per-event
         return toDouble(self.userOpt.get("homeAdvantageMagnitude", self._defaultHomeAdvantageMagnitude()))
 
+    def baseAttackCoeff(self):
+        return toDouble(self.userOpt.get("baseAttackCoeff", self._defaultBaseAttackCoeff()))
+
+    def rankDiffModifier(self):
+        return toDouble(self.userOpt.get("rankDiffModifier", self._defaultRankDiffModifier()))
+
+    def rankCoeff(self):
+        return toDouble(self.userOpt.get("rankCoeff", self._defaultRankCoeff()))
+
+    def rankScalar(self):
+        return toDouble(self.userOpt.get("rankScalar", self._defaultRankScalar()))
+
+    def baseAttackSuccessThreshold(self):
+        return toDouble(self.userOpt.get(
+            "baseAttackSuccessThreshold", self._defaultBaseAttackSuccessThreshold()))
+
+    def baseAttacksSuperior(self):
+        return toInt(self.userOpt.get("baseAttacksSuperior", self._defaultBaseAttacksSuperior()))
+
+    def baseAttacksInferior(self):
+        return toInt(self.userOpt.get("baseAttacksInferior", self._defaultBaseAttacksInferior()))
+
+    def attackCoeffSuperior(self):
+        return toDouble(self.userOpt.get("attackCoeffSuperior", self._defaultAttackCoeffSuperior()))
+
+    def attackCoeffInferior(self):
+        return toDouble(self.userOpt.get("attackCoeffInferior", self._defaultAttackCoeffInferior()))
+
     # protected:
 
     def generateScore(self, skill, oppSkill, style, oppStyle,
                       homeAdvantage=False, attackMultiplier=1):
         # load constants
-        baseAttackCoeff = toDouble(self.opt.get("baseAttackCoeff"))
-        rankDiffModifier = toDouble(self.opt.get("rankDiffModifier"))
-        rankCoeff = toDouble(self.opt.get("rankCoeff"))
-        rankScalar = toDouble(self.opt.get("rankScalar"))
-        bast = toDouble(self.opt.get("baseAttackSuccessThreshold"))
-        baseAttacksSuperior = toInt(self.opt.get("baseAttacksSuperior"))
-        baseAttacksInferior = toInt(self.opt.get("baseAttacksInferior"))
-        attackCoeffSuperior = toDouble(self.opt.get("attackCoeffSuperior"))
-        attackCoeffInferior = toDouble(self.opt.get("attackCoeffInferior"))
+        baseAttackCoeff = self.baseAttackCoeff()
+        rankDiffModifier = self.rankDiffModifier()
+        rankCoeff = self.rankCoeff()
+        rankScalar = self.rankScalar()
+        bast = self.baseAttackSuccessThreshold()
+        baseAttacksSuperior = self.baseAttacksSuperior()
+        baseAttacksInferior = self.baseAttacksInferior()
+        attackCoeffSuperior = self.attackCoeffSuperior()
+        attackCoeffInferior = self.attackCoeffInferior()
         homeAdvValue = (self.homeAdvantageMagnitude() if homeAdvantage else 1)
 
         if skill > oppSkill:

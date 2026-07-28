@@ -11,6 +11,12 @@ class XkorFootba11erParadigm(XkorAbstractH2HParadigm):
     def hasOptionsWidget(self):
         return True
 
+    def usesMaxSkill(self):
+        # generateFTScore/GGScore below only ever compare
+        # home.rpSkill / (home.rpSkill + away.rpSkill) between the two
+        # specific competitors, which is invariant to any common rescale
+        return False
+
     def newAthleteWidget(self):
         return XkorAbstractParadigm.newAthleteWidget(self)
 
