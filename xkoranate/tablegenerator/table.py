@@ -52,6 +52,11 @@ class XkorTable:
         for i in self.unsortedData.values():
             oldData.append(i.clone())
 
+        if self.unsortedData:
+            # guarded: generating an empty table (no results entered yet)
+            # shouldn't throw away the flips of a table that has them
+            self.sorter.pruneCoinFlips(self.unsortedData.keys())
+
         self.collapse(self.data, self.sortTable(oldData))
 
     def getPoints(self, a):

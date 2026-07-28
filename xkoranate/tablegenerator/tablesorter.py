@@ -4,7 +4,7 @@ from .sortrules.sortalpha import XkorSortAlphaEq, XkorSortAlphaGr
 from .sortrules.sortawaygoals import XkorSortAwayGoalsEq, XkorSortAwayGoalsGr
 from .sortrules.sortawaywins import XkorSortAwayWinsEq, XkorSortAwayWinsGr
 from .sortrules.sortcoinflip import (XkorSortCoinFlipEq, XkorSortCoinFlipGr,
-                                     assignCoinFlips)
+                                     assignCoinFlips, pruneCoinFlips)
 from .sortrules.sortgoalaverage import (XkorSortGoalAverageEq,
                                         XkorSortGoalAverageGr)
 from .sortrules.sortgoaldifference import (XkorSortGoalDiffEq,
@@ -57,6 +57,9 @@ class XkorTableSorter:
 
     def getCoinFlips(self):
         return self.coinFlips
+
+    def pruneCoinFlips(self, teamNames):
+        pruneCoinFlips(teamNames, self.coinFlips)
 
     def setCoinFlips(self, flips):
         self.coinFlips = flips

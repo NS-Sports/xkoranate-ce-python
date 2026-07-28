@@ -9,6 +9,7 @@ from PySide6.QtCore import QRegularExpression
 from PySide6.QtWidgets import QApplication
 
 from xkoranate.tablegenerator.decider import (MATCH_RESULT_PATTERN, classify,
+                                              parseMatchLine,
                                               stripTrailingDeciders)
 from xkoranate.tablegenerator.table import XkorTable
 from xkoranate.tablegenerator.tablematch import XkorTableMatch
@@ -16,30 +17,6 @@ from xkoranate.tablegenerator.tablerow import XkorTableRow
 from xkoranate.tablegenerator.tablesorter import XkorTableSorter
 from xkoranate.xml.xmltablereader import XkorXmlTableReader
 from xkoranate.xml.xmltablewriter import XkorXmlTableWriter
-
-def _parse_manual_line(line):
-    """Mirror XkorTableGenerator.generateMatches()'s per-line parsing
-    without needing a QApplication to instantiate the widget itself."""
-    from xkoranate.tablegenerator.tablegenerator import _qLeft, _qRight
-    from xkoranate.variant import toDouble
-
-    rx = QRegularExpression(MATCH_RESULT_PATTERN)
-    match = rx.match(line)
-    if not match.hasMatch():
-        return None
-    index = match.capturedStart(0)
-    matchedLength = match.capturedLength(0)
-    homeTeam = _qLeft(line, index - 1)
-    awayTeam = _qRight(line, len(line) - index - matchedLength - 1)
-    homeScore = toDouble(match.captured(1))
-    awayScore = toDouble(match.captured(2))
-    decider = match.captured(3) or None
-    awayTeam, otherScore1, otherScore2, otherDecider = stripTrailingDeciders(
-        awayTeam, homeScore, awayScore)
-    if otherDecider is not None:
-        decider = otherDecider
-        homeScore, awayScore = otherScore1, otherScore2
-    return (homeTeam, awayTeam, homeScore, awayScore, decider)
 
 
 def _row_with_matches(*matches):
@@ -332,8 +309,8 @@ def test_strip_trailing_deciders_leaves_an_unrecognized_bracketed_suffix_alone()
 
 
 def test_manual_entry_keeps_team_names_that_merely_start_with_ot_or_so():
-    assert _parse_manual_line("Aquilla 3–2 OTtawa") == ("Aquilla", "OTtawa", 3.0, 2.0, None)
-    assert _parse_manual_line("Aquilla 3–2 SOuthampton") == (
+    assert parseMatchLine("Aquilla 3–2 OTtawa") == ("Aquilla", "OTtawa", 3.0, 2.0, None)
+    assert parseMatchLine("Aquilla 3–2 SOuthampton") == (
         "Aquilla", "SOuthampton", 3.0, 2.0, None)
 
 
@@ -367,19 +344,19 @@ def test_manual_entry_recognizes_the_simulator_own_output_format():
     # this is what XkorAbstractH2HParadigm._formatScoreResults() actually
     # prints for a simulated hockey match, e.g. copy-pasted from an event's
     # results log straight into the table generator
-    assert _parse_manual_line("Aquilla 2–2 Busby (3–2 OT)") == ("Aquilla", "Busby", 3.0, 2.0, "OT")
-    assert _parse_manual_line("Aquilla 2–2 Busby (1–0 SO)") == ("Aquilla", "Busby", 3.0, 2.0, "SO")
-    assert _parse_manual_line("Charlie 2–2 Dorset (2–2 AET) (3–4 pen.)") == (
+    assert parseMatchLine("Aquilla 2–2 Busby (3–2 OT)") == ("Aquilla", "Busby", 3.0, 2.0, "OT")
+    assert parseMatchLine("Aquilla 2–2 Busby (1–0 SO)") == ("Aquilla", "Busby", 3.0, 2.0, "SO")
+    assert parseMatchLine("Charlie 2–2 Dorset (2–2 AET) (3–4 pen.)") == (
         "Charlie", "Dorset", 2.0, 3.0, "SO")
 
 
 def test_manual_entry_still_recognizes_the_original_inline_marker():
-    assert _parse_manual_line("Aquilla 3–2 OT Busby") == ("Aquilla", "Busby", 3.0, 2.0, "OT")
-    assert _parse_manual_line("Aquilla 1–4 SO Busby") == ("Aquilla", "Busby", 1.0, 4.0, "SO")
+    assert parseMatchLine("Aquilla 3–2 OT Busby") == ("Aquilla", "Busby", 3.0, 2.0, "OT")
+    assert parseMatchLine("Aquilla 1–4 SO Busby") == ("Aquilla", "Busby", 1.0, 4.0, "SO")
 
 
 def test_manual_entry_unaffected_when_theres_no_decider_at_all():
-    assert _parse_manual_line("Aquilla 3–1 Busby") == ("Aquilla", "Busby", 3.0, 1.0, None)
+    assert parseMatchLine("Aquilla 3–1 Busby") == ("Aquilla", "Busby", 3.0, 1.0, None)
 
 
 def test_xml_round_trip_recognizes_simulator_output_format(tmp_path):
@@ -507,6 +484,35 @@ def test_coin_flip_only_assigns_new_teams_not_already_flipped():
     assert "Charlie" in sorter.getCoinFlips()
 
 
+def test_coin_flip_values_survive_qNumber_exactly():
+    # qNumber() writes 6 significant digits, so a flip that isn't a whole
+    # number under a million would reload as a different value
+    from xkoranate.variant import qNumber, toDouble
+
+    rows = [XkorTableRow("Team %d" % i) for i in range(50)]
+    sorter = XkorTableSorter()
+    sorter.sort(rows, "coinFlip")
+
+    flips = sorter.getCoinFlips()
+    assert len(set(flips.values())) == len(flips)  # no two teams tied
+    for value in flips.values():
+        assert toDouble(qNumber(value)) == value
+
+
+def test_coin_flips_are_dropped_for_teams_the_table_no_longer_has():
+    t = XkorTable()
+    t.setColumns([])
+    t.setSortCriteria(["coinFlip"])
+    t.setMatches([XkorTableMatch("Aquilla", "Busby", 1, 1)])
+    t.generate()
+    assert set(t.getCoinFlips()) == {"Aquilla", "Busby"}
+
+    # the user fixes a typo in a team name and regenerates
+    t.setMatches([XkorTableMatch("Aquila", "Busby", 1, 1)])
+    t.generate()
+    assert set(t.getCoinFlips()) == {"Aquila", "Busby"}
+
+
 def test_coin_flip_result_survives_an_xml_save_and_reload(tmp_path):
     filename = os.path.join(str(tmp_path), "coin_flip_table.xml")
 
@@ -609,3 +615,19 @@ def test_opening_a_file_restores_which_ot_points_were_overridden(qapp, tmp_path)
     w2.pointsForWin.setValue(4)
     assert w2.pointsForOTWin.value() == 4
     assert w2.pointsForOTLoss.value() == 1
+
+
+def test_the_match_results_box_parses_through_the_shared_parser(qapp):
+    w = _generator(qapp)
+    w.matches.setPlainText("Aquilla 2–2 Busby (3–2 OT)\n"
+                           "Busby 3–2 SO Charlie\n"
+                           "Charlie 1–0 OTtawa\n")
+    w.generateMatches()
+
+    assert [(m.team1, m.team2, m.score1, m.score2, m.decider)
+            for m in w.matchesList] == [
+        ("Aquilla", "Busby", 3.0, 2.0, "OT"),
+        ("Busby", "Charlie", 3.0, 2.0, "SO"),
+        ("Charlie", "OTtawa", 1.0, 0.0, None),
+    ]
+    assert "OTtawa" in w.teamsList

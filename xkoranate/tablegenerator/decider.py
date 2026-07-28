@@ -29,6 +29,8 @@ _TRAILING_DECIDER = re.compile(r"\s*\(([0-9]+)[-–:]([0-9]+)\s+([^()]+?)\)\s*$"
 # Southampton — from being read as a marker.
 MATCH_RESULT_PATTERN = r"([0-9]+)[-–:]([0-9]+)(?:\s+(OT|SO)\b)?"
 
+_MATCH_RESULT = re.compile(MATCH_RESULT_PATTERN)
+
 _SHOOTOUT_KEYWORDS = frozenset((
     "so", "shootout", "shootouts", "pen", "pens", "pk", "pks", "penalty",
     "penalties",
@@ -70,15 +72,10 @@ def stripTrailingDeciders(text, baseScore1=None, baseScore2=None):
       - if the deciding block is OT-type, its own (already-combined) score
         is used directly, matching how the simulator prints a running
         extra-time/golden-goal total;
-      - if the deciding block is a shootout, its own tally isn't a real
-        goal count (shootout scores don't belong in the table), but a
-        shootout always produces a winner. So the score one stage back
-        (the previous OT-type block's score, or `baseScore1`/`baseScore2`
-        if the shootout was the only stage) is used, nudged by one goal
-        towards whichever side actually won the shootout — mirroring how a
-        shootout-decided game's official final score credits the winner
-        with the shootout-winning goal (as in NHL/IIHF box scores), rather
-        than silently recording a draw.
+      - if the deciding block is a shootout, the score one stage back (the
+        previous OT-type block's score, or `baseScore1`/`baseScore2` if the
+        shootout was the only stage) is used, nudged towards the shootout
+        winner by nudgeForShootout().
     """
     blocks = []
     remainder = text
@@ -103,11 +100,73 @@ def stripTrailingDeciders(text, baseScore1=None, baseScore2=None):
             score1, score2 = blocks[-2][0], blocks[-2][1]
         else:
             score1, score2 = baseScore1, baseScore2
-        soScore1, soScore2 = blocks[-1][0], blocks[-1][1]
-        if score1 is not None and score1 == score2 and soScore1 != soScore2:
-            if soScore1 > soScore2:
-                score1 += 1
-            else:
-                score2 += 1
+        score1, score2 = nudgeForShootout(score1, score2,
+                                          blocks[-1][0], blocks[-1][1])
 
     return (remainder.rstrip(), score1, score2, decider)
+
+
+def _qLeft(s, n):
+    """QString::left(n): whole string if n < 0 or n > size."""
+    if n < 0 or n > len(s):
+        return s
+    return s[:n]
+
+
+def _qRight(s, n):
+    """QString::right(n): whole string if n < 0 or n > size."""
+    if n < 0 or n > len(s):
+        return s
+    return s[len(s) - n:] if n else ""
+
+
+def parseMatchLine(text):
+    """Parse one free-text match result into
+    (homeTeam, awayTeam, score1, score2, decider), or None if `text` holds no
+    score at all.
+
+    Scores take the form "Aquilla 3–1 Busby", with an en dash, hyphen-minus or
+    colon as the delimiter. A decider can be marked either inline after the
+    score ("Aquilla 3–2 OT Busby") or, as the simulator prints it, as a
+    trailing tag after the away team ("Aquilla 2–2 Busby (3–2 OT)").
+
+    This is the one parser behind both the match-results text box and the
+    <match> lines of a saved table, so the two can't drift apart.
+    """
+    m = _MATCH_RESULT.search(text)
+    if m is None:
+        return None
+
+    index = m.start()
+    matchedLength = m.end() - m.start()
+    homeTeam = _qLeft(text, index - 1)
+    awayTeam = _qRight(text, len(text) - index - matchedLength - 1)
+    score1 = toDouble(m.group(1))
+    score2 = toDouble(m.group(2))
+    decider = m.group(3)
+
+    awayTeam, taggedScore1, taggedScore2, taggedDecider = stripTrailingDeciders(
+        awayTeam, score1, score2)
+    if taggedDecider is not None:
+        decider = taggedDecider
+        score1, score2 = taggedScore1, taggedScore2
+
+    return (homeTeam, awayTeam, score1, score2, decider)
+
+
+def nudgeForShootout(score1, score2, soScore1, soScore2):
+    """Break a tied (score1, score2) using the shootout tally, and return the
+    adjusted pair.
+
+    A shootout's own tally isn't a goal count and doesn't belong in the table,
+    but a shootout always produces a winner, so a game it decided must not go
+    into the standings as a draw. The winner is credited with one more goal,
+    mirroring how a shootout-decided game's official final score is recorded
+    (as in NHL/IIHF box scores). A pair that isn't tied already has a winner
+    and is returned untouched.
+    """
+    if score1 is None or score1 != score2 or soScore1 == soScore2:
+        return (score1, score2)
+    if soScore1 > soScore2:
+        return (score1 + 1, score2)
+    return (score1, score2 + 1)

@@ -1,25 +1,8 @@
-import re
 import sys
 
 from PySide6.QtCore import QFile, QIODevice, QXmlStreamReader
 
 from ..variant import toDouble, toInt
-
-
-def _qLeft(s, n):
-    """QString::left(n): whole string if n < 0 or n > size."""
-    if n < 0 or n > len(s):
-        return s
-    return s[:n]
-
-
-def _qRight(s, n):
-    """QString::right(n): whole string if n < 0 or n > size."""
-    if n < 0 or n > len(s):
-        return s
-    if n == 0:
-        return ""
-    return s[len(s) - n:]
 
 
 class XkorXmlTableReader(QXmlStreamReader):
@@ -127,8 +110,7 @@ class XkorXmlTableReader(QXmlStreamReader):
         return toInt(self.readElementText())
 
     def readMatches(self):
-        from ..tablegenerator.decider import (MATCH_RESULT_PATTERN,
-                                              stripTrailingDeciders)
+        from ..tablegenerator.decider import parseMatchLine
         from ..tablegenerator.tablematch import XkorTableMatch
 
         matchesList = []
@@ -141,26 +123,9 @@ class XkorXmlTableReader(QXmlStreamReader):
                 if self.name() == "match":
                     matchText = self.readString()
 
-                    # match scores of form Aquilla 3–1 Busby, with en dash, hyphen-minus, or colon
-                    # as delimiter, and an optional trailing "OT"/"SO" decider marker
-                    rx = re.compile(MATCH_RESULT_PATTERN)
-                    m = rx.search(matchText)
-                    if m is not None:  # if we matched
-                        index = m.start()
-                        matchedLength = m.end() - m.start()
-                        homeTeam = _qLeft(matchText, index - 1)
-                        awayTeam = _qRight(matchText, len(matchText) - index - matchedLength - 1)
-                        homeScore = toDouble(m.group(1))
-                        awayScore = toDouble(m.group(2))
-                        decider = m.group(3)
-                        # also recognize the simulator's own output, which tags a decider as
-                        # a trailing "(score NAME)" after the away team instead
-                        awayTeam, otherScore1, otherScore2, otherDecider = stripTrailingDeciders(
-                            awayTeam, homeScore, awayScore)
-                        if otherDecider is not None:
-                            decider = otherDecider
-                            homeScore, awayScore = otherScore1, otherScore2
-                        matchesList.append(XkorTableMatch(homeTeam, awayTeam, homeScore, awayScore, decider))
+                    parsed = parseMatchLine(matchText)
+                    if parsed is not None:  # if we matched
+                        matchesList.append(XkorTableMatch(*parsed))
                     self.m_matches += matchText + "\n"
                 else:
                     self.readUnknownElement()

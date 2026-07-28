@@ -3,6 +3,7 @@ import re
 import sys
 
 from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
+from xkoranate.tablegenerator.decider import nudgeForShootout
 from xkoranate.variant import qNumber, toDouble, toInt, toList, toString, toUInt
 
 
@@ -318,20 +319,13 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
                                 print("adding", currentTiebreaker, toDouble(score1.value(name)), toDouble(score2.value(name)), file=sys.stderr)
                                 usedTiebreakerNames.append(name)
                                 decider = "OT"
-                        if decider == "SO" and scoreValue1 == scoreValue2 and shootoutName is not None:
-                            # the shootout stage didn’t come after a stage that separated
-                            # the teams (e.g. overtime stayed scoreless) — a shootout always
-                            # has a winner though, so nudge the tied score by one goal
-                            # towards it rather than recording a draw, mirroring how a
-                            # shootout-decided game’s official final score credits the
-                            # winner with the shootout-winning goal (as in NHL/IIHF box
-                            # scores), without importing the shootout’s own tally as goals
-                            soValue1 = toDouble(score1.value(shootoutName))
-                            soValue2 = toDouble(score2.value(shootoutName))
-                            if soValue1 > soValue2:
-                                scoreValue1 += 1
-                            elif soValue2 > soValue1:
-                                scoreValue2 += 1
+                        if decider == "SO" and shootoutName is not None:
+                            # the shootout stage may not have come after one that
+                            # separated the teams (e.g. overtime stayed scoreless)
+                            scoreValue1, scoreValue2 = nudgeForShootout(
+                                scoreValue1, scoreValue2,
+                                toDouble(score1.value(shootoutName)),
+                                toDouble(score2.value(shootoutName)))
                     self.tables[groupNo].insertMatch(i.athletes[j[0]].name, i.athletes[j[1]].name, scoreValue1, scoreValue2, decider)
 
                     # insert into the resume options

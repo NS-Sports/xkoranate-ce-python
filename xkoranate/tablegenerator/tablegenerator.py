@@ -1,32 +1,18 @@
 import math
 
-from PySide6.QtCore import QDir, QFileInfo, QRegularExpression, Qt, Signal
+from PySide6.QtCore import QDir, QFileInfo, Qt, Signal
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFormLayout,
                                QGridLayout, QLabel, QMessageBox,
                                QPlainTextEdit, QSpinBox, QWidget)
 
 from ..ui.dialogs import message_box, resolved_search_path
 from ..ui.fonts import monospace_font
-from ..variant import toDouble, toString
-from .decider import MATCH_RESULT_PATTERN, stripTrailingDeciders
+from ..variant import toString
+from .decider import parseMatchLine
 from .sortcriteriawidget import XkorSortCriteriaWidget
 from .table import XkorTable
 from .tablecolumn import XkorTableColumn
 from .tablematch import XkorTableMatch
-
-
-def _qLeft(s, n):
-    # QString::left(n): the entire string is returned if n >= size() or n < 0
-    if n < 0 or n >= len(s):
-        return s
-    return s[:n]
-
-
-def _qRight(s, n):
-    # QString::right(n): the entire string is returned if n >= size() or n < 0
-    if n < 0 or n >= len(s):
-        return s
-    return s[len(s) - n:]
 
 
 class XkorTableGenerator(QWidget):
@@ -98,7 +84,10 @@ class XkorTableGenerator(QWidget):
 
         self.showDraws = QCheckBox("Draws")
         self.showDraws.stateChanged.connect(lambda: self.setFileModified())
-        self.showOvertime = QCheckBox("OT/SO breakdown (OTW/SOW/OTL/SOL)")
+        self.showOvertime = QCheckBox("OT/SO breakdown")
+        self.showOvertime.setToolTip("Adds OTW, SOW, OTL and SOL columns, "
+                                     "splitting wins and losses by how they "
+                                     "were decided.")
         self.showOvertime.stateChanged.connect(lambda: self.setFileModified())
         self.showResultsGrid = QCheckBox("Results grid")
         self.showResultsGrid.stateChanged.connect(lambda: self.setFileModified())
@@ -194,28 +183,9 @@ class XkorTableGenerator(QWidget):
         text = self.matches.toPlainText()
 
         for line in text.split("\n"):
-            # match scores of form Aquilla 3–1 Busby, with en dash,
-            # hyphen-minus, or colon as delimiter, and an optional trailing
-            # "OT" or "SO" marker for matches decided in overtime/extra time
-            # or by shootout/penalties, e.g. Aquilla 3–2 OT Busby
-            rx = QRegularExpression(MATCH_RESULT_PATTERN)
-            match = rx.match(line)
-            if match.hasMatch():  # if we matched
-                index = match.capturedStart(0)
-                matchedLength = match.capturedLength(0)
-                homeTeam = _qLeft(line, index - 1)
-                awayTeam = _qRight(line, len(line) - index - matchedLength - 1)
-                homeScore = toDouble(match.captured(1))
-                awayScore = toDouble(match.captured(2))
-                decider = match.captured(3) or None
-                # also recognize the simulator's own output, which tags a
-                # decider as a trailing "(score NAME)" after the away team
-                # instead, e.g. Aquilla 2–2 Busby (3–2 OT)
-                awayTeam, otherScore1, otherScore2, otherDecider = stripTrailingDeciders(
-                    awayTeam, homeScore, awayScore)
-                if otherDecider is not None:
-                    decider = otherDecider
-                    homeScore, awayScore = otherScore1, otherScore2
+            parsed = parseMatchLine(line)
+            if parsed is not None:  # if we matched
+                homeTeam, awayTeam, homeScore, awayScore, decider = parsed
                 self.matchesList.append(
                     XkorTableMatch(homeTeam, awayTeam, homeScore, awayScore, decider))
                 if homeTeam not in self.teamsList:
