@@ -127,7 +127,8 @@ class XkorXmlTableReader(QXmlStreamReader):
         return toInt(self.readElementText())
 
     def readMatches(self):
-        from ..tablegenerator.decider import stripTrailingDeciders
+        from ..tablegenerator.decider import (MATCH_RESULT_PATTERN,
+                                              stripTrailingDeciders)
         from ..tablegenerator.tablematch import XkorTableMatch
 
         matchesList = []
@@ -142,7 +143,7 @@ class XkorXmlTableReader(QXmlStreamReader):
 
                     # match scores of form Aquilla 3–1 Busby, with en dash, hyphen-minus, or colon
                     # as delimiter, and an optional trailing "OT"/"SO" decider marker
-                    rx = re.compile("([0-9]+)[-–:]([0-9]+)(?:\\s+(OT|SO))?")
+                    rx = re.compile(MATCH_RESULT_PATTERN)
                     m = rx.search(matchText)
                     if m is not None:  # if we matched
                         index = m.start()

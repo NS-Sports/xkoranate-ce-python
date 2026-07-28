@@ -3,18 +3,14 @@ import re
 
 from PySide6.QtCore import QRegularExpression
 
-from xkoranate.tablegenerator.decider import classify, stripTrailingDeciders
+from xkoranate.tablegenerator.decider import (MATCH_RESULT_PATTERN, classify,
+                                              stripTrailingDeciders)
 from xkoranate.tablegenerator.table import XkorTable
 from xkoranate.tablegenerator.tablematch import XkorTableMatch
 from xkoranate.tablegenerator.tablerow import XkorTableRow
 from xkoranate.tablegenerator.tablesorter import XkorTableSorter
 from xkoranate.xml.xmltablereader import XkorXmlTableReader
 from xkoranate.xml.xmltablewriter import XkorXmlTableWriter
-
-# the same pattern tablegenerator.py's generateMatches() and
-# xmltablereader.py's readMatches() use to parse free-text match results
-MATCH_RESULT_PATTERN = "([0-9]+)[-–:]([0-9]+)(?:\\s+(OT|SO))?"
-
 
 def _parse_manual_line(line):
     """Mirror XkorTableGenerator.generateMatches()'s per-line parsing
@@ -262,18 +258,40 @@ def test_classify_recognizes_shootout_style_names_regardless_of_case_or_punctuat
     assert classify("PK") == "SO"
 
 
-def test_classify_defaults_unrecognized_names_to_ot():
+def test_classify_recognizes_every_tiebreaker_name_the_sport_files_use():
+    # the full set of <list type="tiebreakerNames"> values across sports/
     assert classify("OT") == "OT"
     assert classify("AET") == "OT"
     assert classify("ET") == "OT"
     assert classify("GG") == "OT"
     assert classify("Sudden Death") == "OT"
     assert classify("+") == "OT"
-    assert classify("") == "OT"
+    assert classify("2OT") == "OT"  # numbered overtime periods
+
+
+def test_classify_rejects_names_it_doesnt_recognize():
+    # nothing in the text distinguishes an unknown tiebreaker name from an
+    # ordinary parenthesised suffix on a team name, so we don't guess
+    assert classify("Reserve") is None
+    assert classify("B") is None
+    assert classify("") is None
 
 
 def test_strip_trailing_deciders_leaves_plain_text_untouched():
     assert stripTrailingDeciders("Busby") == ("Busby", None, None, None)
+
+
+def test_strip_trailing_deciders_leaves_an_unrecognized_bracketed_suffix_alone():
+    # a team name can legitimately end in "(2–1 Something)" — treating it as a
+    # decider would invent an OT win and overwrite the real score
+    assert stripTrailingDeciders("Busby (2–1 Reserve)", 3, 0) == (
+        "Busby (2–1 Reserve)", None, None, None)
+
+
+def test_manual_entry_keeps_team_names_that_merely_start_with_ot_or_so():
+    assert _parse_manual_line("Aquilla 3–2 OTtawa") == ("Aquilla", "OTtawa", 3.0, 2.0, None)
+    assert _parse_manual_line("Aquilla 3–2 SOuthampton") == (
+        "Aquilla", "SOuthampton", 3.0, 2.0, None)
 
 
 def test_strip_trailing_deciders_ot_tag_gives_its_own_combined_score():

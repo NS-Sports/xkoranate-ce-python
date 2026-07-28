@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFormLayout,
 from ..ui.dialogs import message_box, resolved_search_path
 from ..ui.fonts import monospace_font
 from ..variant import toDouble, toString
-from .decider import stripTrailingDeciders
+from .decider import MATCH_RESULT_PATTERN, stripTrailingDeciders
 from .sortcriteriawidget import XkorSortCriteriaWidget
 from .table import XkorTable
 from .tablecolumn import XkorTableColumn
@@ -178,7 +178,7 @@ class XkorTableGenerator(QWidget):
             # hyphen-minus, or colon as delimiter, and an optional trailing
             # "OT" or "SO" marker for matches decided in overtime/extra time
             # or by shootout/penalties, e.g. Aquilla 3–2 OT Busby
-            rx = QRegularExpression("([0-9]+)[-–:]([0-9]+)(?:\\s+(OT|SO))?")
+            rx = QRegularExpression(MATCH_RESULT_PATTERN)
             match = rx.match(line)
             if match.hasMatch():  # if we matched
                 index = match.capturedStart(0)
