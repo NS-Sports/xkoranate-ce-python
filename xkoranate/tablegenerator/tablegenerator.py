@@ -70,6 +70,26 @@ class XkorTableGenerator(QWidget):
         self.pointsForOTLoss.valueChanged.connect(lambda: self.setFileModified())
         self.pointsForSOLoss = QSpinBox()
         self.pointsForSOLoss.valueChanged.connect(lambda: self.setFileModified())
+
+        # each OT/SO box follows the plain win or loss box until the user sets
+        # it themselves; only then does it become an override that's saved to
+        # the file. So a league that just changes "points for win" to 2 gets
+        # 2-point OT wins, not the stale 3 it was last showing.
+        self.otPointsRows = [
+            (self.pointsForOTWin, self.pointsForWin, "OTWin"),
+            (self.pointsForSOWin, self.pointsForWin, "SOWin"),
+            (self.pointsForOTLoss, self.pointsForLoss, "OTLoss"),
+            (self.pointsForSOLoss, self.pointsForLoss, "SOLoss"),
+        ]
+        self.linkedOTPoints = set(spin for spin, _, _ in self.otPointsRows)
+        self.syncingOTPoints = False
+        for spin, base, _ in self.otPointsRows:
+            spin.setToolTip("Follows the matching win/loss value until you "
+                            "change it here.")
+            spin.valueChanged.connect(
+                lambda _value, spin=spin: self.unlinkOTPoints(spin))
+            base.valueChanged.connect(self.syncLinkedOTPoints)
+
         self.columnWidth = QSpinBox()
         self.columnWidth.valueChanged.connect(lambda: self.setFileModified())
 
@@ -311,10 +331,7 @@ class XkorTableGenerator(QWidget):
             self.pointsForWin.setValue(self.t.getPointsForWin())
             self.pointsForDraw.setValue(self.t.getPointsForDraw())
             self.pointsForLoss.setValue(self.t.getPointsForLoss())
-            self.pointsForOTWin.setValue(self.t.getPointsForOTWin())
-            self.pointsForSOWin.setValue(self.t.getPointsForSOWin())
-            self.pointsForOTLoss.setValue(self.t.getPointsForOTLoss())
-            self.pointsForSOLoss.setValue(self.t.getPointsForSOLoss())
+            self.setOTPointsFromTable()
             self.columnWidth.setValue(self.t.getColumnWidth())
             self.scw.setSortCriteria(self.t.getSortCriteria())
             self.showDraws.setCheckState(
@@ -343,10 +360,7 @@ class XkorTableGenerator(QWidget):
             self.pointsForWin.setValue(3)
             self.pointsForDraw.setValue(1)
             self.pointsForLoss.setValue(0)
-            self.pointsForOTWin.setValue(3)
-            self.pointsForSOWin.setValue(3)
-            self.pointsForOTLoss.setValue(0)
-            self.pointsForSOLoss.setValue(0)
+            self.setOTPointsFromTable()  # a new table overrides nothing
             self.columnWidth.setValue(2)
             self.scw.setSortCriteria(self.scw.defaultSortCriteria())
             self.showDraws.setCheckState(Qt.Checked)
@@ -395,6 +409,22 @@ class XkorTableGenerator(QWidget):
     def setMatchesModified(self):
         self.matchesModified = True
 
+    def setOTPointsFromTable(self):
+        """Load the OT/SO spin boxes from self.t, re-linking the ones it
+        leaves unset so they resume following the win/loss boxes."""
+        self.syncingOTPoints = True
+        try:
+            for spin, base, name in self.otPointsRows:
+                value = getattr(self.t, "getRawPointsFor" + name)()
+                if value is None:
+                    self.linkedOTPoints.add(spin)
+                    spin.setValue(base.value())
+                else:
+                    self.linkedOTPoints.discard(spin)
+                    spin.setValue(value)
+        finally:
+            self.syncingOTPoints = False
+
     def showUnsavedDialog(self):
         displayFileName = ("untitled" if not self.currentFileName
                            else QFileInfo(self.currentFileName).fileName())
@@ -405,6 +435,22 @@ class XkorTableGenerator(QWidget):
             destructiveButton=QMessageBox.Discard)
         return warning.exec()
 
+    def syncLinkedOTPoints(self):
+        """Pull every still-linked OT/SO box up to its win/loss box's value."""
+        self.syncingOTPoints = True
+        try:
+            for spin, base, _ in self.otPointsRows:
+                if spin in self.linkedOTPoints:
+                    spin.setValue(base.value())
+        finally:
+            self.syncingOTPoints = False
+
+    def unlinkOTPoints(self, spin):
+        # only a change the user made counts as an override; the ones we make
+        # ourselves while syncing or loading a file don't
+        if not self.syncingOTPoints:
+            self.linkedOTPoints.discard(spin)
+
     def updateTable(self):
         if self.matchesModified:
             self.generateMatches()
@@ -413,10 +459,10 @@ class XkorTableGenerator(QWidget):
         self.t.setPointsForWin(self.pointsForWin.value())
         self.t.setPointsForDraw(self.pointsForDraw.value())
         self.t.setPointsForLoss(self.pointsForLoss.value())
-        self.t.setPointsForOTWin(self.pointsForOTWin.value())
-        self.t.setPointsForSOWin(self.pointsForSOWin.value())
-        self.t.setPointsForOTLoss(self.pointsForOTLoss.value())
-        self.t.setPointsForSOLoss(self.pointsForSOLoss.value())
+        for spin, _, name in self.otPointsRows:
+            # a still-linked box isn't an override, so it goes back as None
+            getattr(self.t, "setPointsFor" + name)(
+                None if spin in self.linkedOTPoints else spin.value())
         self.t.setSortCriteria(self.scw.sortCriteria())
         self.t.setColumnWidth(self.columnWidth.value())
         self.t.setGoalName(toString(

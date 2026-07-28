@@ -1,7 +1,12 @@
+import functools
 import os
 import re
+import subprocess
+import sys
 
+import pytest
 from PySide6.QtCore import QRegularExpression
+from PySide6.QtWidgets import QApplication
 
 from xkoranate.tablegenerator.decider import (MATCH_RESULT_PATTERN, classify,
                                               stripTrailingDeciders)
@@ -249,6 +254,44 @@ def test_xml_reader_falls_back_on_older_files_without_ot_so_fields(tmp_path):
     assert t.getShowOvertime() is False
 
 
+def test_saving_a_table_that_overrides_nothing_keeps_the_ot_so_fallback(tmp_path):
+    # writing out the resolved value would pin it: the reloaded table would
+    # then keep 3-point OT wins even after pointsForWin changed
+    filename = os.path.join(str(tmp_path), "no_overrides.xml")
+
+    t = XkorTable()
+    t.setColumns([])
+    t.setPointsForWin(3)
+    t.setPointsForDraw(1)
+    t.setPointsForLoss(0)
+
+    XkorXmlTableWriter(filename, t)
+    with open(filename, encoding="utf-8") as f:
+        assert "pointsForOTWin" not in f.read()
+
+    reloaded = XkorXmlTableReader(filename).table()
+    assert reloaded.getRawPointsForOTWin() is None
+    reloaded.setPointsForWin(2)
+    assert reloaded.getPointsForOTWin() == 2
+
+
+def test_saving_a_table_that_does_override_ot_points_keeps_the_override(tmp_path):
+    filename = os.path.join(str(tmp_path), "overrides.xml")
+
+    t = XkorTable()
+    t.setColumns([])
+    t.setPointsForWin(2)
+    t.setPointsForLoss(0)
+    t.setPointsForOTLoss(1)
+
+    XkorXmlTableWriter(filename, t)
+
+    reloaded = XkorXmlTableReader(filename).table()
+    assert reloaded.getRawPointsForOTLoss() == 1
+    reloaded.setPointsForLoss(0)
+    assert reloaded.getPointsForOTLoss() == 1  # still overridden, not 0
+
+
 def test_classify_recognizes_shootout_style_names_regardless_of_case_or_punctuation():
     assert classify("SO") == "SO"
     assert classify("so") == "SO"
@@ -489,3 +532,80 @@ def test_coin_flip_result_survives_an_xml_save_and_reload(tmp_path):
     reloaded.generate()
 
     assert [row[0].name() for row in reloaded.data] == originalOrder
+
+
+@functools.lru_cache(maxsize=None)
+def _canCreateQApplication():
+    """Whether a QApplication can be constructed here at all.
+
+    Qt aborts the process outright when no platform plugin will load, which
+    would take the whole test session down with it rather than failing one
+    test — and an installation can advertise a plugin directory holding an
+    offscreen plugin it still can't load. So find out in a throwaway
+    subprocess, where an abort costs nothing."""
+    return subprocess.run(
+        [sys.executable, "-c",
+         "from PySide6.QtWidgets import QApplication; QApplication([])"],
+        capture_output=True).returncode == 0
+
+
+@pytest.fixture(scope="module")
+def qapp():
+    # conftest.py sets QT_QPA_PLATFORM=offscreen, so the real widget can be
+    # built here rather than having the test re-implement its behaviour
+    if QApplication.instance() is None and not _canCreateQApplication():
+        pytest.skip("no usable Qt platform plugin for this interpreter")
+    return QApplication.instance() or QApplication([])
+
+
+def _generator(qapp):
+    from xkoranate.tablegenerator.tablegenerator import XkorTableGenerator
+    w = XkorTableGenerator()
+    w.reset()
+    return w
+
+
+def test_ot_points_boxes_follow_the_win_loss_boxes_until_overridden(qapp):
+    w = _generator(qapp)
+    assert w.pointsForOTWin.value() == w.pointsForWin.value() == 3
+
+    # a league switching to 2 points for a win gets 2-point OT wins too
+    w.pointsForWin.setValue(2)
+    assert w.pointsForOTWin.value() == 2
+    assert w.pointsForSOWin.value() == 2
+
+    w.pointsForLoss.setValue(0)
+    w.pointsForOTLoss.setValue(1)  # the user overrides this one
+    w.pointsForWin.setValue(3)
+    assert w.pointsForOTWin.value() == 3  # still following
+    assert w.pointsForOTLoss.value() == 1  # override survives
+
+
+def test_only_overridden_ot_points_reach_the_table(qapp):
+    w = _generator(qapp)
+    w.pointsForWin.setValue(2)
+    w.pointsForSOLoss.setValue(1)
+    w.updateTable()
+
+    assert w.t.getRawPointsForOTWin() is None  # never overridden
+    assert w.t.getPointsForOTWin() == 2  # so it follows the win value
+    assert w.t.getRawPointsForSOLoss() == 1
+
+
+def test_opening_a_file_restores_which_ot_points_were_overridden(qapp, tmp_path):
+    filename = os.path.join(str(tmp_path), "widget_round_trip.xml")
+
+    w = _generator(qapp)
+    w.pointsForWin.setValue(2)
+    w.pointsForOTLoss.setValue(1)
+    w.updateTable()
+    XkorXmlTableWriter(filename, w.t)
+
+    w2 = _generator(qapp)
+    w2.openFile(filename)
+    assert w2.pointsForOTLoss.value() == 1
+    assert w2.pointsForOTLoss not in w2.linkedOTPoints  # still an override
+    assert w2.pointsForOTWin in w2.linkedOTPoints  # still following
+    w2.pointsForWin.setValue(4)
+    assert w2.pointsForOTWin.value() == 4
+    assert w2.pointsForOTLoss.value() == 1

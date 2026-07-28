@@ -99,6 +99,24 @@ class XkorTable:
     def getPointsForSOLoss(self):
         return self.pointsForSOLoss if self.pointsForSOLoss is not None else self.pointsForLoss
 
+    # the raw getters return None where the getPointsFor*() ones above resolve
+    # the fallback, so a caller that needs to tell "not overridden" apart from
+    # "overridden to the same number" — the XML writer, and the widget deciding
+    # whether its spin box still mirrors the win/loss one — can do so. Writing
+    # a resolved value out would pin it, silently breaking the fallback the
+    # next time the file is opened.
+    def getRawPointsForOTWin(self):
+        return self.pointsForOTWin
+
+    def getRawPointsForSOWin(self):
+        return self.pointsForSOWin
+
+    def getRawPointsForOTLoss(self):
+        return self.pointsForOTLoss
+
+    def getRawPointsForSOLoss(self):
+        return self.pointsForSOLoss
+
     def getShowDraws(self):
         return self.showDraws
 
@@ -145,6 +163,8 @@ class XkorTable:
         self.pointsForLoss = pts
         self.sorter.setPointsForLoss(pts)
 
+    # pass None to clear an override and go back to following pointsForWin /
+    # pointsForLoss
     def setPointsForOTWin(self, pts):
         self.pointsForOTWin = pts
         self.sorter.setPointsForOTWin(pts)

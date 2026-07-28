@@ -33,10 +33,15 @@ class XkorXmlTableWriter(QXmlStreamWriter):
         self.writeTextElement("pointsForWin", qNumber(t.getPointsForWin()))
         self.writeTextElement("pointsForDraw", qNumber(t.getPointsForDraw()))
         self.writeTextElement("pointsForLoss", qNumber(t.getPointsForLoss()))
-        self.writeTextElement("pointsForOTWin", qNumber(t.getPointsForOTWin()))
-        self.writeTextElement("pointsForSOWin", qNumber(t.getPointsForSOWin()))
-        self.writeTextElement("pointsForOTLoss", qNumber(t.getPointsForOTLoss()))
-        self.writeTextElement("pointsForSOLoss", qNumber(t.getPointsForSOLoss()))
+        # only written when actually overridden — a table that leaves these
+        # following pointsForWin/pointsForLoss must keep doing so after a
+        # save/reload round trip, so writing the resolved value isn't an option
+        for name, value in (("pointsForOTWin", t.getRawPointsForOTWin()),
+                            ("pointsForSOWin", t.getRawPointsForSOWin()),
+                            ("pointsForOTLoss", t.getRawPointsForOTLoss()),
+                            ("pointsForSOLoss", t.getRawPointsForSOLoss())):
+            if value is not None:
+                self.writeTextElement(name, qNumber(value))
 
         self.writeTextElement("columnWidth", str(t.getColumnWidth()))
         self.writeTextElement("showDraws", "true" if t.getShowDraws() else "false")
