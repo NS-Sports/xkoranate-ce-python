@@ -1,6 +1,5 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QCheckBox, QDoubleSpinBox, QFormLayout,
-                               QHBoxLayout, QLabel, QPushButton, QWidget)
+from PySide6.QtWidgets import QCheckBox, QFormLayout, QLabel, QWidget
 
 from xkoranate.abstractoptionswidget import XkorAbstractOptionsWidget
 from xkoranate.variant import toDouble, toString
@@ -27,7 +26,6 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
                  defaultREAR=_DEFAULT_REAR, defaultMarginDivisor=_DEFAULT_MARGIN_DIVISOR,
                  parent=None):
         super().__init__(opts, parent)
-        self._defaultHomeAdvantageEAR = defaultHomeAdvantageEAR
 
         self.homeAdvantage = QCheckBox("Apply home advantage")
         if toString(self.options.get("homeAdvantage")) == "true":
@@ -38,28 +36,14 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         self.homeAdvantage.stateChanged.connect(self.setHomeAdvantage)
 
         self.homeAdvantageEARLabel = QLabel("Home advantage (EAR):")
-        self.homeAdvantageEAR = QDoubleSpinBox()
-        self.homeAdvantageEAR.setDecimals(1)
-        self.homeAdvantageEAR.setRange(0, 500)
-        self.homeAdvantageEAR.setSingleStep(5)
-        self.homeAdvantageEAR.setValue(toDouble(self.options.get(
-            "homeAdvantageEAR", defaultHomeAdvantageEAR)))
-        self.setHomeAdvantageEAR(self.homeAdvantageEAR.value())
+        self.homeAdvantageEAR = XkorConstantSpinBox(
+            toDouble(self.options.get("homeAdvantageEAR", defaultHomeAdvantageEAR)),
+            defaultHomeAdvantageEAR, decimals=1, minimum=0, maximum=500, step=5)
         self.homeAdvantageEAR.valueChanged.connect(self.setHomeAdvantageEAR)
-
-        self.restoreHomeAdvantageEAR = QPushButton("Restore default")
-        self.restoreHomeAdvantageEAR.setToolTip(
-            "Reset to this sport's configured value (%.1f)" % defaultHomeAdvantageEAR)
-        self.restoreHomeAdvantageEAR.clicked.connect(self._restoreHomeAdvantageEAR)
+        self.setHomeAdvantageEAR(self.homeAdvantageEAR.value())
 
         self._updateHomeAdvantageEAREnabled(self.homeAdvantage.checkState())
         self.homeAdvantage.stateChanged.connect(self._updateHomeAdvantageEAREnabled)
-
-        self.homeAdvantageEARRow = QWidget()
-        homeAdvantageEARRowLayout = QHBoxLayout(self.homeAdvantageEARRow)
-        homeAdvantageEARRowLayout.setContentsMargins(0, 0, 0, 0)
-        homeAdvantageEARRowLayout.addWidget(self.homeAdvantageEAR)
-        homeAdvantageEARRowLayout.addWidget(self.restoreHomeAdvantageEAR)
 
         # per-team home advantage: each side's own H rating (entered as a
         # participant column, 0-100, defaulting to 50) replaces the fixed
@@ -124,7 +108,7 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
 
         self.form = QFormLayout(self)
         self.form.addRow("", self.homeAdvantage)
-        self.form.addRow(self.homeAdvantageEARLabel, self.homeAdvantageEARRow)
+        self.form.addRow(self.homeAdvantageEARLabel, self.homeAdvantageEAR)
         self.form.addRow("", self.perTeamHomeAdvantage)
         self.form.addRow("", self.showTLAs)
         self.form.addRow(self.advancedSection)
@@ -142,14 +126,10 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         self.options["homeAdvantageEAR"] = x
         self.optionsChanged.emit(self.options)
 
-    def _restoreHomeAdvantageEAR(self):
-        self.homeAdvantageEAR.setValue(self._defaultHomeAdvantageEAR)
-
     def _updateHomeAdvantageEAREnabled(self, x):
         enabled = Qt.CheckState(x) == Qt.Checked
         self.homeAdvantageEARLabel.setEnabled(enabled)
         self.homeAdvantageEAR.setEnabled(enabled)
-        self.restoreHomeAdvantageEAR.setEnabled(enabled)
 
     def setPerTeamHomeAdvantage(self, x):
         if Qt.CheckState(x) == Qt.Checked:
