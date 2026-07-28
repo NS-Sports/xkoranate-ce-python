@@ -15,8 +15,12 @@ class XkorLISAParadigm(XkorAbstractH2HParadigm):
     directly instead of implementing the generateScore() attack hook that the
     other H2H paradigms share.
 
-    See https://forum.nationstates.net/viewtopic.php?p=42898867#p42898867 and
-    the v1.093 update at https://forum.nationstates.net/viewtopic.php?p=43251481#p43251481
+    LISA originated as a NationStates forum design proposal for an
+    Elo-derived scoring algorithm. The v1.093 revision reworked the
+    losing-team's expected-goals lambda (dubbed "Scorigami Mitigation" in
+    the original write-up) so that a bigger winning margin now suppresses
+    the loser's expected score more, rather than applying a flat penalty
+    regardless of how large the margin is.
     """
 
     def __init__(self, sport=None, userOptions=None):

@@ -1,10 +1,8 @@
 """Unit checks for the LISA v1.093 paradigm's math helpers.
 
-Expected values are taken from the worked examples in the design post
-(https://forum.nationstates.net/viewtopic.php?p=42898867#p42898867) and from
-formulas read directly out of the mock spreadsheet's cells (confirmed via the
-live sheet, not just the prose) at
-https://docs.google.com/spreadsheets/d/1glbWWYG1yG8iRO-3f-ct6IfPGEW3l0BTo2-BoOqhUD0
+Expected values are taken from the worked examples in the original design
+write-up, cross-checked against formulas read directly out of a reference
+spreadsheet's cells rather than relying on the write-up's prose alone.
 """
 
 import math
