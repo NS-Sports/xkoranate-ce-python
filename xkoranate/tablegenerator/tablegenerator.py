@@ -1,31 +1,18 @@
 import math
 
-from PySide6.QtCore import QDir, QFileInfo, QRegularExpression, Qt, Signal
+from PySide6.QtCore import QDir, QFileInfo, Qt, Signal
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFormLayout,
                                QGridLayout, QLabel, QMessageBox,
                                QPlainTextEdit, QSpinBox, QWidget)
 
 from ..ui.dialogs import message_box, resolved_search_path
 from ..ui.fonts import monospace_font
-from ..variant import toDouble, toString
+from ..variant import toString
+from .decider import parseMatchLine
 from .sortcriteriawidget import XkorSortCriteriaWidget
 from .table import XkorTable
 from .tablecolumn import XkorTableColumn
 from .tablematch import XkorTableMatch
-
-
-def _qLeft(s, n):
-    # QString::left(n): the entire string is returned if n >= size() or n < 0
-    if n < 0 or n >= len(s):
-        return s
-    return s[:n]
-
-
-def _qRight(s, n):
-    # QString::right(n): the entire string is returned if n >= size() or n < 0
-    if n < 0 or n >= len(s):
-        return s
-    return s[len(s) - n:]
 
 
 class XkorTableGenerator(QWidget):
@@ -61,6 +48,34 @@ class XkorTableGenerator(QWidget):
         self.pointsForDraw.valueChanged.connect(lambda: self.setFileModified())
         self.pointsForLoss = QSpinBox()
         self.pointsForLoss.valueChanged.connect(lambda: self.setFileModified())
+        self.pointsForOTWin = QSpinBox()
+        self.pointsForOTWin.valueChanged.connect(lambda: self.setFileModified())
+        self.pointsForSOWin = QSpinBox()
+        self.pointsForSOWin.valueChanged.connect(lambda: self.setFileModified())
+        self.pointsForOTLoss = QSpinBox()
+        self.pointsForOTLoss.valueChanged.connect(lambda: self.setFileModified())
+        self.pointsForSOLoss = QSpinBox()
+        self.pointsForSOLoss.valueChanged.connect(lambda: self.setFileModified())
+
+        # each OT/SO box follows the plain win or loss box until the user sets
+        # it themselves; only then does it become an override that's saved to
+        # the file. So a league that just changes "points for win" to 2 gets
+        # 2-point OT wins, not the stale 3 it was last showing.
+        self.otPointsRows = [
+            (self.pointsForOTWin, self.pointsForWin, "OTWin"),
+            (self.pointsForSOWin, self.pointsForWin, "SOWin"),
+            (self.pointsForOTLoss, self.pointsForLoss, "OTLoss"),
+            (self.pointsForSOLoss, self.pointsForLoss, "SOLoss"),
+        ]
+        self.linkedOTPoints = set(spin for spin, _, _ in self.otPointsRows)
+        self.syncingOTPoints = False
+        for spin, base, _ in self.otPointsRows:
+            spin.setToolTip("Follows the matching win/loss value until you "
+                            "change it here.")
+            spin.valueChanged.connect(
+                lambda _value, spin=spin: self.unlinkOTPoints(spin))
+            base.valueChanged.connect(self.syncLinkedOTPoints)
+
         self.columnWidth = QSpinBox()
         self.columnWidth.valueChanged.connect(lambda: self.setFileModified())
 
@@ -69,6 +84,11 @@ class XkorTableGenerator(QWidget):
 
         self.showDraws = QCheckBox("Draws")
         self.showDraws.stateChanged.connect(lambda: self.setFileModified())
+        self.showOvertime = QCheckBox("OT/SO breakdown")
+        self.showOvertime.setToolTip("Adds OTW, SOW, OTL and SOL columns, "
+                                     "splitting wins and losses by how they "
+                                     "were decided.")
+        self.showOvertime.stateChanged.connect(lambda: self.setFileModified())
         self.showResultsGrid = QCheckBox("Results grid")
         self.showResultsGrid.stateChanged.connect(lambda: self.setFileModified())
 
@@ -77,6 +97,10 @@ class XkorTableGenerator(QWidget):
         self.goalName.addItem("Korfs (K)", "K")
         self.goalName.addItem("Points (P)", "P")
         self.goalName.addItem("Runs (R)", "R")
+        # the themed QComboBox stylesheet's sizeHint() leaves no headroom past
+        # the widest item's text width, so its right edge clips against the
+        # dropdown arrow — force a little breathing room instead
+        self.goalName.setMinimumContentsLength(10)
         self.goalName.currentIndexChanged.connect(lambda: self.setFileModified())
 
         self.matches = QPlainTextEdit()
@@ -100,10 +124,25 @@ class XkorTableGenerator(QWidget):
         pointsLayout.setColumnStretch(3, 0)  # don't stretch the labels
         pointsLayout.setColumnStretch(4, 1)
 
+        otPointsLayout = QGridLayout()
+        otPointsLayout.addWidget(self.pointsForOTWin, 0, 0)
+        otPointsLayout.addWidget(QLabel("OT loss:"), 0, 1)
+        otPointsLayout.addWidget(self.pointsForOTLoss, 0, 2)
+        otPointsLayout.setContentsMargins(0, 0, 0, 0)
+
+        soPointsLayout = QGridLayout()
+        soPointsLayout.addWidget(self.pointsForSOWin, 0, 0)
+        soPointsLayout.addWidget(QLabel("SO loss:"), 0, 1)
+        soPointsLayout.addWidget(self.pointsForSOLoss, 0, 2)
+        soPointsLayout.setContentsMargins(0, 0, 0, 0)
+
         form = QFormLayout()
         form.addRow("Table sort rules:", self.scw)
         form.addRow("Points for win:", pointsLayout)
+        form.addRow("Points for OT win:", otPointsLayout)
+        form.addRow("Points for SO win:", soPointsLayout)
         form.addRow("Show columns:", self.showDraws)
+        form.addRow("", self.showOvertime)
         form.addRow("", self.showResultsGrid)
         form.addRow("Goals are called:", self.goalName)
         form.addRow("Column width:", self.columnWidth)
@@ -144,19 +183,11 @@ class XkorTableGenerator(QWidget):
         text = self.matches.toPlainText()
 
         for line in text.split("\n"):
-            # match scores of form Aquilla 3–1 Busby, with en dash,
-            # hyphen-minus, or colon as delimiter
-            rx = QRegularExpression("([0-9]+)[-–:]([0-9]+)")
-            match = rx.match(line)
-            if match.hasMatch():  # if we matched
-                index = match.capturedStart(0)
-                matchedLength = match.capturedLength(0)
-                homeTeam = _qLeft(line, index - 1)
-                awayTeam = _qRight(line, len(line) - index - matchedLength - 1)
-                homeScore = toDouble(match.captured(1))
-                awayScore = toDouble(match.captured(2))
+            parsed = parseMatchLine(line)
+            if parsed is not None:  # if we matched
+                homeTeam, awayTeam, homeScore, awayScore, decider = parsed
                 self.matchesList.append(
-                    XkorTableMatch(homeTeam, awayTeam, homeScore, awayScore))
+                    XkorTableMatch(homeTeam, awayTeam, homeScore, awayScore, decider))
                 if homeTeam not in self.teamsList:
                     self.teamsList.append(homeTeam)
                 if awayTeam not in self.teamsList:
@@ -200,6 +231,11 @@ class XkorTableGenerator(QWidget):
         if self.showDraws.checkState() == Qt.Checked:
             columns.append(XkorTableColumn("draws", "D", matchdayWidth + 1))
         columns.append(XkorTableColumn("losses", "L", matchdayWidth + 1))
+        if self.showOvertime.checkState() == Qt.Checked:
+            columns.append(XkorTableColumn("otWins", "OTW", matchdayWidth + 2))
+            columns.append(XkorTableColumn("soWins", "SOW", matchdayWidth + 2))
+            columns.append(XkorTableColumn("otLosses", "OTL", matchdayWidth + 2))
+            columns.append(XkorTableColumn("soLosses", "SOL", matchdayWidth + 2))
         if usesGoalAverage or usesGoalDifference or usesGoalsAgainst or usesGoalsFor:
             columns.append(XkorTableColumn("goalsFor", chosenGoalName + "F",
                                            matchdayWidth + 3))
@@ -265,10 +301,13 @@ class XkorTableGenerator(QWidget):
             self.pointsForWin.setValue(self.t.getPointsForWin())
             self.pointsForDraw.setValue(self.t.getPointsForDraw())
             self.pointsForLoss.setValue(self.t.getPointsForLoss())
+            self.setOTPointsFromTable()
             self.columnWidth.setValue(self.t.getColumnWidth())
             self.scw.setSortCriteria(self.t.getSortCriteria())
             self.showDraws.setCheckState(
                 Qt.Checked if self.t.getShowDraws() else Qt.Unchecked)
+            self.showOvertime.setCheckState(
+                Qt.Checked if self.t.getShowOvertime() else Qt.Unchecked)
             self.showResultsGrid.setCheckState(
                 Qt.Checked if self.t.getShowResultsGrid() else Qt.Unchecked)
             self.goalName.setCurrentIndex(
@@ -291,9 +330,11 @@ class XkorTableGenerator(QWidget):
             self.pointsForWin.setValue(3)
             self.pointsForDraw.setValue(1)
             self.pointsForLoss.setValue(0)
+            self.setOTPointsFromTable()  # a new table overrides nothing
             self.columnWidth.setValue(2)
             self.scw.setSortCriteria(self.scw.defaultSortCriteria())
             self.showDraws.setCheckState(Qt.Checked)
+            self.showOvertime.setCheckState(Qt.Unchecked)
             self.showResultsGrid.setCheckState(Qt.Unchecked)
             self.goalName.setCurrentIndex(self.goalName.findData("G"))
 
@@ -338,6 +379,22 @@ class XkorTableGenerator(QWidget):
     def setMatchesModified(self):
         self.matchesModified = True
 
+    def setOTPointsFromTable(self):
+        """Load the OT/SO spin boxes from self.t, re-linking the ones it
+        leaves unset so they resume following the win/loss boxes."""
+        self.syncingOTPoints = True
+        try:
+            for spin, base, name in self.otPointsRows:
+                value = getattr(self.t, "getRawPointsFor" + name)()
+                if value is None:
+                    self.linkedOTPoints.add(spin)
+                    spin.setValue(base.value())
+                else:
+                    self.linkedOTPoints.discard(spin)
+                    spin.setValue(value)
+        finally:
+            self.syncingOTPoints = False
+
     def showUnsavedDialog(self):
         displayFileName = ("untitled" if not self.currentFileName
                            else QFileInfo(self.currentFileName).fileName())
@@ -348,6 +405,22 @@ class XkorTableGenerator(QWidget):
             destructiveButton=QMessageBox.Discard)
         return warning.exec()
 
+    def syncLinkedOTPoints(self):
+        """Pull every still-linked OT/SO box up to its win/loss box's value."""
+        self.syncingOTPoints = True
+        try:
+            for spin, base, _ in self.otPointsRows:
+                if spin in self.linkedOTPoints:
+                    spin.setValue(base.value())
+        finally:
+            self.syncingOTPoints = False
+
+    def unlinkOTPoints(self, spin):
+        # only a change the user made counts as an override; the ones we make
+        # ourselves while syncing or loading a file don't
+        if not self.syncingOTPoints:
+            self.linkedOTPoints.discard(spin)
+
     def updateTable(self):
         if self.matchesModified:
             self.generateMatches()
@@ -356,9 +429,14 @@ class XkorTableGenerator(QWidget):
         self.t.setPointsForWin(self.pointsForWin.value())
         self.t.setPointsForDraw(self.pointsForDraw.value())
         self.t.setPointsForLoss(self.pointsForLoss.value())
+        for spin, _, name in self.otPointsRows:
+            # a still-linked box isn't an override, so it goes back as None
+            getattr(self.t, "setPointsFor" + name)(
+                None if spin in self.linkedOTPoints else spin.value())
         self.t.setSortCriteria(self.scw.sortCriteria())
         self.t.setColumnWidth(self.columnWidth.value())
         self.t.setGoalName(toString(
             self.goalName.itemData(self.goalName.currentIndex())))
         self.t.setShowDraws(self.showDraws.checkState() == Qt.Checked)
+        self.t.setShowOvertime(self.showOvertime.checkState() == Qt.Checked)
         self.t.setShowResultsGrid(self.showResultsGrid.checkState() == Qt.Checked)

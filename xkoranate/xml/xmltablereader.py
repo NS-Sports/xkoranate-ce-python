@@ -1,25 +1,8 @@
-import re
 import sys
 
 from PySide6.QtCore import QFile, QIODevice, QXmlStreamReader
 
 from ..variant import toDouble, toInt
-
-
-def _qLeft(s, n):
-    """QString::left(n): whole string if n < 0 or n > size."""
-    if n < 0 or n > len(s):
-        return s
-    return s[:n]
-
-
-def _qRight(s, n):
-    """QString::right(n): whole string if n < 0 or n > size."""
-    if n < 0 or n > len(s):
-        return s
-    if n == 0:
-        return ""
-    return s[len(s) - n:]
 
 
 class XkorXmlTableReader(QXmlStreamReader):
@@ -84,23 +67,50 @@ class XkorXmlTableReader(QXmlStreamReader):
                     self.m_table.setPointsForDraw(self.readDouble())
                 elif self.name() == "pointsForLoss":
                     self.m_table.setPointsForLoss(self.readDouble())
+                elif self.name() == "pointsForOTWin":
+                    self.m_table.setPointsForOTWin(self.readDouble())
+                elif self.name() == "pointsForSOWin":
+                    self.m_table.setPointsForSOWin(self.readDouble())
+                elif self.name() == "pointsForOTLoss":
+                    self.m_table.setPointsForOTLoss(self.readDouble())
+                elif self.name() == "pointsForSOLoss":
+                    self.m_table.setPointsForSOLoss(self.readDouble())
                 elif self.name() == "columnWidth":
                     self.m_table.setColumnWidth(self.readInt())
                 elif self.name() == "goalName":
                     self.m_table.setGoalName(self.readString())
                 elif self.name() == "showDraws":
                     self.m_table.setShowDraws(self.readString() == "true")
+                elif self.name() == "showOvertime":
+                    self.m_table.setShowOvertime(self.readString() == "true")
                 elif self.name() == "showResultsGrid":
                     self.m_table.setShowResultsGrid(self.readString() == "true")
                 elif self.name() == "matches":
                     self.readMatches()
+                elif self.name() == "coinFlips":
+                    self.m_table.setCoinFlips(self.readCoinFlips())
                 else:
                     self.readUnknownElement()
+
+    def readCoinFlips(self):
+        rval = {}
+        while not self.atEnd():
+            self.readNext()
+            if self.isEndElement():
+                break
+            if self.isStartElement():
+                if self.name() == "coinFlip":
+                    teamName = str(self.attributes().value("team"))
+                    rval[teamName] = self.readDouble()
+                else:
+                    self.readUnknownElement()
+        return rval
 
     def readInt(self):
         return toInt(self.readElementText())
 
     def readMatches(self):
+        from ..tablegenerator.decider import parseMatchLine
         from ..tablegenerator.tablematch import XkorTableMatch
 
         matchesList = []
@@ -113,17 +123,9 @@ class XkorXmlTableReader(QXmlStreamReader):
                 if self.name() == "match":
                     matchText = self.readString()
 
-                    # match scores of form Aquilla 3–1 Busby, with en dash, hyphen-minus, or colon as delimiter
-                    rx = re.compile("([0-9]+)[-–:]([0-9]+)")
-                    m = rx.search(matchText)
-                    if m is not None:  # if we matched
-                        index = m.start()
-                        matchedLength = m.end() - m.start()
-                        homeTeam = _qLeft(matchText, index - 1)
-                        awayTeam = _qRight(matchText, len(matchText) - index - matchedLength - 1)
-                        homeScore = toDouble(m.group(1))
-                        awayScore = toDouble(m.group(2))
-                        matchesList.append(XkorTableMatch(homeTeam, awayTeam, homeScore, awayScore))
+                    parsed = parseMatchLine(matchText)
+                    if parsed is not None:  # if we matched
+                        matchesList.append(XkorTableMatch(*parsed))
                     self.m_matches += matchText + "\n"
                 else:
                     self.readUnknownElement()

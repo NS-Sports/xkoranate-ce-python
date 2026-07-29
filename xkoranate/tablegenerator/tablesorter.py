@@ -2,6 +2,9 @@ import functools
 
 from .sortrules.sortalpha import XkorSortAlphaEq, XkorSortAlphaGr
 from .sortrules.sortawaygoals import XkorSortAwayGoalsEq, XkorSortAwayGoalsGr
+from .sortrules.sortawaywins import XkorSortAwayWinsEq, XkorSortAwayWinsGr
+from .sortrules.sortcoinflip import (XkorSortCoinFlipEq, XkorSortCoinFlipGr,
+                                     assignCoinFlips, pruneCoinFlips)
 from .sortrules.sortgoalaverage import (XkorSortGoalAverageEq,
                                         XkorSortGoalAverageGr)
 from .sortrules.sortgoaldifference import (XkorSortGoalDiffEq,
@@ -19,7 +22,15 @@ from .sortrules.sorth2hgoalsfor import (XkorSortH2HGoalsForEq,
                                         XkorSortH2HGoalsForGr)
 from .sortrules.sorth2hpoints import XkorSortH2HPointsEq, XkorSortH2HPointsGr
 from .sortrules.sorth2hwins import XkorSortH2HWinsEq, XkorSortH2HWinsGr
+from .sortrules.sorthomegoalsagainst import (XkorSortHomeGoalsAgainstEq,
+                                             XkorSortHomeGoalsAgainstGr)
+from .sortrules.sorthomelosses import (XkorSortHomeLossesEq,
+                                       XkorSortHomeLossesGr)
+from .sortrules.sortlosses import XkorSortLossesEq, XkorSortLossesGr
+from .sortrules.sortotwins import XkorSortOTWinsEq, XkorSortOTWinsGr
 from .sortrules.sortpoints import XkorSortPointsEq, XkorSortPointsGr
+from .sortrules.sortregulationwins import (XkorSortRegulationWinsEq,
+                                           XkorSortRegulationWinsGr)
 from .sortrules.sortwinpercent import (XkorSortWinPercentEq,
                                        XkorSortWinPercentGr)
 from .sortrules.sortwinpercentnfl import (XkorSortWinPercentNFLEq,
@@ -34,7 +45,24 @@ class XkorTableSorter:
         self.pointsForWin = 0.0
         self.pointsForDraw = 0.0
         self.pointsForLoss = 0.0
+        self.pointsForOTWin = None
+        self.pointsForSOWin = None
+        self.pointsForOTLoss = None
+        self.pointsForSOLoss = None
         self.h2hTeams = []
+        # team name -> coin-flip value; a team's flip sticks once made, so
+        # regenerating the table (or reloading it after a save) doesn't
+        # re-roll it — see XkorTable.getCoinFlips()/setCoinFlips()
+        self.coinFlips = {}
+
+    def getCoinFlips(self):
+        return self.coinFlips
+
+    def pruneCoinFlips(self, teamNames):
+        pruneCoinFlips(teamNames, self.coinFlips)
+
+    def setCoinFlips(self, flips):
+        self.coinFlips = flips
 
     def setH2HTeams(self, teams):
         self.h2hTeams = teams
@@ -48,6 +76,30 @@ class XkorTableSorter:
     def setPointsForLoss(self, pts):
         self.pointsForLoss = pts
 
+    def setPointsForOTWin(self, pts):
+        self.pointsForOTWin = pts
+
+    def setPointsForSOWin(self, pts):
+        self.pointsForSOWin = pts
+
+    def setPointsForOTLoss(self, pts):
+        self.pointsForOTLoss = pts
+
+    def setPointsForSOLoss(self, pts):
+        self.pointsForSOLoss = pts
+
+    def getPointsForOTWin(self):
+        return self.pointsForOTWin if self.pointsForOTWin is not None else self.pointsForWin
+
+    def getPointsForSOWin(self):
+        return self.pointsForSOWin if self.pointsForSOWin is not None else self.pointsForWin
+
+    def getPointsForOTLoss(self):
+        return self.pointsForOTLoss if self.pointsForOTLoss is not None else self.pointsForLoss
+
+    def getPointsForSOLoss(self):
+        return self.pointsForSOLoss if self.pointsForSOLoss is not None else self.pointsForLoss
+
     def sort(self, rows, sortType):
         # h2h team list
         l = []
@@ -59,6 +111,11 @@ class XkorTableSorter:
             rval = self.privateSort(rows, XkorSortAlphaGr(), XkorSortAlphaEq())
         elif sortType == "awayGoals":
             rval = self.privateSort(rows, XkorSortAwayGoalsGr(), XkorSortAwayGoalsEq())
+        elif sortType == "awayWins":
+            rval = self.privateSort(rows, XkorSortAwayWinsGr(), XkorSortAwayWinsEq())
+        elif sortType == "coinFlip":
+            assignCoinFlips(rows, self.coinFlips)
+            rval = self.privateSort(rows, XkorSortCoinFlipGr(self.coinFlips), XkorSortCoinFlipEq(self.coinFlips))
         elif sortType == "goalAverage":
             rval = self.privateSort(rows, XkorSortGoalAverageGr(), XkorSortGoalAverageEq())
         elif sortType == "goalDifference":
@@ -79,10 +136,24 @@ class XkorTableSorter:
             rval = self.privateSort(rows, XkorSortH2HPointsGr(l), XkorSortH2HPointsEq(l))
         elif sortType == "h2hWins":
             rval = self.privateSort(rows, XkorSortH2HWinsGr(l), XkorSortH2HWinsEq(l))
+        elif sortType == "homeGoalsAgainst":
+            rval = self.privateSort(rows, XkorSortHomeGoalsAgainstGr(), XkorSortHomeGoalsAgainstEq())
+        elif sortType == "homeLosses":
+            rval = self.privateSort(rows, XkorSortHomeLossesGr(), XkorSortHomeLossesEq())
+        elif sortType == "losses":
+            rval = self.privateSort(rows, XkorSortLossesGr(), XkorSortLossesEq())
+        elif sortType == "otWins":
+            rval = self.privateSort(rows, XkorSortOTWinsGr(), XkorSortOTWinsEq())
         elif sortType == "points":
-            gr = XkorSortPointsGr(self.pointsForWin, self.pointsForDraw, self.pointsForLoss)
-            eq = XkorSortPointsEq(self.pointsForWin, self.pointsForDraw, self.pointsForLoss)
+            gr = XkorSortPointsGr(self.pointsForWin, self.pointsForDraw, self.pointsForLoss,
+                                  self.getPointsForOTWin(), self.getPointsForSOWin(),
+                                  self.getPointsForOTLoss(), self.getPointsForSOLoss())
+            eq = XkorSortPointsEq(self.pointsForWin, self.pointsForDraw, self.pointsForLoss,
+                                  self.getPointsForOTWin(), self.getPointsForSOWin(),
+                                  self.getPointsForOTLoss(), self.getPointsForSOLoss())
             rval = self.privateSort(rows, gr, eq)
+        elif sortType == "regulationWins":
+            rval = self.privateSort(rows, XkorSortRegulationWinsGr(), XkorSortRegulationWinsEq())
         elif sortType == "winPercent":
             rval = self.privateSort(rows, XkorSortWinPercentGr(), XkorSortWinPercentEq())
         elif sortType == "winPercentNFL":
