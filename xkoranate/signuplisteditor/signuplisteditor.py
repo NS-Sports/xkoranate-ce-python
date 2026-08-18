@@ -2,6 +2,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (QCheckBox, QDoubleSpinBox, QFormLayout, QVBoxLayout, QWidget)
 
 from ..signuplist import XkorSignupList
+from ..ui.tooltips import wrapped_tooltip
 from ..ui.typography import heading_label
 
 # per-athlete skill-entry ceiling used whenever "Maximum skill" isn't a
@@ -56,6 +57,9 @@ class XkorSignupListEditor(QWidget):
         # lets max rank auto-follow the highest entered participant instead
         # of acting as a pre-set ceiling that clamps entries
         self.pinMaxToParticipants = QCheckBox("Pin to max participant rank")
+        self.pinMaxToParticipants.setToolTip(wrapped_tooltip(
+            "Maximum skill automatically tracks the highest entered participant, instead of "
+            "acting as a ceiling that blocks entering anyone above it."))
         self.pinMaxToParticipants.stateChanged.connect(self._pinMaxToParticipantsChanged)
 
         # form layout
@@ -137,6 +141,14 @@ class XkorSignupListEditor(QWidget):
 
         self.isLoading = True  # prevent dataChanged from being emitted
 
+        if not self._usesMinSkill:
+            # this paradigm mandates min=0 (e.g. LISA needs a true identity
+            # pass-through) regardless of whatever was persisted -- an older
+            # save, or one from before this paradigm's min/max semantics
+            # existed, would otherwise silently reintroduce a rescale that
+            # setSport() already went to the trouble of correcting
+            data.setMinRank(0.0)
+
         self.minRank.setValue(data.minRank())
         self.maxRank.setValue(data.maxRank())
         if self.athletes:
@@ -145,6 +157,15 @@ class XkorSignupListEditor(QWidget):
             self.athletes.setAthletes(data.athletes())
 
         self.m_data = data
+
+        # re-derive max (fixed/pinned/manual) from the CURRENT paradigm
+        # rather than trusting whatever max was persisted in `data`, then
+        # sync the correction back into m_data -- still while isLoading, so
+        # this internal correction doesn't mark the event as modified just
+        # from loading it
+        self._applyMaxRankMode()
+        self.updateData()
+
         self.isLoading = False  # allow dataChanged to be emitted if the user does stuff
 
     def setDataChanged(self):

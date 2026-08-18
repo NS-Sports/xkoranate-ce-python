@@ -23,6 +23,7 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
     def init(self):
         self.r.seed(int(time.time()))
         self.dialog = None
+        self.m_homeAdvantageDefault = 0.0
 
         self.delegate = XkorAthleteDelegate(self.m_columnTypes, self.m_minDouble,
                                             self.m_maxDouble, self.m_doubleStep)
@@ -143,9 +144,9 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
                 item.setText(i, "0")
                 item.setTextAlignment(i, Qt.AlignRight)
             elif self.m_columnTypes[i] == "homeAdvantage":
-                # matches the reference sheet: an unset per-team rating
-                # counts as 50, the same advantage as its opponent
-                item.setText(i, "50")
+                # the paradigm sets this to whatever an unset rating should
+                # mean for its own current mode (see setHomeAdvantageDefault)
+                item.setText(i, qNumber(self.m_homeAdvantageDefault))
                 item.setTextAlignment(i, Qt.AlignRight)
 
     def setAthletes(self, athletes):
@@ -161,3 +162,6 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
 
     def setMinRank(self, newMin):
         self.delegate.setMinRank(newMin)
+
+    def setHomeAdvantageDefault(self, value):
+        self.m_homeAdvantageDefault = value

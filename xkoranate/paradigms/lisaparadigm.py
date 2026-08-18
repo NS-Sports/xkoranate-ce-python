@@ -42,6 +42,7 @@ class XkorLISAParadigm(XkorAbstractH2HParadigm):
         from ..signuplisteditor.athletewidget import XkorAthleteWidget
         includeStyle = (toString(self.userOpt.get("styleMods")) != "false"
                         or toString(self.userOpt.get("NSFSStyleMods")) != "false")
+        mode = self.homeAdvantageMode()
 
         keys = ["name", "nation", "skill"]
         names = ["Participant", "Team", "Skill"]
@@ -50,12 +51,25 @@ class XkorLISAParadigm(XkorAbstractH2HParadigm):
             keys.append("style")
             names.append("Style")
             types.append("double")
-        if self.perTeamHomeAdvantage():
+        if mode == "adversarial":
+            # reuses the "double" type deliberately: it already shares this
+            # widget's -5..+5 range with the style column, which is exactly
+            # the scale _adversarialRating() expects, and its existing
+            # default of "0" is already the correct neutral rating
             keys.append("homeAdvantage")
-            names.append("Home Adv")  # matches the reference sheet's own header
-            types.append("homeAdvantage")
+            names.append("Home Adv")
+            types.append("double")
+        elif mode == "individual":
+            keys.append("homeAdvantage")
+            names.append("Home Adv")
+            types.append("homeAdvantage")  # dedicated, uncapped range
 
-        return XkorAthleteWidget(keys, names, types, -5, 5, 1)
+        widget = XkorAthleteWidget(keys, names, types, -5, 5, 1)
+        if mode == "individual":
+            # unlike adversarial's fixed "0" default, individual mode's
+            # neutral/untouched value is the configured baseline itself
+            widget.setHomeAdvantageDefault(self.homeAdvantageEAR())
+        return widget
 
     def newOptionsWidget(self, paradigmOptions):
         from .options.lisaparadigmoptions import XkorLISAParadigmOptions
@@ -88,14 +102,26 @@ class XkorLISAParadigm(XkorAbstractH2HParadigm):
         # lets the user override it per-event
         return toDouble(self.userOpt.get("homeAdvantageEAR", self._defaultHomeAdvantageEAR()))
 
-    def perTeamHomeAdvantage(self):
-        """Whether each team's own "Home advantage" rating (entered as a
-        participant column, 0-100, defaulting to 50) replaces the fixed
-        homeAdvantageEAR() magnitude. Must be set before participants are
-        entered since it changes newAthleteWidget()'s columns -- but since
-        this is a paradigm option, that's just the natural effect of the
-        "Sport" wizard step preceding "Signups"."""
-        return toString(self.userOpt.get("perTeamHomeAdvantage")) == "true"
+    def homeAdvantageMode(self):
+        """"fixed" (default): one flat magnitude for every match, same as
+        every other paradigm.
+        "adversarial": each team's own -5..+5 rating sums with the
+        opponent's, so whatever boost you give yourself at home you also
+        hand your opponents when you visit them -- self-limiting by
+        design, which is what makes it suit player-vs-player competition
+        (nobody can just max out the slider for free; the algorithm's own
+        creator built this combined/summed behaviour specifically to avoid
+        a home-advantage arms race in that setting).
+        "individual": each team's own uncapped rating applies only when
+        they're home, with zero effect on or from the away side -- no
+        such self-limiting check, so it suits domestic leagues instead,
+        where home advantage doesn't need to be zero-sum and can be as
+        wacky as an organizer likes.
+        Must be set before participants are entered since it changes
+        newAthleteWidget()'s columns -- but since this is a paradigm
+        option, that's just the natural effect of the "Sport" wizard step
+        preceding "Signups"."""
+        return toString(self.userOpt.get("homeAdvantageMode", "fixed"))
 
     def powerScalar(self):
         return toDouble(self.userOpt.get("powerScalar", self._defaultPowerScalar()))
@@ -128,16 +154,35 @@ class XkorLISAParadigm(XkorAbstractH2HParadigm):
         return hEAR, aEAR
 
     def _homeAdvantageValue(self, homeAthlete, awayAthlete):
-        if self.perTeamHomeAdvantage():
-            # each side's own H rating adds to the home team's advantage --
+        mode = self.homeAdvantageMode()
+        if mode == "adversarial":
+            # each side's own rating adds to the home team's advantage --
             # a team that sets itself up as a fortress at home gives their
             # opponents the exact same boost when playing away at them
-            return self._teamHomeAdvantage(homeAthlete) + self._teamHomeAdvantage(awayAthlete)
+            return self._adversarialRating(homeAthlete) + self._adversarialRating(awayAthlete)
+        if mode == "individual":
+            # only the home team's own rating applies -- the away side's
+            # rating is irrelevant to this specific match, matching the
+            # algorithm's original (uncapped, non-interacting) design
+            return self._individualRating(homeAthlete)
         return self.homeAdvantageEAR()
 
-    def _teamHomeAdvantage(self, athlete):
+    def _adversarialRating(self, athlete):
+        """Maps the athlete's own -5..+5 rating onto 0..homeAdvantageEAR(),
+        so an untouched team (0, the neutral midpoint, same convention as
+        the style column) contributes exactly half of the configured
+        baseline -- two untouched teams summing to the full baseline
+        reproduces today's flat default exactly, with zero configuration."""
         raw = athlete.property("homeAdvantage")
-        return 50.0 if raw in (None, "") else toDouble(raw)
+        v = 0.0 if raw in (None, "") else toDouble(raw)
+        return self.homeAdvantageEAR() * (v + 5) / 10
+
+    def _individualRating(self, athlete):
+        """The athlete's own uncapped rating, used directly. Defaults to
+        the configured baseline when unset, so an untouched team reproduces
+        today's flat default exactly."""
+        raw = athlete.property("homeAdvantage")
+        return self.homeAdvantageEAR() if raw in (None, "") else toDouble(raw)
 
     def _winDrawProbabilities(self, hEAR, aEAR):
         g = hEAR - aEAR
@@ -203,6 +248,16 @@ class XkorLISAParadigm(XkorAbstractH2HParadigm):
         losingScore = self._samplePoisson(self._losingScoreLambda(netStyle, margin))
         winningScore = losingScore + margin
         return (winningScore, losingScore) if homeWins else (losingScore, winningScore)
+
+    def estimateOdds(self, home, away, trials=1000):
+        """Overrides XkorAbstractH2HParadigm's Monte Carlo estimate: LISA's
+        regular-time win/draw/loss split is fully determined by the EAR gap
+        (see _winDrawProbabilities), so there's no sampling error to average
+        out and no need to run any trials at all -- this is exact, not an
+        estimate, and free of the compute cost every other paradigm pays."""
+        hEAR, aEAR = self._homeAwayEAR(home, away)
+        drawP, homeWinP, awayWinP = self._winDrawProbabilities(hEAR, aEAR)
+        return {"win": homeWinP, "draw": drawP, "loss": awayWinP}
 
     # protected: paradigm interface
 
