@@ -54,6 +54,23 @@ class XkorAbstractParadigm(QObject):
     def hasOptionsWidget(self):
         return False
 
+    def usesMaxSkill(self):
+        """Whether the signup list's "Maximum skill" bound actually affects
+        this paradigm's results. Most paradigms compare skill to a fixed
+        reference (rank power curve, absolute attack coefficients, etc.), so
+        rescaling the whole population by a different max changes outcomes.
+        A handful (SQIS, Footba11er, Howzzat) only ever compare one
+        athlete's skill to their specific opponent's as a plain ratio, which
+        is invariant to any common rescale — see their own overrides."""
+        return True
+
+    def usesMinSkill(self):
+        """Whether the signup list's "Minimum skill" bound actually affects
+        this paradigm's results. False only for paradigms that need raw,
+        un-normalized rank as input and calibrate entirely through their own
+        formula constants instead (see LISA's override)."""
+        return True
+
     def init(self, sport, userOptions):
         self.s = sport
         self.userOpt = userOptions

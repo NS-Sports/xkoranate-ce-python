@@ -8,9 +8,15 @@ Each release ships a build for macOS, Windows, and Linux.
 
 | Platform | Archive | Run |
 |---|---|---|
-| macOS | `xkoranate-<version>-macos.zip` | Unzip, then open `xkoranate.app` |
+| macOS (Apple Silicon) | `xkoranate-<version>-macos-arm64.zip` | Unzip, then open `xkoranate.app` |
+| macOS (Intel) | `xkoranate-<version>-macos-x86_64.zip` | Unzip, then open `xkoranate.app` |
 | Windows | `xkoranate-<version>-windows.zip` | Unzip, then run `xkoranate\xkoranate.exe` |
 | Linux | `xkoranate-<version>-linux.tar.gz` | Extract, then run `xkoranate/xkoranate` |
+
+!!! note "Which Mac build do I need?"
+    Apple Silicon Macs (M1/M2/M3/M4) need the `arm64` build; older Intel
+    Macs need the `x86_64` build. Check via the Apple menu → About This Mac:
+    it lists "Chip" (Apple Silicon) or "Processor" (Intel).
 
 !!! note "Unsigned builds"
     These builds aren't code-signed or notarized, so your OS will likely warn

@@ -1,18 +1,24 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDoubleSpinBox,
-                               QFormLayout, QHBoxLayout, QLabel, QPushButton,
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFormLayout, QLabel,
                                QRadioButton, QWidget)
 
 from xkoranate.abstractoptionswidget import XkorAbstractOptionsWidget
 from xkoranate.variant import toDouble, toString
 
+from .collapsiblesection import XkorCollapsibleSection
+from .constantspinbox import XkorConstantSpinBox
+
 _DEFAULT_HOME_ADVANTAGE_MAGNITUDE = 4.0 / 3.0
+_DEFAULT_CONSTANT_A = 0.1
+_DEFAULT_CONSTANT_B = 0.07
+_DEFAULT_ATTACKS = 12.0
 
 
 class XkorSQISParadigmOptions(XkorAbstractOptionsWidget):
-    def __init__(self, opts, defaultHomeAdvantageMagnitude=_DEFAULT_HOME_ADVANTAGE_MAGNITUDE, parent=None):
+    def __init__(self, opts, defaultHomeAdvantageMagnitude=_DEFAULT_HOME_ADVANTAGE_MAGNITUDE,
+                 defaultConstantA=_DEFAULT_CONSTANT_A, defaultConstantB=_DEFAULT_CONSTANT_B,
+                 defaultAttacks=_DEFAULT_ATTACKS, parent=None):
         super().__init__(opts, parent)
-        self._defaultHomeAdvantageMagnitude = defaultHomeAdvantageMagnitude
 
         self.homeAdvantage = QCheckBox("Apply home advantage")
         if toString(self.options.get("homeAdvantage")) == "true":
@@ -23,28 +29,33 @@ class XkorSQISParadigmOptions(XkorAbstractOptionsWidget):
         self.homeAdvantage.stateChanged.connect(self.setHomeAdvantage)
 
         self.homeAdvantageMagnitudeLabel = QLabel("Home advantage magnitude:")
-        self.homeAdvantageMagnitude = QDoubleSpinBox()
-        self.homeAdvantageMagnitude.setDecimals(3)
-        self.homeAdvantageMagnitude.setRange(0, 5)
-        self.homeAdvantageMagnitude.setSingleStep(0.05)
-        self.homeAdvantageMagnitude.setValue(toDouble(self.options.get(
-            "homeAdvantageMagnitude", defaultHomeAdvantageMagnitude)))
-        self.setHomeAdvantageMagnitude(self.homeAdvantageMagnitude.value())
+        self.homeAdvantageMagnitude = XkorConstantSpinBox(
+            toDouble(self.options.get("homeAdvantageMagnitude", defaultHomeAdvantageMagnitude)),
+            defaultHomeAdvantageMagnitude, decimals=3, minimum=0, maximum=5, step=0.05)
         self.homeAdvantageMagnitude.valueChanged.connect(self.setHomeAdvantageMagnitude)
-
-        self.restoreHomeAdvantageMagnitude = QPushButton("Restore default")
-        self.restoreHomeAdvantageMagnitude.setToolTip(
-            "Reset to this sport's configured value (%.3f)" % defaultHomeAdvantageMagnitude)
-        self.restoreHomeAdvantageMagnitude.clicked.connect(self._restoreHomeAdvantageMagnitude)
+        self.setHomeAdvantageMagnitude(self.homeAdvantageMagnitude.value())
 
         self._updateHomeAdvantageMagnitudeEnabled(self.homeAdvantage.checkState())
         self.homeAdvantage.stateChanged.connect(self._updateHomeAdvantageMagnitudeEnabled)
 
-        self.homeAdvantageMagnitudeRow = QWidget()
-        homeAdvantageMagnitudeRowLayout = QHBoxLayout(self.homeAdvantageMagnitudeRow)
-        homeAdvantageMagnitudeRowLayout.setContentsMargins(0, 0, 0, 0)
-        homeAdvantageMagnitudeRowLayout.addWidget(self.homeAdvantageMagnitude)
-        homeAdvantageMagnitudeRowLayout.addWidget(self.restoreHomeAdvantageMagnitude)
+        # SQIS formula constants: always active, no enable/disable toggle.
+        self.constantA = XkorConstantSpinBox(
+            toDouble(self.options.get("constantA", defaultConstantA)), defaultConstantA,
+            decimals=3, minimum=-5.0, maximum=5.0, step=0.01)
+        self.constantA.valueChanged.connect(self.setConstantA)
+        self.setConstantA(self.constantA.value())
+
+        self.constantB = XkorConstantSpinBox(
+            toDouble(self.options.get("constantB", defaultConstantB)), defaultConstantB,
+            decimals=3, minimum=-5.0, maximum=5.0, step=0.01)
+        self.constantB.valueChanged.connect(self.setConstantB)
+        self.setConstantB(self.constantB.value())
+
+        self.attacks = XkorConstantSpinBox(
+            toDouble(self.options.get("attacks", defaultAttacks)), defaultAttacks,
+            decimals=0, minimum=1.0, maximum=100.0, step=1.0)
+        self.attacks.valueChanged.connect(self.setAttacks)
+        self.setAttacks(self.attacks.value())
 
         self.showTLAs = QCheckBox("Show team names")
         if toString(self.options.get("showTLAs", "true")) == "true":
@@ -79,11 +90,22 @@ class XkorSQISParadigmOptions(XkorAbstractOptionsWidget):
         label = QLabel("Style modifiers:")
         label.setContentsMargins(0, -4, 0, 0)
 
+        advancedContent = QWidget()
+        advancedForm = QFormLayout(advancedContent)
+        advancedForm.setContentsMargins(0, 4, 0, 0)
+        advancedForm.addRow("Constant A:", self.constantA)
+        advancedForm.addRow("Constant B:", self.constantB)
+        advancedForm.addRow("Attacks:", self.attacks)
+        advancedForm.addRow(label, styleModsForm)
+
+        self.advancedSection = XkorCollapsibleSection("Advanced options")
+        self.advancedSection.setContent(advancedContent)
+
         form = QFormLayout(self)
         form.addRow("", self.homeAdvantage)
-        form.addRow(self.homeAdvantageMagnitudeLabel, self.homeAdvantageMagnitudeRow)
+        form.addRow(self.homeAdvantageMagnitudeLabel, self.homeAdvantageMagnitude)
         form.addRow("", self.showTLAs)
-        form.addRow(label, styleModsForm)
+        form.addRow(self.advancedSection)
 
     def setHomeAdvantage(self, x):
         if Qt.CheckState(x) == Qt.Checked:
@@ -96,14 +118,22 @@ class XkorSQISParadigmOptions(XkorAbstractOptionsWidget):
         self.options["homeAdvantageMagnitude"] = x
         self.optionsChanged.emit(self.options)
 
-    def _restoreHomeAdvantageMagnitude(self):
-        self.homeAdvantageMagnitude.setValue(self._defaultHomeAdvantageMagnitude)
-
     def _updateHomeAdvantageMagnitudeEnabled(self, x):
         enabled = Qt.CheckState(x) == Qt.Checked
         self.homeAdvantageMagnitudeLabel.setEnabled(enabled)
         self.homeAdvantageMagnitude.setEnabled(enabled)
-        self.restoreHomeAdvantageMagnitude.setEnabled(enabled)
+
+    def setConstantA(self, x):
+        self.options["constantA"] = x
+        self.optionsChanged.emit(self.options)
+
+    def setConstantB(self, x):
+        self.options["constantB"] = x
+        self.optionsChanged.emit(self.options)
+
+    def setAttacks(self, x):
+        self.options["attacks"] = x
+        self.optionsChanged.emit(self.options)
 
     def setShowTLAs(self, x):
         if Qt.CheckState(x) == Qt.Checked:

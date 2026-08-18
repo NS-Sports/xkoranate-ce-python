@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QFileDialog, QHeaderView, QTreeWidgetItemIterator
 
 from ..athlete import XkorAthlete
 from ..icons import icon_action
+from ..ui.dialogs import resolved_search_path
 from ..ui.fonts import column_width_for
 from ..variant import qNumber, toDouble, toString
 from .abstractathletewidget import (_AthleteTreeWidgetItem,
@@ -35,7 +36,7 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
 
         # set the column widths
         for i in range(len(self.m_columnTypes)):
-            if self.m_columnTypes[i] in ("double", "golfStyle", "skill"):
+            if self.m_columnTypes[i] in ("double", "golfStyle", "skill", "homeAdvantage"):
                 self.treeWidget.header().setSectionResizeMode(i, QHeaderView.Fixed)
                 self.treeWidget.header().resizeSection(i, column_width_for(self.treeWidget, "8888.88"))
             else:
@@ -82,7 +83,7 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
             self.dialog.setWindowModality(Qt.WindowModal)
             self.dialog.setAcceptMode(QFileDialog.AcceptOpen)
 
-            self.dialog.setDirectory("signupLists:/")
+            self.dialog.setDirectory(resolved_search_path("signupLists"))
             self.dialog.fileSelected.connect(self.importAthletes)
             self.dialog.open()
             return
@@ -136,10 +137,15 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
         for i in range(len(self.m_columnTypes)):
             if self.m_columnKeys[i] in properties:
                 item.setText(i, toString(properties[self.m_columnKeys[i]]))
-                if self.m_columnTypes[i] in ("double", "skill"):
+                if self.m_columnTypes[i] in ("double", "skill", "homeAdvantage"):
                     item.setTextAlignment(i, Qt.AlignRight)
             elif self.m_columnTypes[i] == "double":
                 item.setText(i, "0")
+                item.setTextAlignment(i, Qt.AlignRight)
+            elif self.m_columnTypes[i] == "homeAdvantage":
+                # matches the reference sheet: an unset per-team rating
+                # counts as 50, the same advantage as its opponent
+                item.setText(i, "50")
                 item.setTextAlignment(i, Qt.AlignRight)
 
     def setAthletes(self, athletes):

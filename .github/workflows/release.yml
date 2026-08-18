@@ -15,8 +15,22 @@ env:
 
 jobs:
   build-macos:
-    name: Build macOS app
-    runs-on: macos-latest
+    name: Build macOS app (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        # GitHub's Apple Silicon runners can't produce an x86_64 binary (and
+        # vice versa) — PyInstaller bundles the build machine's own native
+        # Python/Qt libraries, so each architecture needs its own native
+        # runner. macos-15-intel is GitHub's last supported Intel image
+        # (macos-13 was retired Dec 2025); it's slated to go away in turn
+        # around August 2027, at which point Intel Macs will need Rosetta 2
+        # to keep running whatever the arm64 build produces at that time.
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +49,18 @@ jobs:
 
       - name: Build xkoranate.app
         run: ./build_app.sh
+
+      - name: Verify app was built for the expected architecture
+        # PyInstaller silently builds for whatever Python it's run with —
+        # if a runner label above ever gets remapped by GitHub to the wrong
+        # architecture, this catches a mismatched build before it ships
+        # instead of shipping an arm64 binary labeled x86_64 or vice versa.
+        run: |
+          got="$(lipo -archs "dist/xkoranate.app/Contents/MacOS/xkoranate-bin")"
+          case "$got" in
+            *${{ matrix.arch }}*) echo "xkoranate-bin is '$got', matches expected ${{ matrix.arch }}" ;;
+            *) echo "::error::xkoranate-bin is '$got', expected ${{ matrix.arch }}"; exit 1 ;;
+          esac
 
       - name: Verify app actually launches
         # A bundle existing doesn't mean it opens — a missing Info.plist key,
@@ -57,12 +83,12 @@ jobs:
       - name: Zip app bundle (preserving bundle structure/permissions)
         run: |
           cd dist
-          ditto -c -k --sequesterRsrc --keepParent xkoranate.app "../xkoranate-${{ steps.version.outputs.version }}-macos.zip"
+          ditto -c -k --sequesterRsrc --keepParent xkoranate.app "../xkoranate-${{ steps.version.outputs.version }}-macos-${{ matrix.arch }}.zip"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: xkoranate-macos
-          path: xkoranate-${{ steps.version.outputs.version }}-macos.zip
+          name: xkoranate-macos-${{ matrix.arch }}
+          path: xkoranate-${{ steps.version.outputs.version }}-macos-${{ matrix.arch }}.zip
 
   build-windows:
     name: Build Windows app
@@ -251,6 +277,6 @@ jobs:
           draft: true
           generate_release_notes: true
           files: |
-            artifacts/xkoranate-macos/*.zip
+            artifacts/xkoranate-macos-*/*.zip
             artifacts/xkoranate-windows/*.zip
             artifacts/xkoranate-linux/*.tar.gz

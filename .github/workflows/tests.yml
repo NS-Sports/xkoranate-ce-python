@@ -45,8 +45,20 @@ jobs:
         run: pixi run test-integration
 
   build-macos-app:
-    name: Build macOS app
-    runs-on: macos-latest
+    name: Build macOS app (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        # Build natively for both architectures — a runner can only produce
+        # a binary for its own CPU, so this is the only way to catch an
+        # Intel-only or Apple-Silicon-only regression before release.
+        # macos-15-intel is GitHub's last supported Intel image (macos-13
+        # was retired Dec 2025).
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
     steps:
       - uses: actions/checkout@v4
 
@@ -67,6 +79,14 @@ jobs:
         run: |
           test -d dist/xkoranate.app
           test -x "dist/xkoranate.app/Contents/MacOS/xkoranate"
+
+      - name: Verify app was built for the expected architecture
+        run: |
+          got="$(lipo -archs "dist/xkoranate.app/Contents/MacOS/xkoranate-bin")"
+          case "$got" in
+            *${{ matrix.arch }}*) echo "xkoranate-bin is '$got', matches expected ${{ matrix.arch }}" ;;
+            *) echo "::error::xkoranate-bin is '$got', expected ${{ matrix.arch }}"; exit 1 ;;
+          esac
 
       - name: Verify app actually launches
         # A bundle existing doesn't mean it opens — a missing Info.plist key,

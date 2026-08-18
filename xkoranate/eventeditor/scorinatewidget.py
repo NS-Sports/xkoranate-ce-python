@@ -13,7 +13,7 @@ from ..rplist import XkorRPList
 from ..signuplist import XkorSignupList
 from ..sport import XkorSport
 from ..startlist import XkorStartList
-from ..ui.dialogs import message_box
+from ..ui.dialogs import message_box, resolved_search_path
 from ..ui.fonts import monospace_font, widen_combo_popup
 from ..ui.typography import heading_label
 
@@ -158,7 +158,7 @@ class XkorScorinateWidget(QWidget):
                 self.dialog.setWindowModality(Qt.WindowModal)
                 self.dialog.setAcceptMode(QFileDialog.AcceptSave)
                 self.dialog.fileSelected.connect(self.exportResults)
-            self.dialog.setDirectory("resultsExport:/")
+            self.dialog.setDirectory(resolved_search_path("resultsExport"))
             self.dialog.open()
             return
 

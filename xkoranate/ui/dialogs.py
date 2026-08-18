@@ -5,7 +5,7 @@ the brand icon pixmap and modality flags."""
 
 import os
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QDir, Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QMessageBox,
                                QPlainTextEdit, QStyle, QVBoxLayout)
@@ -13,6 +13,20 @@ from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QMessageBox,
 from .. import theme
 from ..paths import iconsDir
 from .fonts import monospace_font
+
+
+def resolved_search_path(prefix):
+    """Resolve a QDir.setSearchPaths() prefix (e.g. "events") to a real
+    absolute directory, falling back to the home directory.
+
+    QFileDialog's own model resolves a "prefix:/" search-path string fine,
+    but the native platform dialog (the default on Windows) is handed that
+    string unresolved as its starting folder — Windows then tries to open
+    "prefix:" as if it were a URL scheme and pops "you can't open this
+    location using this program." Passing a real path avoids that lookup
+    entirely."""
+    d = QDir(f"{prefix}:/")
+    return d.absolutePath() if d.exists() else QDir.homePath()
 
 
 def brand_pixmap(widget, size=None):

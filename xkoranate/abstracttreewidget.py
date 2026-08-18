@@ -22,8 +22,11 @@ class XkorAbstractTreeWidget(QWidget):
         self.treeWidget.setRootIsDecorated(False)
         self.treeWidget.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.treeWidget.setAlternatingRowColors(True)
+        # SelectedClicked deliberately excluded: it makes Qt wait out the
+        # double-click interval on every click of an already-selected row
+        # (to disambiguate from a double-click) before opening the editor,
+        # which reads as a laggy, unresponsive single click
         self.treeWidget.setEditTriggers(QAbstractItemView.DoubleClicked
-                                        | QAbstractItemView.SelectedClicked
                                         | QAbstractItemView.EditKeyPressed)
         # disable Delete if there is no selection, et cetera
         self.treeWidget.itemSelectionChanged.connect(self.updateButtons)

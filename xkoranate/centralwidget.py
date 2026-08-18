@@ -7,7 +7,7 @@ from .navigationwidget import XkorNavigationWidget
 from .rpeditor.rpeditor import XkorRPEditor
 from .rplist import XkorRPList
 from .thinsplitter import XkorThinSplitter
-from .ui.dialogs import message_box
+from .ui.dialogs import message_box, resolved_search_path
 
 
 class XkorCentralWidget(QWidget):
@@ -24,7 +24,7 @@ class XkorCentralWidget(QWidget):
         self.currentFileName = ""
         self.modified = False
 
-        self.dialog = QFileDialog(self, "Save scorinator file", "events:/", "XML files (*.xml)")
+        self.dialog = QFileDialog(self, "Save scorinator file", resolved_search_path("events"), "XML files (*.xml)")
         self.dialog.setDefaultSuffix("xml")
         self.dialog.setWindowModality(Qt.WindowModal)
         self._dialogSlot = None  # bookkeeping for QFileDialog::open(receiver, member)
@@ -116,7 +116,7 @@ class XkorCentralWidget(QWidget):
         if filename is None:
             if self.okayToLoad():
                 self.dialog.setAcceptMode(QFileDialog.AcceptOpen)
-                self.dialog.setDirectory("events:/")
+                self.dialog.setDirectory(resolved_search_path("events"))
                 self._openDialog(self.openFile)
             return
 
@@ -176,7 +176,7 @@ class XkorCentralWidget(QWidget):
 
     def saveFileAs(self):
         self.dialog.setAcceptMode(QFileDialog.AcceptSave)
-        self.dialog.setDirectory("events:/")
+        self.dialog.setDirectory(resolved_search_path("events"))
         self._openDialog(self.saveFile)
 
     def setModified(self, isModified=True):

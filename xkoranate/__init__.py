@@ -1,3 +1,3 @@
 """xkoranate-CE — Python port of the NS Sports scorinator (originally Qt/C++)."""
 
-__version__ = "0.4.0-pr2"
+__version__ = "0.4.0-pr3"

@@ -31,7 +31,7 @@ def _indexOf(l, value):
 
 
 # Column types whose displayed text represents a number, not a label.
-_NUMERIC_COLUMN_TYPES = ("double", "skill", "golfStyle")
+_NUMERIC_COLUMN_TYPES = ("double", "skill", "golfStyle", "homeAdvantage")
 
 
 class _AthleteTreeWidgetItem(QTreeWidgetItem):
