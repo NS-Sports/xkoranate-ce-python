@@ -110,10 +110,29 @@ assert p_override.powerScalar() == 1.984
 assert p_override.refRank() == 10.93
 assert p_override.marginDivisor() == 750
 
+# --- estimateOdds() is overridden to be exact/deterministic (no Monte
+#     Carlo needed, unlike every other H2H paradigm), since regular-time
+#     win/draw/loss is fully determined by the EAR gap ---
 
-# --- per-team home advantage (optional mode): each side's own H rating
-#     (0-100, defaulting to 50 when unset) sums into the home team's
-#     advantage, matching the reference design's own worked examples ---
+from xkoranate.athlete import XkorAthlete as _XkorAthleteForOdds  # noqa: E402
+
+p_odds = make_paradigm(powerScalar=1.984, refRank=10.93, REAR=300, homeAdvantageEAR=100)
+p_odds.userOpt = {"homeAdvantage": "true"}
+homeAth = _XkorAthleteForOdds()
+homeAth.rpSkill = 25.0
+awayAth = _XkorAthleteForOdds()
+awayAth.rpSkill = 2.0
+# deliberately no p_odds.s (PRNG) set -- estimateOdds() should need none
+
+odds = p_odds.estimateOdds(homeAth, awayAth)
+assert approx(odds["win"], 0.9421, tol=1e-3), odds
+assert approx(odds["win"] + odds["draw"] + odds["loss"], 1.0, tol=1e-9), odds
+assert p_odds.estimateOdds(homeAth, awayAth) == odds  # deterministic, not sampled
+
+
+# --- home advantage modes: "fixed" (default) uses the flat EAR magnitude
+#     directly; "adversarial" and "individual" let each team set its own
+#     rating as a participant column instead ---
 
 from xkoranate.athlete import XkorAthlete  # noqa: E402
 
@@ -125,27 +144,50 @@ def make_athlete(homeAdvantage=None):
     return a
 
 
-p_pth = make_paradigm(homeAdvantageEAR=120)
-p_pth.userOpt = {"perTeamHomeAdvantage": "true"}
-assert p_pth.perTeamHomeAdvantage() is True
+p_mode = make_paradigm(homeAdvantageEAR=120)
+assert p_mode.homeAdvantageMode() == "fixed"  # default, with no userOpt override at all
 
-fortress = make_athlete(90)  # "an absolute fortress"
-default_ = make_athlete(50)
-assert p_pth._homeAdvantageValue(fortress, default_) == 140  # the sheet's own 140H example
-assert p_pth._homeAdvantageValue(default_, fortress) == 140  # same either way round
+# --- adversarial: each side's own -5..+5 rating maps onto 0..homeAdvantageEAR()
+#     (v=0 -> half the baseline, matching the style column's neutral-zero
+#     convention), and the two sides' mapped ratings sum together ---
 
-unset = make_athlete()  # no rating entered at all
-assert p_pth._homeAdvantageValue(fortress, unset) == 140  # unset counts as 50
+p_mode.userOpt = {"homeAdvantageMode": "adversarial"}
+assert p_mode.homeAdvantageMode() == "adversarial"
 
-both_unset = p_pth._homeAdvantageValue(make_athlete(), make_athlete())
-assert both_unset == 100, both_unset  # matches WC100Q's flat 100 (50+50)
+fortress = make_athlete(5)  # "an absolute fortress" -- maps to the full baseline (120)
+default_ = make_athlete(0)  # untouched -- maps to half the baseline (60)
+assert p_mode._homeAdvantageValue(fortress, default_) == 180  # 120 + 60
+assert p_mode._homeAdvantageValue(default_, fortress) == 180  # same either way round
 
-low_h = make_athlete(10)
-high_h = make_athlete(90)
-cancelled = p_pth._homeAdvantageValue(low_h, high_h)
-assert cancelled == 100, cancelled  # "cancels out to normal home advantage"
+unset = make_athlete()  # no rating entered at all -- same as an explicit 0
+assert p_mode._homeAdvantageValue(fortress, unset) == 180
 
-p_pth.userOpt = {"perTeamHomeAdvantage": "false"}
-assert p_pth._homeAdvantageValue(fortress, default_) == 120  # falls back to the fixed EAR magnitude
+both_unset = p_mode._homeAdvantageValue(make_athlete(), make_athlete())
+assert both_unset == 120, both_unset  # 60+60 -- reproduces the flat baseline exactly
+
+low_h = make_athlete(-5)
+high_h = make_athlete(5)
+cancelled = p_mode._homeAdvantageValue(low_h, high_h)
+assert cancelled == 120, cancelled  # 0 + 120 -- cancels out to the normal baseline
+
+# --- individual: only the home team's own uncapped rating applies; the
+#     away side's rating is irrelevant to this specific match ---
+
+p_mode.userOpt = {"homeAdvantageMode": "individual"}
+assert p_mode.homeAdvantageMode() == "individual"
+
+homeRated = make_athlete(500)  # uncapped -- can exceed the baseline entirely
+awayRated = make_athlete(500)  # irrelevant when away, since individual mode ignores it
+assert p_mode._homeAdvantageValue(homeRated, awayRated) == 500
+assert p_mode._homeAdvantageValue(homeRated, make_athlete()) == 500  # away's rating never matters
+
+homeUnset = make_athlete()
+assert p_mode._homeAdvantageValue(homeUnset, awayRated) == 120  # unset home defaults to the baseline
+
+# --- fixed: falls back to the flat EAR magnitude regardless of any
+#     per-team ratings that might be sitting unused on the athletes ---
+
+p_mode.userOpt = {"homeAdvantageMode": "fixed"}
+assert p_mode._homeAdvantageValue(fortress, default_) == 120
 
 print("ALL LISA PARADIGM TESTS PASSED")

@@ -1,7 +1,9 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QCheckBox, QFormLayout, QLabel, QWidget
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFormLayout, QLabel,
+                               QRadioButton, QWidget)
 
 from xkoranate.abstractoptionswidget import XkorAbstractOptionsWidget
+from xkoranate.ui.tooltips import wrapped_tooltip
 from xkoranate.variant import toDouble, toString
 
 from .collapsiblesection import XkorCollapsibleSection
@@ -45,20 +47,54 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         self._updateHomeAdvantageEAREnabled(self.homeAdvantage.checkState())
         self.homeAdvantage.stateChanged.connect(self._updateHomeAdvantageEAREnabled)
 
-        # per-team home advantage: each side's own H rating (entered as a
-        # participant column, 0-100, defaulting to 50) replaces the fixed
-        # EAR magnitude above. Must be set before participants are entered
-        # since it changes newAthleteWidget()'s columns.
-        self.perTeamHomeAdvantage = QCheckBox("Use per-team home advantage rating")
-        if toString(self.options.get("perTeamHomeAdvantage")) == "true":
-            self.perTeamHomeAdvantage.setCheckState(Qt.Checked)
+        # home advantage mode: "Fixed" is the EAR magnitude above, used
+        # directly for every match (today's only behaviour). The other two
+        # let each team set its own rating as a participant column instead
+        # -- the EAR field above stops being the direct value and becomes
+        # the baseline/default those ratings are computed against, so it
+        # stays visible and relevant in every mode rather than being hidden.
+        # Full explanations live in tooltips, not the labels -- this panel
+        # has to fit a small default window.
+        self.homeAdvantageModeFixed = QRadioButton("Fixed")
+        self.homeAdvantageModeFixed.setToolTip(wrapped_tooltip(
+            "Same home advantage for every match."))
+        self.homeAdvantageModeAdversarial = QRadioButton("Adversarial (per-team)")
+        self.homeAdvantageModeAdversarial.setToolTip(wrapped_tooltip(
+            "Each team sets its own -5 to +5 rating; the two teams' ratings combine, so "
+            "boosting your own home advantage also raises what you hand opponents when you "
+            "visit them. Self-limiting -- suits player-vs-player competition."))
+        self.homeAdvantageModeIndividual = QRadioButton("Individual (per-team, uncapped)")
+        self.homeAdvantageModeIndividual.setToolTip(wrapped_tooltip(
+            "Each team's own rating applies only when they're home, uncapped, with no effect "
+            "on the away side. Not self-limiting -- suits domestic leagues, where home "
+            "advantage doesn't need to be zero-sum."))
+
+        self.homeAdvantageModeGroup = QButtonGroup()
+        self.homeAdvantageModeGroup.addButton(self.homeAdvantageModeFixed)
+        self.homeAdvantageModeGroup.addButton(self.homeAdvantageModeAdversarial)
+        self.homeAdvantageModeGroup.addButton(self.homeAdvantageModeIndividual)
+
+        currentMode = toString(self.options.get("homeAdvantageMode", "fixed"))
+        if currentMode == "adversarial":
+            self.homeAdvantageModeAdversarial.setChecked(True)
+        elif currentMode == "individual":
+            self.homeAdvantageModeIndividual.setChecked(True)
         else:
-            self.perTeamHomeAdvantage.setCheckState(Qt.Unchecked)
-        self.setPerTeamHomeAdvantage(self.perTeamHomeAdvantage.checkState())
-        self.perTeamHomeAdvantage.stateChanged.connect(self.setPerTeamHomeAdvantage)
-        self.perTeamHomeAdvantage.stateChanged.connect(self._updateHomeAdvantageEARRowVisible)
-        self.homeAdvantage.stateChanged.connect(self._updatePerTeamHomeAdvantageEnabled)
-        self._updatePerTeamHomeAdvantageEnabled(self.homeAdvantage.checkState())
+            self.homeAdvantageModeFixed.setChecked(True)
+        self.setHomeAdvantageMode()  # populate self.options from whichever button ended up checked
+        self.homeAdvantageModeGroup.idClicked.connect(self.setHomeAdvantageMode)
+
+        homeAdvantageModeForm = QFormLayout()
+        homeAdvantageModeForm.addRow(self.homeAdvantageModeFixed)
+        homeAdvantageModeForm.addRow(self.homeAdvantageModeAdversarial)
+        homeAdvantageModeForm.addRow(self.homeAdvantageModeIndividual)
+
+        # QFormLayout sucks, so we create our own label
+        self.homeAdvantageModeLabel = QLabel("Home advantage mode:")
+        self.homeAdvantageModeLabel.setContentsMargins(0, -4, 0, 0)
+
+        self._updateHomeAdvantageModeEnabled(self.homeAdvantage.checkState())
+        self.homeAdvantage.stateChanged.connect(self._updateHomeAdvantageModeEnabled)
 
         # LISA formula constants: rank/EAR conversion (power scalar, reference
         # rank, REAR) and margin shaping (margin divisor). These are always
@@ -109,11 +145,9 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         self.form = QFormLayout(self)
         self.form.addRow("", self.homeAdvantage)
         self.form.addRow(self.homeAdvantageEARLabel, self.homeAdvantageEAR)
-        self.form.addRow("", self.perTeamHomeAdvantage)
+        self.form.addRow(self.homeAdvantageModeLabel, homeAdvantageModeForm)
         self.form.addRow("", self.showTLAs)
         self.form.addRow(self.advancedSection)
-
-        self._updateHomeAdvantageEARRowVisible(self.perTeamHomeAdvantage.checkState())
 
     def setHomeAdvantage(self, x):
         if Qt.CheckState(x) == Qt.Checked:
@@ -131,21 +165,22 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         self.homeAdvantageEARLabel.setEnabled(enabled)
         self.homeAdvantageEAR.setEnabled(enabled)
 
-    def setPerTeamHomeAdvantage(self, x):
-        if Qt.CheckState(x) == Qt.Checked:
-            self.options["perTeamHomeAdvantage"] = "true"
+    def setHomeAdvantageMode(self, *_args):
+        checkedButton = self.homeAdvantageModeGroup.checkedButton()
+        if checkedButton is self.homeAdvantageModeAdversarial:
+            self.options["homeAdvantageMode"] = "adversarial"
+        elif checkedButton is self.homeAdvantageModeIndividual:
+            self.options["homeAdvantageMode"] = "individual"
         else:
-            self.options["perTeamHomeAdvantage"] = "false"
+            self.options["homeAdvantageMode"] = "fixed"
         self.optionsChanged.emit(self.options)
 
-    def _updatePerTeamHomeAdvantageEnabled(self, x):
-        self.perTeamHomeAdvantage.setEnabled(Qt.CheckState(x) == Qt.Checked)
-
-    def _updateHomeAdvantageEARRowVisible(self, x):
-        # the fixed EAR magnitude is meaningless once each team supplies
-        # its own rating instead
-        visible = Qt.CheckState(x) != Qt.Checked
-        self.form.setRowVisible(self.homeAdvantageEARLabel, visible)
+    def _updateHomeAdvantageModeEnabled(self, x):
+        enabled = Qt.CheckState(x) == Qt.Checked
+        self.homeAdvantageModeLabel.setEnabled(enabled)
+        self.homeAdvantageModeFixed.setEnabled(enabled)
+        self.homeAdvantageModeAdversarial.setEnabled(enabled)
+        self.homeAdvantageModeIndividual.setEnabled(enabled)
 
     def setPowerScalar(self, x):
         self.options["powerScalar"] = x

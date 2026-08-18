@@ -46,14 +46,16 @@ class XkorAthleteDelegate(QItemDelegate):
             spinBox.setFrame(False)
             return spinBox
         elif self.m_columnTypes[index.column()] == "homeAdvantage":
-            # LISA's per-team home advantage rating: always 0-100,
-            # regardless of this widget's generic double/skill ranges
+            # LISA's individual-mode home advantage rating: deliberately
+            # uncapped (the algorithm's creator intended no ceiling here),
+            # unlike adversarial mode's -5..+5 scale, which reuses the
+            # "double" type and its range instead of this one
             spinBox = QDoubleSpinBox(parent)
             spinBox.setAlignment(Qt.AlignRight)
-            spinBox.setDecimals(0)
+            spinBox.setDecimals(1)
             spinBox.setMinimum(0)
-            spinBox.setMaximum(100)
-            spinBox.setSingleStep(5)
+            spinBox.setMaximum(9999.999)
+            spinBox.setSingleStep(10)
             spinBox.setFrame(False)
             return spinBox
         else:
