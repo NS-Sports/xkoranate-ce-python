@@ -7,3 +7,6 @@ __pycache__/
 .DS_Store
 .pytest_cache/
 site/
+# pixi environments
+.pixi/*
+!.pixi/config.toml
