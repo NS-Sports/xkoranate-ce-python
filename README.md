@@ -20,21 +20,34 @@ of this README covers building and developing xkoranate itself.
 
 ## Running from source
 
+Dev environments are managed with [pixi](https://pixi.sh) — it resolves
+PySide6/Qt as matched conda-forge binaries and locks the whole environment
+(`pixi.lock`), which avoids the class of bug where a global Python
+install's Qt bindings and native libraries drift out of sync.
+
 ```sh
-python3 -m venv .venv
-.venv/bin/pip install PySide6 qt-material qtawesome
-.venv/bin/python -m xkoranate
+pixi run run            # launch the app from source
+pixi run test            # unit tests
+pixi run test-integration  # integration tests (boots the app headless)
+pixi run test-all        # both
 ```
+
+`pixi shell` drops you into the environment directly if you'd rather run
+commands (e.g. `python -m xkoranate`) without the `pixi run` prefix.
 
 ## Building the app
 
 The same PyInstaller spec (`xkoranate.spec`) produces a native build on
 macOS, Windows, and Linux — it branches on the host platform automatically.
+This uses a plain venv rather than pixi, since PyInstaller freezes whatever
+CPython build it's run with into the app bundle, and that needs to be a
+standard CPython distribution rather than conda-forge's Python.
 
 macOS/Linux:
 
 ```sh
-.venv/bin/pip install pyinstaller
+python3 -m venv .venv
+.venv/bin/pip install -e . pyinstaller
 ./build_app.sh
 # macOS -> dist/xkoranate.app
 # Linux -> dist/xkoranate/xkoranate
@@ -43,7 +56,8 @@ macOS/Linux:
 Windows:
 
 ```bat
-.venv\Scripts\pip install pyinstaller
+python -m venv .venv
+.venv\Scripts\pip install -e . pyinstaller
 build_app.bat
 :: -> dist\xkoranate\xkoranate.exe
 ```
