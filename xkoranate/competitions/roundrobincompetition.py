@@ -3,6 +3,7 @@ import re
 import sys
 
 from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
+from xkoranate.tablegenerator.decider import nudgeForShootout
 from xkoranate.variant import qNumber, toDouble, toInt, toList, toString, toUInt
 
 
@@ -35,6 +36,16 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
                 t.setPointsForWin(toInt(self.userOpt.get("pointsForWin")) if "pointsForWin" in self.userOpt else 3)
                 t.setPointsForDraw(toInt(self.userOpt.get("pointsForDraw")) if "pointsForDraw" in self.userOpt else 1)
                 t.setPointsForLoss(toInt(self.userOpt.get("pointsForLoss")) if "pointsForLoss" in self.userOpt else 0)
+                # OT/SO points are left unset (falling back to win/loss) unless the
+                # competition explicitly overrides them, so existing events score unchanged
+                if "pointsForOTWin" in self.userOpt:
+                    t.setPointsForOTWin(toInt(self.userOpt.get("pointsForOTWin")))
+                if "pointsForSOWin" in self.userOpt:
+                    t.setPointsForSOWin(toInt(self.userOpt.get("pointsForSOWin")))
+                if "pointsForOTLoss" in self.userOpt:
+                    t.setPointsForOTLoss(toInt(self.userOpt.get("pointsForOTLoss")))
+                if "pointsForSOLoss" in self.userOpt:
+                    t.setPointsForSOLoss(toInt(self.userOpt.get("pointsForSOLoss")))
                 self.tables.append(t)
                 groupNo += 1
 
@@ -209,9 +220,11 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
             if len(tableData) > groupNo:
                 results = toList(tableData[groupNo])
                 for i in results:
-                    rx = re.search("[0-9]+: (.+) ([0-9.]+)–([0-9.]+) (.+)", toString(i))  # match scores of form “1: Aquilla 3–1 Busby”
+                    # match scores of form “1: Aquilla 3–1 Busby”, with an optional
+                    # “OT”/“SO” decider marker before the away team, e.g. “1: Aquilla 3–1 OT Busby”
+                    rx = re.search("[0-9]+: (.+) ([0-9.]+)–([0-9.]+)(?: (OT|SO))? (.+)", toString(i))
                     if rx is not None:  # if we matched
-                        rval.append(XkorTableMatch(rx.group(1), rx.group(4), toDouble(rx.group(2)), toDouble(rx.group(3))))
+                        rval.append(XkorTableMatch(rx.group(1), rx.group(5), toDouble(rx.group(2)), toDouble(rx.group(3)), rx.group(4)))
         return rval
 
     def revertToMatchday(self, matchday):
@@ -288,21 +301,36 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
                     scoreValue1 = score1.score()
                     scoreValue2 = score2.score()
                     print(scoreValue1, scoreValue2, file=sys.stderr)
+                    decider = None  # how the match was decided, for the table's OT/SO breakdown
+                    shootoutName = None
                     if toString(self.userOpt.get("allowDraws")) == "false":
                         usedTiebreakerNames = []  # if we put extraTime + goldenGoal under the same “OT” name, we don’t want to add it twice
                         for k in range(len(tiebreakerNames)):
                             name = toString(tiebreakerNames[k])
                             currentTiebreaker = toString(tiebreakers[k]) if k < len(tiebreakers) else ""
-                            # shootout scores don’t belong in tables
-                            if currentTiebreaker != "shootout" and name not in usedTiebreakerNames and (score1.contains(name) or score2.contains(name)):
+                            # shootout scores don’t belong in tables, but the match was still
+                            # decided by shootout, so tag it as such
+                            if currentTiebreaker == "shootout" and (score1.contains(name) or score2.contains(name)):
+                                decider = "SO"
+                                shootoutName = name
+                            elif currentTiebreaker != "shootout" and name not in usedTiebreakerNames and (score1.contains(name) or score2.contains(name)):
                                 scoreValue1 += toDouble(score1.value(name))
                                 scoreValue2 += toDouble(score2.value(name))
                                 print("adding", currentTiebreaker, toDouble(score1.value(name)), toDouble(score2.value(name)), file=sys.stderr)
                                 usedTiebreakerNames.append(name)
-                    self.tables[groupNo].insertMatch(i.athletes[j[0]].name, i.athletes[j[1]].name, scoreValue1, scoreValue2)
+                                decider = "OT"
+                        if decider == "SO" and shootoutName is not None:
+                            # the shootout stage may not have come after one that
+                            # separated the teams (e.g. overtime stayed scoreless)
+                            scoreValue1, scoreValue2 = nudgeForShootout(
+                                scoreValue1, scoreValue2,
+                                toDouble(score1.value(shootoutName)),
+                                toDouble(score2.value(shootoutName)))
+                    self.tables[groupNo].insertMatch(i.athletes[j[0]].name, i.athletes[j[1]].name, scoreValue1, scoreValue2, decider)
 
                     # insert into the resume options
-                    groupData.append(str(matchday) + ": " + i.athletes[j[0]].name + " " + qNumber(scoreValue1) + "–" + qNumber(scoreValue2) + " " + i.athletes[j[1]].name)
+                    deciderSuffix = (" " + decider) if decider else ""
+                    groupData.append(str(matchday) + ": " + i.athletes[j[0]].name + " " + qNumber(scoreValue1) + "–" + qNumber(scoreValue2) + deciderSuffix + " " + i.athletes[j[1]].name)
 
             self.tables[groupNo].generate()
             tableData[groupNo] = groupData

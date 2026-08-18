@@ -42,6 +42,7 @@ class XkorConstantSpinBox(QWidget):
         self.spinBox.setValue(value)
 
     def setEnabled(self, enabled):
+        super().setEnabled(enabled)
         self.spinBox.setEnabled(enabled)
         self.restoreButton.setEnabled(enabled)
 

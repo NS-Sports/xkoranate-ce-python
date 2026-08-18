@@ -109,8 +109,17 @@ class XkorSignupListEditor(QWidget):
         if not self.athletes:
             return
         skills = [a.skill for a in self.athletes.athletes()]
-        if skills:
-            self.maxRank.setValue(max(skills))
+        if not skills:
+            return
+        pinnedMax = max(skills)
+        if pinnedMax <= self.minRank.value():
+            # adjustRank() divides by (max - min); since these paradigms are
+            # invariant to max's actual value (see usesMaxSkill()), nudging
+            # it above min is always safe and avoids a ZeroDivisionError
+            # when every entered skill is still at (or equals) the min, e.g.
+            # a freshly-added participant row defaulting to skill 0
+            pinnedMax = self.minRank.value() + 1.0
+        self.maxRank.setValue(pinnedMax)
 
     def _onAthleteListChanged(self):
         if self._maxRankMode() == "pinned":
