@@ -1,12 +1,10 @@
-from PySide6.QtCore import QObject
-
 from ..athlete import XkorAthlete
 from ..result import XkorResult
 from ..variant import toInt, toList, toString
 from .comparators.basicresultcomparator import XkorBasicResultComparator
 
 
-class XkorAbstractParadigm(QObject):
+class XkorAbstractParadigm:
     def __init__(self, sport=None, userOptions=None):
         super().__init__()
         self.s = None
