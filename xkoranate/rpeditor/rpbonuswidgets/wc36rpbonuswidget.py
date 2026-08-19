@@ -85,9 +85,6 @@ class XkorWC36RPBonusWidget(XkorAbstractRPBonusWidget):
     def maxBonus(self):
         return 15.4
 
-    def minBonus(self):
-        return 0
-
     def options(self):
         rval = {"matchday": self.matchday.value()}
         return rval
@@ -98,12 +95,6 @@ class XkorWC36RPBonusWidget(XkorAbstractRPBonusWidget):
             self.initItem(self.createItem(), key,
                           value.get("bestRPLevel", 0.0), value.get("quantity", 0.0))
         self.listChanged.emit()
-
-    def setMaxBonus(self, newMax):
-        pass
-
-    def setMinBonus(self, newMin):
-        pass
 
     def setupLayout(self):
         # tool bar

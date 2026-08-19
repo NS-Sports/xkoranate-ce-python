@@ -5,9 +5,6 @@ from ...variant import toInt, toString
 
 
 class XkorWC36RPBonusDelegate(QItemDelegate):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-
     def createEditor(self, parent, option, index):
         if index.column() == 1:
             comboBox = QComboBox(parent)

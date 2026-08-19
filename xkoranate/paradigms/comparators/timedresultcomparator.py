@@ -85,7 +85,3 @@ class XkorTimedResultComparator(XkorBasicResultComparator):
             return False
         else:
             return False
-
-    def sort(self, res):
-        # C++ uses std::stable_sort here; Python's sort is stable
-        res.sort(key=self.sortKey())

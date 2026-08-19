@@ -4,7 +4,6 @@ from .abstractresultcomparator import XkorAbstractResultComparator
 
 class XkorBasicResultComparator(XkorAbstractResultComparator):
     def __init__(self, type, opt):
-        super().__init__(type, opt)
         if toString(opt.get("sortOrder", "ascending")) == "ascending":
             self.isAscending = True
         else:
@@ -16,5 +15,10 @@ class XkorBasicResultComparator(XkorAbstractResultComparator):
         else:
             return b.score() < a.score()
 
+    # every comparator sorts through sortKey(), which dispatches back into
+    # this instance's __call__ — the C++ original had to redeclare sort() in
+    # each subclass because qSort was instantiated on the concrete type
+    # (XkorTimedResultComparator's used std::stable_sort, which is what
+    # Python's sort already gives us; the rest used plain std::sort)
     def sort(self, res):
         res.sort(key=self.sortKey())

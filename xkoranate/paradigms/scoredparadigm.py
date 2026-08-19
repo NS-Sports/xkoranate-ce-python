@@ -3,9 +3,6 @@ from .timedparadigm import XkorTimedParadigm
 
 
 class XkorScoredParadigm(XkorTimedParadigm):
-    def __init__(self, sport=None, userOptions=None):
-        super().__init__(sport, userOptions)
-
     # private:
 
     def formatScore(self, score):

@@ -13,9 +13,6 @@ class XkorH2HResultComparator(XkorBasicResultComparator):
         else:
             return self.sortAscending(b, a)
 
-    def sort(self, res):
-        res.sort(key=self.sortKey())
-
     def sortAscending(self, a, b):
         if a.score() < b.score():
             return True

@@ -33,15 +33,6 @@ class XkorShootingParadigm(XkorScoredParadigm):
 
         self.generateOutput()
 
-    def compare(self, a, b, type=""):
-        f = self.comparisonFunction(type)
-        if f(a, b):  # if(a < b)
-            return -1
-        elif f(b, a):  # if(b < a)
-            return 1
-        else:
-            return 0
-
     def comparisonFunction(self, type=""):
         if toString(self.userOpt.get("qualifying")) == "true":
             return XkorShootingResultComparator("qualifying", self.opt)

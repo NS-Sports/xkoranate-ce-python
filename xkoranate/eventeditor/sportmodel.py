@@ -7,9 +7,6 @@ SPORT_DATA = Qt.UserRole + 984
 
 
 class XkorSportModel(QStandardItemModel):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-
     def findSport(self, fullNameOrDiscipline, event=None, scorinator=None):
         # C++ overloads: findSport(discipline, event, scorinator) and findSport(fullName)
         if event is None and scorinator is None:

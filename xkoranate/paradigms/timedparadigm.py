@@ -18,15 +18,6 @@ class XkorTimedParadigm(XkorAbstractParadigm):
     def comparisonFunction(self, type=""):
         return XkorTimedResultComparator(type, self.opt)
 
-    def compare(self, a, b, type=""):
-        f = self.comparisonFunction(type)
-        if f(a, b):  # if(a < b)
-            return -1
-        elif f(b, a):  # if(b < a)
-            return 1
-        else:
-            return 0
-
     @staticmethod
     def compareVariant(a, b):
         return toDouble(a) < toDouble(b)

@@ -1,16 +1,12 @@
 from ..result import XkorResult
 from ..variant import qNumber, toDouble, toInt, toList, toString
 from .abstractparadigm import XkorAbstractParadigm
-from .comparators.basicresultcomparator import XkorBasicResultComparator
 
 
 class XkorGolfinatorParadigm(XkorAbstractParadigm):
     def __init__(self, sport=None, userOptions=None):
         super().__init__(sport, userOptions)
         self.supportedCompetitions["standard"] = True
-
-    def comparisonFunction(self, type=""):
-        return XkorBasicResultComparator(type, self.opt)
 
     def hasOptionsWidget(self):
         return True
@@ -126,7 +122,7 @@ class XkorGolfinatorParadigm(XkorAbstractParadigm):
         # does not override the base outputLine(XkorResult); calls through the
         # base interface (e.g. addResults) use the base implementation
         if nameWidth is None:
-            return XkorAbstractParadigm.outputLine(self, r)
+            return super().outputLine(r)
 
         rval = self.formatName(r.athlete).ljust(int(nameWidth))
         attempts = toList(r.value("attempts"))

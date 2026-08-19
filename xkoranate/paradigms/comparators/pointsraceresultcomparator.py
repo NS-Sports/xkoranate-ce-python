@@ -3,9 +3,6 @@ from .basicresultcomparator import XkorBasicResultComparator
 
 
 class XkorPointsRaceResultComparator(XkorBasicResultComparator):
-    def __init__(self, type, opt):
-        super().__init__(type, opt)
-
     def __call__(self, a, b):
         if a.score() > b.score():
             return True
@@ -16,6 +13,3 @@ class XkorPointsRaceResultComparator(XkorBasicResultComparator):
             return True
         else:
             return False
-
-    def sort(self, res):
-        res.sort(key=self.sortKey())

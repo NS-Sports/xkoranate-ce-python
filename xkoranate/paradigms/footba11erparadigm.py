@@ -5,9 +5,6 @@ from .abstracth2hparadigm import XkorAbstractH2HParadigm
 
 
 class XkorFootba11erParadigm(XkorAbstractH2HParadigm):
-    def __init__(self, sport=None, userOptions=None):
-        super().__init__(sport, userOptions)
-
     def hasOptionsWidget(self):
         return True
 
@@ -18,6 +15,8 @@ class XkorFootba11erParadigm(XkorAbstractH2HParadigm):
         return False
 
     def newAthleteWidget(self):
+        # deliberately reaches past XkorAbstractH2HParadigm's style-aware
+        # override to the plain name/nation/skill widget — not super()
         return XkorAbstractParadigm.newAthleteWidget(self)
 
     def newOptionsWidget(self, paradigmOptions):
