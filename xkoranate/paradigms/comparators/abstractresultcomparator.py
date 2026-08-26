@@ -3,8 +3,8 @@ import sys
 
 
 class XkorAbstractResultComparator:
-    def __init__(self, type, opt):
-        pass
+    """No __init__: the C++ base took (type, opt) only so that subclass
+    constructors had something to forward to, and used neither argument."""
 
     def __call__(self, a, b):  # C++ operator()(XkorResult a, XkorResult b)
         raise NotImplementedError

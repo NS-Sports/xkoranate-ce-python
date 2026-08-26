@@ -3,9 +3,6 @@ from .basicresultcomparator import XkorBasicResultComparator
 
 
 class XkorHighJumpResultComparator(XkorBasicResultComparator):
-    def __init__(self, type, opt):
-        super().__init__(type, opt)
-
     def __call__(self, a, b):
         if self.isAscending:
             return self.sortAscending(a, b)
@@ -24,6 +21,3 @@ class XkorHighJumpResultComparator(XkorBasicResultComparator):
             return True
         else:
             return False
-
-    def sort(self, res):
-        res.sort(key=self.sortKey())

@@ -22,7 +22,7 @@ class XkorAutoRacingParadigm(XkorTimedParadigm):
                 ["string", "string", "double", "double", "double"],
                 0, 10, 1)
         else:
-            return XkorAbstractParadigm.newAthleteWidget(self)
+            return super().newAthleteWidget()
 
     def newOptionsWidget(self, paradigmOptions):
         from .options.autoracingparadigmoptions import XkorAutoRacingParadigmOptions
@@ -65,6 +65,8 @@ class XkorAutoRacingParadigm(XkorTimedParadigm):
         return XkorResult(lapTime, self.formatScore(lapTime), ath)
 
     def outputLine(self, r):
+        # exists purely to suppress XkorTimedParadigm's attempt-column output
+        # and fall back to the plain base line — deliberately not super()
         return XkorAbstractParadigm.outputLine(self, r)
 
     def scorinate(self, athletes, previousResults=None):

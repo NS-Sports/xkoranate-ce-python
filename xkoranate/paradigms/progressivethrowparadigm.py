@@ -6,9 +6,6 @@ from .scoredparadigm import XkorScoredParadigm
 
 
 class XkorProgressiveThrowParadigm(XkorScoredParadigm):
-    def __init__(self, sport=None, userOptions=None):
-        super().__init__(sport, userOptions)
-
     # protected:
 
     def scorinate(self, athletes, previousResults=None):

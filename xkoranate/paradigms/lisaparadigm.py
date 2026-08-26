@@ -23,9 +23,6 @@ class XkorLISAParadigm(XkorAbstractH2HParadigm):
     regardless of how large the margin is.
     """
 
-    def __init__(self, sport=None, userOptions=None):
-        super().__init__(sport, userOptions)
-
     def hasOptionsWidget(self):
         return True
 

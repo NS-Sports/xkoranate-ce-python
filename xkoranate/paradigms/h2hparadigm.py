@@ -12,10 +12,9 @@ class XkorH2HParadigm(XkorSQISParadigm):
         self.requiredValues = []
         self.requiredValues.append("score")
 
-    def hasOptionsWidget(self):
-        return True
-
     def newAthleteWidget(self):
+        # deliberately reaches past XkorAbstractH2HParadigm's style-aware
+        # override (inherited via SQIS) to the plain widget — not super()
         return XkorAbstractParadigm.newAthleteWidget(self)
 
     def newOptionsWidget(self, paradigmOptions):

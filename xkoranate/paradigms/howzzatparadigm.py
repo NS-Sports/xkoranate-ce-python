@@ -4,9 +4,6 @@ from .abstracth2hparadigm import XkorAbstractH2HParadigm
 
 
 class XkorHowzzatParadigm(XkorAbstractH2HParadigm):
-    def __init__(self, sport=None, userOptions=None):
-        super().__init__(sport, userOptions)
-
     def hasOptionsWidget(self):
         return True
 

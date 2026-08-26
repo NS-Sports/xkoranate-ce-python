@@ -120,7 +120,7 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
                                      ["string", "string", "skill", "double"],
                                      -5, 5, 1)
         else:
-            return XkorAbstractParadigm.newAthleteWidget(self)
+            return super().newAthleteWidget()
 
     def scorinate(self, athletes, previousResults=None):
         for i in self.requiredValues:
@@ -613,7 +613,7 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
         # collapses the C++ overloads outputLine(XkorResult) (inherited) and
         # outputLine(XkorResult, XkorResult)
         if away is None:
-            return XkorAbstractParadigm.outputLine(self, home)
+            return super().outputLine(home)
         if toString(home.value("status")) != "":
             rval = (self.formatName(home.athlete) + " def. by " + self.formatName(away.athlete)
                     + " (" + toString(home.value("status")) + ")")
