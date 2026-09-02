@@ -1,5 +1,7 @@
 """The event setup page in bracket mode: matches, byes and the draw buttons."""
 
+import uuid
+
 import pytest
 
 from xkoranate.athlete import BYE_ID, XkorAthlete
@@ -696,3 +698,60 @@ def test_choosing_a_size_in_the_dropdown_resizes_the_bracket(widget):
     assert len(realEntrants(widget)) == 4
     # and the combo still shows what the bracket actually is
     assert widget.bracketSizeCombo.currentData() == 4
+
+
+def test_selection_changes_do_not_rebuild_the_available_list(widget):
+    """updateButtons() runs on every selection change and used to walk the
+    whole signup list each time, on the UI thread."""
+    loadBracket(widget, 8)
+    calls = []
+    realAthletes = widget.sl.athletes
+
+    def counted():
+        calls.append(1)
+        return realAthletes()
+
+    widget.sl.athletes = counted
+    for i in range(widget.treeWidget.topLevelItemCount()):
+        widget.treeWidget.clearSelection()
+        widget.treeWidget.topLevelItem(i).setSelected(True)
+        widget.updateButtons()
+
+    assert calls == []
+
+
+def test_the_available_list_still_follows_the_placements(widget):
+    ids = loadBracket(widget, 6)  # 6 clubs in an 8-slot bracket
+    assert ids[0] not in widget.availableAthletes
+
+    widget.treeWidget.clearSelection()
+    for i in range(widget.treeWidget.topLevelItemCount()):
+        match = widget.treeWidget.topLevelItem(i)
+        for j in range(match.childCount()):
+            if match.child(j).text(0) != BYE_LABEL:
+                match.child(j).setSelected(True)
+                widget.deleteItems()
+                widget.updateButtons()
+                assert ids[0] in widget.availableAthletes
+                return
+    raise AssertionError("no occupied slot found")
+
+
+def test_a_new_signup_list_refreshes_the_available_list(widget):
+    loadBracket(widget, 4)
+    widget.updateButtons()
+
+    sl = XkorSignupList()
+    sl.setMinRank(0.0)
+    sl.setMaxRank(100.0)
+    a = XkorAthlete()
+    a.name, a.nation, a.skill = "Late Entry", "LTE", 50.0
+    # XkorSignupList.generateID() draws from the list's own seeded RNG, so a
+    # fresh list hands out the same ids as the one the bracket was built from
+    a.id = uuid.uuid4()
+    sl.addAthlete(a)
+    widget.setSignupList(sl)
+    widget.signupList = sl
+    widget.updateButtons()
+
+    assert "Late Entry (LTE)" in widget.availableAthleteNames

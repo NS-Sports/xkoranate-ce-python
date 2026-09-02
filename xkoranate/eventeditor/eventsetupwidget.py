@@ -59,6 +59,8 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.resultsGuard = None
         self._resultsGuardAsked = False
         self._lastLaidSlots = []  # the arrangement before the edit in progress
+        self._availablePlaced = None  # placements the available list was built for
+        self._availableDirty = True
         self.headingLabel = None  # created in setupLayout(), below
 
         self._delegate = XkorEventSetupDelegate(self.availableAthleteNames, self.availableAthletes)
@@ -287,6 +289,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         previous = self.groups()  # read the tree in its old shape
         wasBracket = self.isBracket()
         self.competition = competition
+        self._availableDirty = True  # the filter only applies inside a bracket
         if self.headingLabel is not None:
             self.headingLabel.setText(self.headingText())
         self.updateBracketActions()
@@ -636,6 +639,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
 
     def setSignupList(self, l):
         self.sl = _cloneSignupList(l)
+        self._availableDirty = True  # names and ids may both have changed
         self.slChanged.emit()
 
     def setupLayout(self, actions):
@@ -734,14 +738,25 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         represents it, and quietly dropping them from the dropdown would
         change how every other competition type is set up.
         """
+        placed = frozenset(self.placedAthletes()) if self.isBracket() else frozenset()
+        if not self._availableDirty and placed == self._availablePlaced:
+            # updateButtons() runs on every selection change, and rebuilding
+            # both lists over the whole signup list each time is work nothing
+            # asked for. Only the placements and the signup list itself can
+            # change what's available, and both are cheap to notice.
+            return
+
+        # these two lists are shared in place with the delegate, so they are
+        # emptied and refilled rather than rebound
         self.availableAthletes.clear()
         self.availableAthleteNames.clear()
-        placed = set(self.placedAthletes()) if self.isBracket() else set()
         for j in self.sl.athletes():
             if j.id in placed:
                 continue
             self.availableAthletes.append(j.id)
             self.availableAthleteNames.append(j.name + " (" + j.nation + ")")
+        self._availablePlaced = placed
+        self._availableDirty = False
 
     def updateAvailableAthletes(self):
         self.recomputeAvailableAthletes()
