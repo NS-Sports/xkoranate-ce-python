@@ -10,6 +10,7 @@ class XkorBestOfParadigm(XkorAbstractParadigm):
         super().__init__(sport, userOptions)
         self.supportedCompetitions["matches"] = True
         self.supportedCompetitions["roundRobin"] = True
+        self.supportedCompetitions["singleElimination"] = True
 
     def breakTie(self, athletes, type=""):
         print("unexpected tie break request in best of paradigm", file=sys.stderr)

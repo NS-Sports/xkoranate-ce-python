@@ -495,3 +495,43 @@ def test_an_unchanged_bracket_keeps_its_draw_and_results(sport_index, rng):
     c = newKnockout(ev, sport, sl)
     assert len(c._rowsForRound(0)) == 4
     assert c._winnersOfRound(0) is not None
+
+
+H2H_PARADIGM_SPORTS = [
+    "eSports—Best of 5",       # XkorWrestlingParadigm
+    "eSports—FPS—3 Match",     # XkorTennisParadigm
+    "Judo—xkoranate formula",  # XkorBestOfParadigm
+    "Fencing—Individual epee",  # XkorFencingParadigm
+]
+
+
+@pytest.mark.parametrize("sportName", H2H_PARADIGM_SPORTS)
+def test_head_to_head_paradigms_all_offer_a_knockout(sport_index, rng, sportName):
+    """These four subclass XkorAbstractParadigm rather than the H2H base, so
+    declaring singleElimination on that base never reached them."""
+    sport = XkorXmlSportReader(sport_index.lookup(sportName)).sport()
+    paradigm = XkorParadigmFactory.newParadigmForSport(sport, {})
+    assert paradigm.supportsCompetition("roundRobin")
+    assert paradigm.supportsCompetition("singleElimination")
+
+
+@pytest.mark.parametrize("sportName", H2H_PARADIGM_SPORTS)
+def test_a_knockout_plays_out_for_every_head_to_head_paradigm(sport_index, rng, sportName):
+    ev, sport, sl = buildKnockout(sport_index, rng, 8, sportName=sportName)
+    c = playKnockout(ev, sport, sl)
+    assert len(c._winnersOfRound(c._rounds() - 1)) == 1
+
+
+def test_the_editor_never_shows_a_type_the_event_will_not_use(editor, sport_index, rng):
+    """A saved type the sport's paradigm can't run used to leave the selector
+    and the event disagreeing, so the editor said "round robin" while a cup
+    was what actually got scorinated."""
+    ev, sport = build_event(sport_index, rng, "Athletics—Men’s 00100 m—Round 1")
+    ev.setCompetition("singleElimination")  # a sprint has no knockout
+
+    editor.showEventEditor(ev)
+    assert selectedCompetition(editor) == editor.ee.m_data.competition()
+    assert selectedCompetition(editor) != "singleElimination"
+
+    editor.updateCurrentEvent()
+    assert ev.competition() == selectedCompetition(editor)

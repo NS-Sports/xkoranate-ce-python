@@ -8,6 +8,7 @@ from xkoranate.variant import qNumber, toDouble, toInt, toList, toString
 
 BYE_MARKER = "— BYE —"
 BYE_ADVANCES = "BYE — advances"
+COIN_TOSS = "coin toss"
 THIRD_PLACE_ROUND = "3P"  # sentinel round marker for the third-place playoff
 _FIELD_SEP = "|"
 
@@ -430,7 +431,7 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
         else:
             # nothing the paradigm offers separates them; flip for it
             winner = home if self._coinFlip() else away
-            decider = "coin toss"
+            decider = COIN_TOSS
 
         return (value1, value2, decider, winner)
 
@@ -531,12 +532,15 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
             advancing.append(athlete)
             self._rows.append(self._makeRow(round_, m, athlete, None, None, None, "bye", athlete))
 
+        tossed = []
         for m, home, away in played:
             score1, score2, decider, winner = self._decideMatch(p, home, away)
             advancing.append(winner)
+            if decider == COIN_TOSS:
+                tossed.append(winner)
             self._rows.append(self._makeRow(round_, m, home, away, score1, score2, decider, winner))
 
-        self.resultsBuf[matchday] = self._formatRound(matchday, round_, p, byes, played)
+        self.resultsBuf[matchday] = self._formatRound(matchday, round_, p, byes, played, tossed)
 
     def _scorinateThirdPlace(self, matchday, semiFinalRound):
         losers = self._losersOfRound(semiFinalRound)
@@ -557,7 +561,7 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
                  "Third place", self._formatAthleteName(winner), ""]
         self.resultsBuf[matchday] = "\n".join(lines) + "\n"
 
-    def _formatRound(self, matchday, round_, p, byes, played):
+    def _formatRound(self, matchday, round_, p, byes, played, tossed=()):
         lines = [self.matchdayNames()[matchday]]
         if matchday == 0:
             # the bracket size and bye count only need saying once
@@ -575,6 +579,14 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
             if output:
                 lines.append(output)
                 lines.append("")
+
+        if tossed:
+            # some paradigms can't separate a tie at all (a single game of
+            # chess, say), and a knockout still has to send someone through
+            lines.append("Decided by coin toss")
+            for athlete in tossed:
+                lines.append(self._formatAthleteName(athlete))
+            lines.append("")
 
         lines.extend(self._nextRoundLines(round_))
         return "\n".join(lines) + "\n"

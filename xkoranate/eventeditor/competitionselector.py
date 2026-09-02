@@ -35,6 +35,10 @@ class XkorCompetitionSelector(QWidget):
 
         self.updateCompetition(-1)  # show a big competition options widget so that the layout has room for it
 
+    def competition(self):
+        """The type that is actually selected, and so will actually run."""
+        return toString(self.comboBox.itemData(self.comboBox.currentIndex(), Qt.UserRole))
+
     def setCompetition(self, competition):
         index = self.comboBox.findData(competition, Qt.UserRole)
         if index == -1:

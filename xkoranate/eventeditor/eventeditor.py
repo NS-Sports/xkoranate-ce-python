@@ -194,7 +194,11 @@ class XkorEventEditor(QWidget):
         # updateSport is called implicitly by sportSelector->setSelectedSport
         self.competitionSelector.setSport(self.sport, data.competitionOptions())
         self.competitionSelector.setCompetition(competition)
-        self.m_data.setCompetition(competition)
+        # the sport's paradigm may not offer the type the file asked for; the
+        # selector's choice is what will actually be scorinated, so record
+        # that rather than leaving the event claiming something the editor
+        # isn't showing
+        self.m_data.setCompetition(self.competitionSelector.competition())
         self.scorinateWidget.setEvent(self.m_data, self.m_rpList, self.sport)
 
         # signup lists
