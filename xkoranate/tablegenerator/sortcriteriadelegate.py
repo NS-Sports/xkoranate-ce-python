@@ -1,10 +1,11 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QStyledItemDelegate
 
+from ..ui.comboindicator import XkorComboIndicatorMixin
 from ..variant import toString
 
 
-class XkorSortCriteriaDelegate(QStyledItemDelegate):
+class XkorSortCriteriaDelegate(XkorComboIndicatorMixin, QStyledItemDelegate):
     def __init__(self, types, names, parent=None):
         super().__init__(parent)
         self.sortTypes = list(types)
@@ -14,7 +15,7 @@ class XkorSortCriteriaDelegate(QStyledItemDelegate):
         comboBox = QComboBox(parent)
         comboBox.setFrame(False)
         comboBox.insertItems(0, self.sortNames)
-        return comboBox
+        return self.bindComboEditor(comboBox)
 
     def setEditorData(self, editor, index):
         comboBox = editor
