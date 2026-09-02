@@ -135,8 +135,24 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
             self._rows = [toString(i) for i in toList(self.userOpt.get("bracketResults")) if toString(i) != ""]
         if self._draw is None:
             raw = [toString(i) for i in toList(self.userOpt.get("bracketDraw"))]
-            if raw:
+            if raw and self._orderMatchesDraw(raw):
                 self._draw = [self._athleteById(i) for i in raw]
+            elif raw:
+                # the user has rearranged the bracket since this draw was
+                # made, so it — and the results that came out of it — no
+                # longer describe this tournament
+                self._rows = []
+
+    def _orderMatchesDraw(self, raw):
+        """Whether a stored draw still matches the bracket as it stands now.
+
+        Compared against the draw the current entrant order would produce,
+        not the order itself: a bare list of entrants and the full slot list
+        it expands to describe the same bracket.
+        """
+        derived = ["" if a is None else str(a.id)
+                   for a in bracket.drawFromOrder(self._entrants())]
+        return derived == list(raw)
 
     def _saveState(self):
         self.resumeOpt["bracketDraw"] = ([(str(a.id) if a is not None else "") for a in self._draw]
@@ -520,7 +536,7 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
             advancing.append(winner)
             self._rows.append(self._makeRow(round_, m, home, away, score1, score2, decider, winner))
 
-        self.resultsBuf[matchday] = self._formatRound(matchday, p, byes, played, advancing)
+        self.resultsBuf[matchday] = self._formatRound(matchday, round_, p, byes, played)
 
     def _scorinateThirdPlace(self, matchday, semiFinalRound):
         losers = self._losersOfRound(semiFinalRound)
@@ -541,7 +557,7 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
                  "Third place", self._formatAthleteName(winner), ""]
         self.resultsBuf[matchday] = "\n".join(lines) + "\n"
 
-    def _formatRound(self, matchday, p, byes, played, advancing):
+    def _formatRound(self, matchday, round_, p, byes, played):
         lines = [self.matchdayNames()[matchday]]
         if matchday == 0:
             # the bracket size and bye count only need saying once
@@ -560,13 +576,35 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
                 lines.append(output)
                 lines.append("")
 
-        if advancing:
-            lines.append("Champion" if len(advancing) == 1 and not byes else "Advancing")
-            for athlete in advancing:
-                lines.append(self._formatAthleteName(athlete))
-            lines.append("")
-
+        lines.extend(self._nextRoundLines(round_))
         return "\n".join(lines) + "\n"
+
+    def _nextRoundLines(self, round_):
+        """The fixtures this round has just set up, or the champion.
+
+        Once a round is scored its winners are known, so the next round's
+        pairings can be named outright rather than just listing who is
+        through.
+        """
+        winners = self._winnersOfRound(round_)
+        if winners is None:
+            return []
+
+        if round_ == self._rounds() - 1:
+            if len(winners) == 1 and winners[0] is not None:
+                return ["Champion", self._formatAthleteName(winners[0]), ""]
+            return []
+
+        nextRound = round_ + 1
+        lines = ["Into the " + self.matchdayNames()[self._matchdayForRound(nextRound)]]
+        for m in range(self._matchesInRound(nextRound)):
+            home, away = winners[2 * m], winners[2 * m + 1]
+            lines.append("%s  %s v %s" % (
+                ("%d." % self._matchNumber(nextRound, m)).rjust(4),
+                (self._formatAthleteName(home) if home is not None else BYE_MARKER).ljust(self.nameWidth()),
+                self._formatAthleteName(away) if away is not None else BYE_MARKER))
+        lines.append("")
+        return lines
 
     # ---------------------------------------------------------------- revert
 

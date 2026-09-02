@@ -146,16 +146,25 @@ def test_the_draw_buttons_are_only_offered_for_a_bracket(widget):
     assert widget.spreadSeedsAction.isVisible()
 
 
-def test_a_hand_edited_bracket_is_repaired(widget):
+def test_the_bracket_keeps_its_chosen_size_when_slots_are_emptied(widget):
     loadBracket(widget)
-    # drop a club, leaving a match with a single entrant and an odd count
+    # 12 clubs in a 16-slot bracket; take one out
     ids = realEntrants(widget)[:11]
     widget.setBracketSlots(widget.padToBracket(ids))
 
-    assert widget.treeWidget.topLevelItemCount() == 8
-    assert all(p.count("— BYE —") <= 1 for p in pairs(widget))
+    assert widget.treeWidget.topLevelItemCount() == 8  # size is unchanged
     assert len(realEntrants(widget)) == 11
     assert widget.bracketEntrants().count(BYE_ID) == 5
+
+
+def test_a_participant_can_never_be_placed_twice(widget):
+    loadBracket(widget)
+    ids = realEntrants(widget)
+    # ask for a bracket with every club listed twice over
+    widget.setBracketSlots(widget.padToBracket(ids + ids, size=32))
+
+    placed = realEntrants(widget)
+    assert len(placed) == len(set(placed)) == 12
 
 
 def test_too_few_entrants_leaves_an_empty_bracket(widget):
@@ -207,3 +216,76 @@ def test_a_match_of_two_byes_is_flagged(widget):
     assert "nobody in this match" in label
     # and the other match labels stay clean
     assert "nobody" not in widget.treeWidget.topLevelItem(0).text(0)
+
+
+def test_matches_cannot_be_deleted(widget):
+    """Removing a match left a bracket that wasn't a power of two."""
+    from PySide6.QtCore import QItemSelectionModel
+
+    loadBracket(widget, 8)
+    match = widget.treeWidget.topLevelItem(0)
+    widget.treeWidget.setCurrentItem(match, 0, QItemSelectionModel.ClearAndSelect)
+    assert not widget.deleteAction.isEnabled()
+
+    widget.deleteAction.trigger()  # even if it somehow fires, nothing goes
+    assert widget.treeWidget.topLevelItemCount() == 4
+
+
+def test_clearing_a_slot_leaves_a_bye(widget):
+    from PySide6.QtCore import QItemSelectionModel
+
+    loadBracket(widget, 8)
+    slot = widget.treeWidget.topLevelItem(0).child(0)
+    widget.treeWidget.setCurrentItem(slot, 0, QItemSelectionModel.ClearAndSelect)
+    assert widget.deleteAction.isEnabled()
+    widget.deleteAction.trigger()
+
+    assert widget.treeWidget.topLevelItemCount() == 4  # size unchanged
+    assert len(realEntrants(widget)) == 7
+    assert widget.bracketEntrants().count(BYE_ID) == 1
+
+
+def test_add_all_fills_byes_without_duplicating(widget):
+    """'Add all' used to append everyone again, so clubs played themselves."""
+    from PySide6.QtCore import QItemSelectionModel
+
+    loadBracket(widget, 12)  # every club in the signup list is placed
+    assert widget.availableAthletes == []
+
+    slot = widget.treeWidget.topLevelItem(0).child(0)
+    widget.treeWidget.setCurrentItem(slot, 0, QItemSelectionModel.ClearAndSelect)
+    widget.deleteAction.trigger()
+    assert len(widget.availableAthletes) == 1  # the club we took out
+
+    widget.insertAllAction.trigger()
+    placed = realEntrants(widget)
+    assert len(placed) == len(set(placed)) == 12
+    assert widget.treeWidget.topLevelItemCount() == 8  # size unchanged
+    assert widget.availableAthletes == []
+
+
+def test_the_size_dropdown_resizes_the_bracket(widget):
+    loadBracket(widget, 8)
+    assert widget.bracketSize() == 8
+
+    widget.setBracketSize(16)
+    assert widget.treeWidget.topLevelItemCount() == 8
+    assert len(realEntrants(widget)) == 8
+    assert widget.bracketEntrants().count(BYE_ID) == 8
+    assert widget.bracketSizeCombo.currentData() == 16
+
+
+def test_shrinking_the_bracket_releases_the_clubs_that_no_longer_fit(widget):
+    loadBracket(widget, 12)
+    widget.setBracketSize(4)
+
+    assert widget.treeWidget.topLevelItemCount() == 2
+    assert len(realEntrants(widget)) == 4
+    assert len(widget.availableAthletes) == 8  # the rest are back in the pool
+
+
+def test_the_size_dropdown_is_only_shown_for_a_bracket(widget):
+    widget.setCompetition("singleElimination")
+    assert widget.bracketSizeCombo.isVisible() or not widget.isVisible()
+    widget.setCompetition("roundRobin")
+    assert not widget.bracketSizeCombo.isVisible()

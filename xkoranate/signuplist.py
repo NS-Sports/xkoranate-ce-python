@@ -17,6 +17,8 @@ class XkorSignupList:
         self.ath.append(a)
 
     def adjustRank(self, rank):
+        if self.max == self.min:
+            return 0.0  # no range to normalise against
         return (rank - self.min) / (self.max - self.min)
 
     def athletes(self):

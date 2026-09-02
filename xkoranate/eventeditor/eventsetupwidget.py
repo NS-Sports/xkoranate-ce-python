@@ -1,9 +1,9 @@
 import uuid
 
 from PySide6.QtCore import QItemSelectionModel, QSize, Qt, QTimer, Signal
-from PySide6.QtWidgets import (QAbstractItemView, QGridLayout, QLabel, QStackedLayout,
-                               QStyle, QToolBar, QTreeWidgetItem, QTreeWidgetItemIterator,
-                               QWidget)
+from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QGridLayout, QHBoxLayout,
+                               QLabel, QStackedLayout, QStyle, QToolBar, QTreeWidgetItem,
+                               QTreeWidgetItemIterator, QWidget)
 
 from ..abstracttreewidget import XkorAbstractTreeWidget
 from ..ui.typography import heading_label
@@ -52,6 +52,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.r = Mt19937()  # backs std::random_shuffle in randomizeGroup
         self.competition = ""  # retitles the page; set by the event editor
         self.bracketGroupName = "Bracket"  # the pooled group a knockout stores
+        self.bracketSlotCount = 0  # how many slots the user has asked for
         self.headingLabel = None  # created in setupLayout(), below
 
         self._delegate = XkorEventSetupDelegate(self.availableAthleteNames, self.availableAthletes)
@@ -90,6 +91,13 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
             "can't meet early, and draw everyone else at random around them.")
         self.spreadSeedsAction.triggered.connect(self.spreadSeeds)
 
+        self.bracketSizeCombo = QComboBox()
+        for size in self.BRACKET_SIZES:
+            self.bracketSizeCombo.addItem("%d-participant bracket" % size, size)
+        self.bracketSizeCombo.setToolTip(
+            "How many slots the bracket has. Any slot you don't fill is a bye.")
+        self.bracketSizeCombo.currentIndexChanged.connect(self.bracketSizeChosen)
+
         self.scheduleAction = icon_action("schedule", "View full schedule", self)
         self.scheduleAction.triggered.connect(lambda: self.viewScheduleRequested.emit())
 
@@ -113,8 +121,45 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
     def insertionText(self):
         return "Create a group"
 
+    BRACKET_SIZES = [2, 4, 8, 16, 32, 64, 128]
+
     def isBracket(self):
         return self.competition == "singleElimination"
+
+    def bracketSize(self):
+        """How many slots the bracket has, from the dropdown."""
+        if self.bracketSlotCount:
+            return self.bracketSlotCount
+        return len(self.bracketEntrants())
+
+    def setBracketSize(self, size):
+        """Resize the bracket, keeping the entrants that still fit.
+
+        Growing it adds byes; shrinking it drops the entrants that fall off
+        the end, which go back to the pool of available participants.
+        """
+        size = max(2, size)
+        self.bracketSlotCount = size
+        slots = [i for i in self.bracketEntrants() if i is not None and i != BYE_ID][:size]
+        self.setBracketSlots(self.padToBracket(slots))
+        self.syncBracketSizeCombo()
+
+    def syncBracketSizeCombo(self):
+        """Show the size the bracket actually has, without re-triggering."""
+        size = self.bracketSize()
+        self.bracketSizeCombo.blockSignals(True)
+        index = self.bracketSizeCombo.findData(size)
+        if index == -1 and size:
+            # a bracket loaded from a file may be a size we don't offer
+            self.bracketSizeCombo.addItem("%d-participant bracket" % size, size)
+            index = self.bracketSizeCombo.count() - 1
+        self.bracketSizeCombo.setCurrentIndex(max(0, index))
+        self.bracketSizeCombo.blockSignals(False)
+
+    def bracketSizeChosen(self, index):
+        size = self.bracketSizeCombo.itemData(index)
+        if size:
+            self.setBracketSize(int(size))
 
     def matchLabel(self, index):
         return "Match %d" % (index + 1)
@@ -188,6 +233,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
             "Draw the bracket at random." if isBracket else "Randomize this group.")
         # a bye is only meaningful inside a bracket
         self._delegate.allowBye = isBracket
+        self.bracketSizeCombo.setVisible(isBracket)
 
     def scheduleReflow(self, *args):
         if self.isInUse or not self.isBracket():
@@ -274,9 +320,18 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
 
     def insertAll(self):
         if self.isBracket():
-            slots = [i for i in self.bracketEntrants() if i not in (None, BYE_ID)]
-            slots.extend(self.availableAthletes)
+            # fill the empty slots rather than growing the bracket
+            slots = list(self.bracketEntrants())
+            pool = list(self.availableAthletes)
+            for i in range(len(slots)):
+                if not pool:
+                    break
+                if slots[i] is None or slots[i] == BYE_ID:
+                    slots[i] = pool.pop(0)
+            if not slots:
+                slots = pool  # nothing set up yet: size the bracket to fit
             self.setBracketSlots(self.padToBracket(slots))
+            self.syncBracketSizeCombo()
             return
 
         self.isInUse = True
@@ -302,6 +357,24 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.isInUse = False
         self.listChanged.emit()
 
+    def deleteItems(self):
+        if self.isBracket():
+            # emptying a slot leaves a bye behind: removing the row itself
+            # would leave the bracket a size that isn't a power of two
+            self.isInUse = True
+            cleared = False
+            for item in self.treeWidget.selectedItems():
+                if item.parent() is None:
+                    continue  # a match is structural, not deletable
+                self.initAthlete(item, BYE_ID)
+                cleared = True
+            self.isInUse = False
+            if cleared:
+                self.renumberMatches()
+                self.listChanged.emit()
+            return
+        super().deleteItems()
+
     def redrawBracket(self, drawFunction):
         """Rebuild the bracket with one of the draw functions in bracket.py."""
         athletes = []
@@ -314,8 +387,11 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
                 pass
         if len(athletes) < 2:
             return
-        slots = drawFunction(athletes, bracket.bracketSize(len(athletes)))
+        size = max(self.bracketSlotCount, bracket.bracketSize(len(athletes)))
+        slots = drawFunction(athletes, size)
+        self.bracketSlotCount = size
         self.setBracketSlots([BYE_ID if a is None else a.id for a in slots])
+        self.syncBracketSizeCombo()
 
     def seedBracket(self):
         self.redrawBracket(bracket.drawSeeded)
@@ -334,17 +410,37 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.redrawBracket(
             lambda a, size: bracket.drawVariableSeeds(a, size, count, self.r))
 
-    def padToBracket(self, slots):
-        """Round a slot list up to a usable bracket, adding byes as needed."""
-        real = [i for i in slots if i is not None and i != BYE_ID]
-        if len(real) < 2:
-            return []
-        size = bracket.bracketSize(len(real))
+    def padToBracket(self, slots, size=None):
+        """Lay a slot list out over the bracket, padding short with byes.
 
-        laid = [None if (i is None or i == BYE_ID) else i for i in slots][:size]
-        if not bracket.isWellFormed(laid, real):
-            laid = bracket.drawManual(real, size)
-        return [BYE_ID if i is None else i for i in laid]
+        A participant can never appear twice, however the caller got there.
+        With no size chosen the bracket is sized to fit and the byes are
+        spread one to a match; once the user has picked a size, slots are
+        laid out exactly as given so their arrangement is preserved.
+        """
+        laid = []
+        placed = []
+        for id in slots:
+            if id is None or id == BYE_ID:
+                laid.append(BYE_ID)
+            elif id in placed:
+                continue  # already in the bracket; don't add it again
+            else:
+                placed.append(id)
+                laid.append(id)
+
+        chosen = self.bracketSlotCount if size is None else size
+        if not chosen:
+            if len(placed) < 2:
+                return []
+            # nothing chosen yet: size to fit and spread the byes out
+            chosen = bracket.bracketSize(len(placed))
+            return [BYE_ID if i is None else i for i in bracket.drawManual(placed, chosen)]
+
+        laid = laid[:chosen]
+        while len(laid) < chosen:
+            laid.append(BYE_ID)
+        return laid
 
     def randomizeGroup(self):
         if self.isBracket():
@@ -376,7 +472,19 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
             slots = []
             for i in g:
                 slots.extend(i.athletes)
-            self.setBracketSlots(self.padToBracket(slots))
+            # a saved bracket is already a full slot list, byes included, so
+            # keep it exactly; a bare list of entrants gets sized to fit with
+            # the byes spread one to a match
+            isFullBracket = len(slots) >= 2 and not len(slots) & (len(slots) - 1)
+            if isFullBracket:
+                self.bracketSlotCount = len(slots)
+                laid = self.padToBracket(slots, size=len(slots))
+            else:
+                self.bracketSlotCount = 0
+                laid = self.padToBracket(slots)
+                self.bracketSlotCount = len(laid)
+            self.setBracketSlots(laid)
+            self.syncBracketSizeCombo()
             return
 
         self.isInUse = True
@@ -425,22 +533,35 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         treeStack.addWidget(self.treeWidget)
         treeStack.addWidget(self._emptyLabel)
 
+        # the bracket-size chooser sits with the tool bar, but is only
+        # meaningful for a knockout
+        controls = QWidget()
+        controlsLayout = QHBoxLayout(controls)
+        controlsLayout.setContentsMargins(0, 0, 0, 0)
+        controlsLayout.addWidget(toolBar)
+        controlsLayout.addWidget(self.bracketSizeCombo)
+
         self.layout = QGridLayout(self)
         self.layout.addWidget(self.headingLabel, 0, 0, Qt.AlignCenter)
         self.layout.addWidget(treeArea, 1, 0)
-        self.layout.addWidget(toolBar, 2, 0, Qt.AlignCenter)
+        self.layout.addWidget(controls, 2, 0, Qt.AlignCenter)
         self.layout.setContentsMargins(0, 0, 0, 0)
 
         self.updateEmptyState()
 
     def updateButtons(self):
+        # placements change as the user works, so what's still available has
+        # to be recomputed rather than cached from when the list was loaded
+        self.recomputeAvailableAthletes()
         selection = self.treeWidget.selectedItems()
 
         if self.isBracket():
-            entrants = len([i for i in self.bracketEntrants() if i not in (None, BYE_ID)])
-            # a draw acts on the whole bracket, so it needs no selection
-            self.deleteAction.setEnabled(len(selection) > 0)
+            slots = [i for i in selection if i.parent() is not None]
+            # matches are structural: the size dropdown decides how many
+            # there are, so only the slots inside them can be cleared
+            self.deleteAction.setEnabled(len(slots) > 0)
             self.insertAllAction.setEnabled(len(self.availableAthletes) > 0)
+            entrants = len([i for i in self.bracketEntrants() if i not in (None, BYE_ID)])
             for action in (self.randomizeAction, self.seedAction, self.spreadSeedsAction):
                 action.setEnabled(entrants >= 2)
             return
@@ -455,22 +576,45 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
             self.insertAthleteAction.setEnabled(False)
             self.insertAllAction.setEnabled(False)
 
-    def updateAvailableAthletes(self):
+    def placedAthletes(self):
+        """Ids already sitting in the tree, so they aren't offered twice."""
+        rval = []
+        i = QTreeWidgetItemIterator(self.treeWidget)
+        while i.value():
+            item = i.value()
+            if item.parent():
+                id = _uuidFromString(item.data(0, Qt.UserRole))
+                if id is not None and id != BYE_ID:
+                    rval.append(id)
+            i += 1
+        return rval
+
+    def recomputeAvailableAthletes(self):
+        """Participants not yet in the tree. Emits nothing, so it is safe to
+        call from updateButtons (which listChanged already drives)."""
         self.availableAthletes.clear()
         self.availableAthleteNames.clear()
-
-        s = self.sl.athletes()
-        for j in s:
+        placed = self.placedAthletes()
+        for j in self.sl.athletes():
+            if j.id in placed:
+                continue
             self.availableAthletes.append(j.id)
             self.availableAthleteNames.append(j.name + " (" + j.nation + ")")
+
+    def updateAvailableAthletes(self):
+        self.recomputeAvailableAthletes()
 
         i = QTreeWidgetItemIterator(self.treeWidget)
         while i.value():
             item = i.value()
             # if this is an athlete, look up its ID
             if item.parent():
+                id = _uuidFromString(item.data(0, Qt.UserRole))
+                if id == BYE_ID:
+                    i += 1
+                    continue  # a bye has no participant to look up
                 try:
-                    temp = self.getAthleteByID(_uuidFromString(item.data(0, Qt.UserRole)))
+                    temp = self.getAthleteByID(id)
                     item.setText(0, temp.name + " (" + temp.nation + ")")
                 except XkorSearchFailedException:
                     item.setText(0, "<unknown participant>")

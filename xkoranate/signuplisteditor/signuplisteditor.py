@@ -100,10 +100,22 @@ class XkorSignupListEditor(QWidget):
             self.maxRank.setValue(1.0)
         elif mode == "pinned":
             self._updatePinnedMax()
+        elif mode == "manual":
+            # a paradigm that passes skill through pins the ceiling to 1.0;
+            # switching to one that rescales must not keep that, or every
+            # entered skill above it is scaled far out of range
+            self._raiseMaxAboveParticipants()
         self.maxRank.setEnabled(mode == "manual")
         if self.athletes:
             self.athletes.setMaxRank(
                 self.maxRank.value() if mode == "manual" else _ENTRY_SKILL_CEILING)
+
+    def _raiseMaxAboveParticipants(self):
+        if not self.athletes:
+            return
+        skills = [a.skill for a in self.athletes.athletes()]
+        if skills and self.maxRank.value() < max(skills):
+            self.maxRank.setValue(max(skills))
 
     def _updatePinnedMax(self):
         if not self.athletes:

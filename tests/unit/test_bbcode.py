@@ -44,3 +44,10 @@ def test_boldWinnerLine_leaves_padded_table_rows_unchanged():
 def test_boldWinners_processes_each_line_independently():
     text = "Group A\nHome 3–1 Away\nHome2 0–0 Away2"
     assert boldWinners(text) == "Group A\n[b]Home[/b] 3–1 Away\nHome2 0–0 Away2"
+
+
+def test_winners_are_bolded_whichever_dash_the_sport_file_uses():
+    """esports_bestof1.xml used an ASCII hyphen, and bolding silently stopped."""
+    for dash in ("-", "\u2013", "\u2014"):
+        line = "Aquilla (AQU) 3%s1 Busby (BUS)" % dash
+        assert boldWinnerLine(line) == "[b]Aquilla (AQU)[/b] 3%s1 Busby (BUS)" % dash

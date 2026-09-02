@@ -397,3 +397,101 @@ def test_schedule_fills_in_real_names_as_rounds_are_played(sport_index, rng):
     final = scheduleSection(schedule, "Final")
     assert len(final) == 1
     assert "Match 5 winner" in final[0] and "Match 6 winner" in final[0]
+
+
+# ------------------------------------------------- editor round trips
+
+
+@pytest.fixture(scope="module")
+def editor(sport_index):
+    """The real event editor, with the sport list loaded."""
+    app = XkorApplication.instance() or XkorApplication(sys.argv)
+    app.loadSports()
+    return app.cw
+
+
+def selectedCompetition(cw):
+    from PySide6.QtCore import Qt
+
+    box = cw.ee.competitionSelector.comboBox
+    return box.itemData(box.currentIndex(), Qt.UserRole)
+
+
+@pytest.mark.parametrize("competition", ["singleElimination", "matches", "roundRobin"])
+def test_opening_an_event_keeps_its_competition_type(editor, sport_index, rng, competition):
+    """Rebuilding the selectors used to report a type back over the loaded one.
+
+    The combo box fires currentIndexChanged as it is repopulated, and each of
+    those wrote a competition type into the event being loaded — so anything
+    that wasn't the first item in the list was silently replaced.
+    """
+    ev, sport = build_event(sport_index, rng, "Association football—LISA formula")
+    ev.setCompetition(competition)
+
+    editor.showEventEditor(ev)
+    assert selectedCompetition(editor) == competition
+    assert editor.ee.m_data.competition() == competition
+
+    # page to the end of the wizard and back
+    for _ in range(4):
+        editor.ee.goNext()
+    for _ in range(4):
+        editor.ee.goPrev()
+    assert selectedCompetition(editor) == competition
+
+    # and leaving the event must not rewrite it
+    editor.updateCurrentEvent()
+    assert ev.competition() == competition
+
+
+# ------------------------------------------------- round output and staleness
+
+
+def test_a_round_names_the_next_round_s_pairings(sport_index, rng):
+    ev, sport, sl = buildKnockout(sport_index, rng, 8)
+    playKnockout(ev, sport, sl, upTo=1)  # quarter-finals
+
+    result = ev.results()[0]
+    assert "Into the Semi-finals" in result
+    assert "Advancing" not in result
+    # two semi-finals, each naming both winners
+    section = result.split("Into the Semi-finals")[1].strip().split("\n")
+    assert len([line for line in section if line.strip()]) == 2
+    for line in section:
+        if line.strip():
+            assert line.count("Athlete") == 2
+
+
+def test_the_last_round_names_the_champion(sport_index, rng):
+    ev, sport, sl = buildKnockout(sport_index, rng, 8)
+    c = playKnockout(ev, sport, sl)
+
+    final = ev.results()[c.matchdays() - 1]
+    assert "Champion" in final
+    assert "Into the" not in final
+
+
+def test_rearranging_the_bracket_supersedes_a_stored_draw(sport_index, rng):
+    """A draw only describes the tournament while the bracket still matches it."""
+    ev, sport, sl = buildKnockout(sport_index, rng, 8)
+    playKnockout(ev, sport, sl, upTo=1)
+    assert ev.competitionOptions()["bracketResults"]
+
+    # reverse the entrants, as dragging them around would
+    reversed_ = list(reversed(ev.groups()[0].athletes))
+    ev.setGroups([XkorGroup("Bracket", reversed_)])
+    c = newKnockout(ev, sport, ev.makeStartList(XkorRPList()))
+
+    fixtures = c._fixtures(0)
+    names = [h.name for h, a in fixtures]
+    assert names[0] != "Athlete 1"  # the old draw is not being reused
+    assert c._rowsForRound(0) == {}  # nor are the results it produced
+
+
+def test_an_unchanged_bracket_keeps_its_draw_and_results(sport_index, rng):
+    ev, sport, sl = buildKnockout(sport_index, rng, 8)
+    playKnockout(ev, sport, sl, upTo=1)
+
+    c = newKnockout(ev, sport, sl)
+    assert len(c._rowsForRound(0)) == 4
+    assert c._winnersOfRound(0) is not None

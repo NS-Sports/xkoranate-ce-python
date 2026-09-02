@@ -184,12 +184,17 @@ class XkorEventEditor(QWidget):
         self.updateStepIndicator()
 
         self.m_data = data
+        # data *is* m_data, and rebuilding the selectors below reports a
+        # competition type back through updateCompetition, so hold on to the
+        # one the file actually specified
+        competition = data.competition()
 
         self.sportSelector.setParadigmOptions(data.paradigmOptions())
         self.sportSelector.setSelectedSport(data.sport())
         # updateSport is called implicitly by sportSelector->setSelectedSport
         self.competitionSelector.setSport(self.sport, data.competitionOptions())
-        self.competitionSelector.setCompetition(data.competition())
+        self.competitionSelector.setCompetition(competition)
+        self.m_data.setCompetition(competition)
         self.scorinateWidget.setEvent(self.m_data, self.m_rpList, self.sport)
 
         # signup lists

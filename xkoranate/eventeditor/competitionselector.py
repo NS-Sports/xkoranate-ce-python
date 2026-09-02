@@ -37,7 +37,13 @@ class XkorCompetitionSelector(QWidget):
 
     def setCompetition(self, competition):
         index = self.comboBox.findData(competition, Qt.UserRole)
+        if index == -1:
+            # the current sport's paradigm doesn't offer this type; leave the
+            # box on whatever it settled on rather than blanking it
+            return
+        self.comboBox.blockSignals(True)
         self.comboBox.setCurrentIndex(index)
+        self.comboBox.blockSignals(False)
         self.updateCompetition(index)
 
     def setSport(self, sport, paradigmOptions):
@@ -56,6 +62,11 @@ class XkorCompetitionSelector(QWidget):
             self.optionsWidget.deleteLater()
         self.optionsWidget = None
 
+        # repopulating the box fires currentIndexChanged for every item that
+        # lands on the current index, and each of those writes a competition
+        # type back to the event. Rebuild quietly and notify once, at the end,
+        # with the type we actually settled on.
+        self.comboBox.blockSignals(True)
         self.comboBox.clear()
 
         from ..competitions.competitionfactory import XkorCompetitionFactory
@@ -72,6 +83,7 @@ class XkorCompetitionSelector(QWidget):
         if newIndex == -1:
             newIndex = 0  # pick the first format in the list if nothing useful is available
         self.comboBox.setCurrentIndex(newIndex)
+        self.comboBox.blockSignals(False)
         self.updateCompetition(newIndex)
 
     def updateCompetition(self, index):

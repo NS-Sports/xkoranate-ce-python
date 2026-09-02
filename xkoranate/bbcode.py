@@ -9,8 +9,11 @@ import re
 # (Gaelic/Australian scores, period tables, draws) are left alone.
 _DEF_BY_RE = re.compile(r"^(?P<loser>[^\d\n]+?) def\. by (?P<winner>[^\d\n]+?) \((?P<status>.+)\)$")
 _DEF_RE = re.compile(r"^(?P<winner>[^\d\n]+?) def\. (?P<loser>[^\d\n]+?) \((?P<status>.+)\)$")
+# sport files overwhelmingly separate the two scores with an en dash, but
+# nothing enforces it, so accept a plain hyphen or em dash too rather than
+# silently declining to bold the winner (see esports_bestof1.xml)
 _SCORE_LINE_RE = re.compile(
-    r"^(?P<home>.+?) (?P<homeScore>-?\d+(?:\.\d+)?)–(?P<awayScore>-?\d+(?:\.\d+)?) (?P<away>.+)$")
+    r"^(?P<home>.+?) (?P<homeScore>-?\d+(?:\.\d+)?)[-–—](?P<awayScore>-?\d+(?:\.\d+)?) (?P<away>.+)$")
 
 
 def boldWinnerLine(line):
