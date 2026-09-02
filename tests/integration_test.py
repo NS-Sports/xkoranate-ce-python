@@ -771,3 +771,17 @@ def test_match_odds_cover_byes_normal_pairings_and_the_playoff(sport_index, rng)
     c = playKnockout(ev, sport, sl, upTo=2)
     odds = c.matchOdds(playoffMatchday, trials=20)
     assert odds is not None and odds.strip()
+
+
+def test_a_coin_toss_without_a_prng_is_still_reproducible(sport_index, rng, capsys):
+    """A sport with no PRNG is a misconfiguration, but it must not make the
+    one result the paradigm can't derive clock-dependent too."""
+    ev, sport, sl = buildKnockout(sport_index, rng, 4)
+    c = newKnockout(ev, sport, sl)
+    c.sport.r = None
+
+    flips = [c._coinFlip() for _ in range(8)]
+    c2 = newKnockout(ev, sport, sl)
+    c2.sport.r = None
+    assert [c2._coinFlip() for _ in range(8)] == flips
+    assert "no PRNG set" in capsys.readouterr().err

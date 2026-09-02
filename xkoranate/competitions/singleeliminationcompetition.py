@@ -1,8 +1,10 @@
 import math
+import sys
 
 from xkoranate.athlete import isBye
 from xkoranate.competitions import bracket
 from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
+from xkoranate.rng import Mt19937
 from xkoranate.tablegenerator.decider import nudgeForShootout
 from xkoranate.variant import qNumber, toDouble, toInt, toList, toString
 
@@ -11,6 +13,9 @@ BYE_ADVANCES = "BYE — advances"
 COIN_TOSS = "coin toss"
 THIRD_PLACE_ROUND = "3P"  # sentinel round marker for the third-place playoff
 _FIELD_SEP = "|"
+# used only when the sport has no PRNG at all, which is a misconfiguration:
+# a fixed seed keeps the tie reproducible rather than clock-dependent
+_UNSEEDED_COIN_SEED = 2026
 
 
 def _roundName(matchesInRound):
@@ -503,9 +508,14 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
     def _coinFlip(self):
         rng = self.sport.r
         if rng is None:
-            from xkoranate.rng import Mt19937
-
-            rng = Mt19937()
+            # Everything else in a scorination replays from the event's
+            # seed. Falling back to a clock-seeded Mt19937() made the one
+            # result the paradigm can't derive the one result that can't be
+            # reproduced either — two runs of the same event could crown
+            # different champions with nothing to show why. A sport with no
+            # PRNG is a misconfiguration, so say so and stay deterministic.
+            print("no PRNG set", file=sys.stderr)  # as XkorSport.randUniform does
+            rng = Mt19937(_UNSEEDED_COIN_SEED)
         return (rng.next32() & 1) == 0
 
     def scorinate(self, matchday):
