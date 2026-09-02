@@ -624,3 +624,75 @@ def test_group_setup_still_offers_a_participant_already_in_a_group(widget):
 def test_a_bracket_does_not_offer_a_participant_already_in_the_draw(widget):
     ids = loadBracket(widget, 8)
     assert not (set(ids) & set(widget.availableAthletes))
+
+
+def test_a_drag_that_unbalances_a_match_is_repaired(widget):
+    """The whole point of the deferred reflow: a drop can leave a match
+    holding one or three entrants, and drawFromOrder() would then reject the
+    bracket and silently re-pair it."""
+    loadBracket(widget, 8)
+    first = widget.treeWidget.topLevelItem(0)
+    second = widget.treeWidget.topLevelItem(1)
+    second.addChild(first.takeChild(0))  # 1 here, 3 there
+    assert [len(p) for p in pairs(widget)][:2] == [1, 3]
+
+    widget.reflowBracket()
+
+    assert all(len(p) == 2 for p in pairs(widget))
+    assert len(realEntrants(widget)) == 8
+
+
+def test_deleting_a_participant_leaves_a_bracket_that_is_still_a_power_of_two(widget):
+    """deleteAthlete() takes the row out entirely, which would leave 15 slots."""
+    ids = loadBracket(widget, 8)
+    widget.deleteAthlete(ids[0])
+    widget.reflowBracket()
+
+    slots = widget.bracketEntrants()
+    assert len(slots) & (len(slots) - 1) == 0
+    assert all(len(p) == 2 for p in pairs(widget))
+    assert ids[0] not in slots
+
+
+def test_the_spread_seeds_button_asks_how_many_and_uses_the_answer(widget, monkeypatch):
+    """The handler itself, not just the draw underneath it: the dialog bounds
+    and the cancel path had no coverage."""
+    from PySide6.QtWidgets import QInputDialog
+
+    loadBracket(widget, 8)
+    asked = {}
+
+    def getInt(parent, title, label, value, minValue, maxValue):
+        asked.update(value=value, minValue=minValue, maxValue=maxValue)
+        return 4, True
+
+    monkeypatch.setattr(QInputDialog, "getInt", staticmethod(getInt))
+    widget.spreadSeeds()
+
+    assert asked == {"value": 4, "minValue": 2, "maxValue": 8}
+    assert len(realEntrants(widget)) == 8
+
+
+def test_cancelling_the_seed_count_leaves_the_bracket_alone(widget, monkeypatch):
+    from PySide6.QtWidgets import QInputDialog
+
+    loadBracket(widget, 8)
+    before = list(widget.bracketEntrants())
+    monkeypatch.setattr(QInputDialog, "getInt",
+                        staticmethod(lambda *a, **k: (4, False)))
+    widget.spreadSeeds()
+
+    assert widget.bracketEntrants() == before
+
+
+def test_choosing_a_size_in_the_dropdown_resizes_the_bracket(widget):
+    """setBracketSize() is well covered; the combo wiring into it was not."""
+    loadBracket(widget, 8)
+    index = widget.bracketSizeCombo.findData(4)
+    assert index >= 0
+    widget.bracketSizeCombo.setCurrentIndex(index)
+
+    assert widget.bracketSlotCount == 4
+    assert len(realEntrants(widget)) == 4
+    # and the combo still shows what the bracket actually is
+    assert widget.bracketSizeCombo.currentData() == 4

@@ -353,10 +353,20 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
             self.setBracketSlots(self._lastLaidSlots)
             return
         slots = self.padToBracket(current)
-        if slots != current:
+        if slots != current or not self.bracketShapeIsSound():
+            # the slot list is read flat, so a drag that moves a row from one
+            # match to another leaves the contents identical and only the
+            # shape wrong — comparing the lists alone missed it entirely and
+            # left a match holding one entrant and another holding three
             self.setBracketSlots(slots)
         else:
             self.renumberMatches()
+
+    def bracketShapeIsSound(self):
+        """Whether every match in the tree holds exactly two slots."""
+        tree = self.treeWidget
+        return all(tree.topLevelItem(i).childCount() == 2
+                   for i in range(tree.topLevelItemCount()))
 
     def createAthlete(self, parent):
         item = QTreeWidgetItem(parent)

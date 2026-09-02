@@ -671,3 +671,103 @@ def test_loading_saved_event_keeps_participants(qt_app, sport_index, rng, tmp_pa
         [a.name for a in ev.signupList().athletes()]
     assert data.results()[0] == "some result text"
     assert [g.athletes for g in data.groups()] == [g.athletes for g in ev.groups()]
+
+
+# ----------------------------------------------- odds, stoppages, coin tosses
+
+
+class _StubParadigm:
+    """Just enough paradigm for _decideMatch: results it is told to return."""
+
+    def __init__(self, results):
+        self._results = results  # {athlete id: XkorResult}
+        self.brokeTie = False
+
+    def findResult(self, id):
+        return self._results[id]
+
+    def compare(self, a, b):
+        if a.score() == b.score():
+            return 0
+        return 1 if a.score() > b.score() else -1
+
+    def breakTie(self, athletes, type=""):
+        self.brokeTie = True
+
+    def option(self, key):
+        return []
+
+
+def _result(athlete, score, **values):
+    from xkoranate.result import XkorResult
+
+    r = XkorResult(score, ath=athlete)
+    for k, v in values.items():
+        r.result[k] = v
+    return r
+
+
+def test_a_stoppage_names_the_beaten_side(sport_index, rng):
+    """A status on one side means that side was beaten, so the assignment is
+    deliberately inverted — and an inverted-back version would advance the
+    wrong athlete while every structural assertion still held."""
+    ev, sport, sl = buildKnockout(sport_index, rng, 4)
+    c = newKnockout(ev, sport, sl)
+    home, away = sl.groups[0].athletes[0], sl.groups[0].athletes[1]
+
+    p = _StubParadigm({home.id: _result(home, 0.0, status="ret."),
+                       away.id: _result(away, 0.0)})
+    _, _, _, winner = c._decideMatch(p, home, away)
+    assert winner is away
+
+    p = _StubParadigm({home.id: _result(home, 0.0),
+                       away.id: _result(away, 0.0, status="ret.")})
+    _, _, _, winner = c._decideMatch(p, home, away)
+    assert winner is home
+
+
+def test_a_match_the_paradigm_cannot_separate_is_flipped_for(sport_index, rng):
+    """A knockout cannot end level; the coin toss is the last resort."""
+    ev, sport, sl = buildKnockout(sport_index, rng, 4)
+    c = newKnockout(ev, sport, sl)
+    home, away = sl.groups[0].athletes[0], sl.groups[0].athletes[1]
+
+    seen = set()
+    for _ in range(50):
+        p = _StubParadigm({home.id: _result(home, 1.0), away.id: _result(away, 1.0)})
+        value1, value2, decider, winner = c._decideMatch(p, home, away)
+        assert p.brokeTie  # the tiebreak path runs whatever allowDraws says
+        assert decider == "coin toss"
+        assert winner in (home, away)
+        seen.add(winner.name)
+    assert len(seen) == 2  # both sides come up
+
+
+def test_a_coin_toss_is_reproducible_from_the_event_seed(sport_index, rng):
+    """Everything else in a scorination replays from the seed; this did not."""
+    def champion(seed):
+        ev, sport, sl = buildKnockout(sport_index, Mt19937(seed), 4)
+        sport.setPRNG(Mt19937(seed))
+        c = playKnockout(ev, sport, sl)
+        return c._winnersOfRound(c._rounds() - 1)[0].name
+
+    assert champion(99) == champion(99)
+
+
+def test_match_odds_cover_byes_normal_pairings_and_the_playoff(sport_index, rng):
+    ev, sport, sl = buildKnockout(sport_index, rng, 6, {"thirdPlacePlayoff": "true"})
+    c = newKnockout(ev, sport, sl)
+    assert c.supportsOdds()
+
+    first = c.matchOdds(0, trials=20)  # 6 entrants in an 8-slot bracket
+    assert first is not None
+    assert "BYE" in first
+
+    # the playoff is its own matchday, and has no contestants until the
+    # semi-finals have been played
+    playoffMatchday = c.matchdays() - 2
+    assert c.matchOdds(playoffMatchday, trials=20) is None
+
+    c = playKnockout(ev, sport, sl, upTo=2)
+    odds = c.matchOdds(playoffMatchday, trials=20)
+    assert odds is not None and odds.strip()
