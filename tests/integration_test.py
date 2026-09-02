@@ -6,12 +6,17 @@ import uuid
 
 import pytest
 
+from PySide6.QtCore import QDir
+from PySide6.QtWidgets import QApplication
+
 from xkoranate.application import XkorApplication
 from xkoranate.athlete import XkorAthlete
 from xkoranate.competitions.competitionfactory import XkorCompetitionFactory
 from xkoranate.event import XkorEvent
+from xkoranate.eventeditor.eventeditor import XkorEventEditor
 from xkoranate.group import XkorGroup
 from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
+from xkoranate.paths import sportsDir
 from xkoranate.rng import Mt19937
 from xkoranate.rplist import XkorRPList
 from xkoranate.signuplist import XkorSignupList
@@ -124,3 +129,38 @@ def test_save_load_roundtrip(sport_index, rng, tmp_path):
     g1 = ev.groups()[0]
     g2 = ev2.groups()[0]
     assert g1.name == g2.name and g1.athletes == g2.athletes
+
+
+@pytest.fixture(scope="module")
+def qt_app():
+    app = QApplication.instance() or XkorApplication(sys.argv)
+    QDir.setSearchPaths("sports", [sportsDir()])
+    return app
+
+
+@pytest.mark.parametrize("sportName", [
+    # paradigms that don't use a maximum skill: loading one used to re-check
+    # the "pin to max participant" box mid-rebuild, whose dataChanged wrote
+    # the momentarily-empty editor state back over the event being loaded
+    "Basketball—xkoranate formula",
+    "Association football—SQIS formula",
+    # a paradigm that does use a maximum skill, as a control
+    "Association football—NSFS formula",
+])
+def test_loading_saved_event_keeps_participants(qt_app, sport_index, rng, tmp_path, sportName):
+    ev, _ = build_event(sport_index, rng, sportName)
+    ev.setResult(0, "some result text")
+
+    xmlPath = str(tmp_path / "event.xml")
+    XkorXmlWriter(xmlPath, XkorRPList(), [(uuid.uuid4(), ev)])
+    loaded = XkorXmlReader(xmlPath).events()[0][1]
+
+    editor = XkorEventEditor()
+    editor.loadSports()
+    editor.setData(loaded, XkorRPList())
+
+    data = editor.data()
+    assert [a.name for a in data.signupList().athletes()] == \
+        [a.name for a in ev.signupList().athletes()]
+    assert data.results()[0] == "some result text"
+    assert [g.athletes for g in data.groups()] == [g.athletes for g in ev.groups()]

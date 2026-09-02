@@ -188,6 +188,21 @@ class XkorSignupListEditor(QWidget):
         self.signupListDirectoryChanged.emit(dir)
 
     def setSport(self, sport, paradigmOptions):
+        # rebuilding for a new paradigm churns through a torn-down athlete
+        # widget and re-checks the pin box, and every one of those touches
+        # emits dataChanged -- which makes the event editor write the
+        # (momentarily empty) editor state back over the signup list it is
+        # still in the middle of loading. Suppress those intermediate
+        # emissions; an actual user-driven sport change is already flagged
+        # as modified by the event editor itself.
+        wasLoading = self.isLoading
+        self.isLoading = True
+        try:
+            self._setSport(sport, paradigmOptions)
+        finally:
+            self.isLoading = wasLoading
+
+    def _setSport(self, sport, paradigmOptions):
         self.updateData()
 
         if self.athletes:
