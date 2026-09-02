@@ -44,3 +44,17 @@ def test_rand_kumaraswamy_clamps_a_non_positive_shape_parameter(sport, a, b):
     for skew in (True, False):
         rval = sport.rand_kumaraswamy(a, b, skew)
         assert 0.0 <= rval <= 1.0
+
+
+def test_randGaussian_survives_the_rngs_minimum_value(sport):
+    """randUniform() returns exactly 0.0 at the Twister's minimum, and log(0)
+    is the same domain error rand_kumaraswamy() was hardened against."""
+    sport.randUniform = lambda: 0.0
+    rval = sport.randGaussian()
+    assert not math.isnan(rval)
+    assert not math.isinf(rval)
+
+
+def test_randGaussianCapped_stays_inside_its_cap(sport):
+    sport.randUniform = lambda: 0.0
+    assert 0.1 <= sport.randGaussianCapped(0.1) <= 0.9
