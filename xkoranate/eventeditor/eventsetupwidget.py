@@ -140,7 +140,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         """
         size = max(2, size)
         self.bracketSlotCount = size
-        slots = [i for i in self.bracketEntrants() if i is not None and i != BYE_ID][:size]
+        slots = self.realBracketEntrants()[:size]
         self.setBracketSlots(self.padToBracket(slots))
         self.syncBracketSizeCombo()
 
@@ -156,7 +156,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         run as an eight-club cup, and the clubs that don't fit go back to the
         pool of available participants.
         """
-        entrants = len([i for i in self.bracketEntrants() if i not in (None, BYE_ID)])
+        entrants = len(self.realBracketEntrants())
         if entrants < 2:
             return list(self.BRACKET_SIZES)
         return [s for s in self.BRACKET_SIZES if s // 2 <= entrants]
@@ -208,6 +208,10 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
             for j in range(match.childCount()):
                 rval.append(_uuidFromString(match.child(j).data(0, Qt.UserRole)))
         return rval
+
+    def realBracketEntrants(self):
+        """Bracket slots holding an actual participant, byes excluded."""
+        return [i for i in self.bracketEntrants() if i is not None and i != BYE_ID]
 
     def setBracketSlots(self, slots):
         """Rebuild the tree from a slot list, two slots to a match."""
@@ -430,7 +434,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
     def spreadSeeds(self):
         from PySide6.QtWidgets import QInputDialog
 
-        entrants = len([i for i in self.bracketEntrants() if i not in (None, BYE_ID)])
+        entrants = len(self.realBracketEntrants())
         if entrants < 2:
             return
         count, ok = QInputDialog.getInt(
@@ -592,7 +596,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
             # there are, so only the slots inside them can be cleared
             self.deleteAction.setEnabled(len(slots) > 0)
             self.insertAllAction.setEnabled(len(self.availableAthletes) > 0)
-            entrants = len([i for i in self.bracketEntrants() if i not in (None, BYE_ID)])
+            entrants = len(self.realBracketEntrants())
             for action in (self.randomizeAction, self.seedAction, self.spreadSeedsAction):
                 action.setEnabled(entrants >= 2)
             self.syncBracketSizeCombo()

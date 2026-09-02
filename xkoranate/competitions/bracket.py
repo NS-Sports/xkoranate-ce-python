@@ -101,6 +101,15 @@ def _freeSlots(bracket, reserved):
     return [i for i in range(len(bracket)) if bracket[i] is None and i not in reserved]
 
 
+def _fill(bracket, reserved, pool):
+    """Drop `pool` into the slots nobody has claimed, in order."""
+    for slot in _freeSlots(bracket, reserved):
+        if not pool:
+            break
+        bracket[slot] = pool.pop(0)
+    return bracket
+
+
 def drawManual(entrants, size):
     """Read the bracket straight off the entrant order, with no randomness.
 
@@ -113,12 +122,7 @@ def drawManual(entrants, size):
     byeSlotList = [2 * m + 1 for m in range(byes)]
     bracket, reserved = _emptyBracket(size, byeSlotList)
 
-    pool = list(entrants)
-    for slot in _freeSlots(bracket, reserved):
-        if not pool:
-            break
-        bracket[slot] = pool.pop(0)
-    return bracket
+    return _fill(bracket, reserved, list(entrants))
 
 
 def drawRandom(entrants, size, rng):
@@ -129,11 +133,7 @@ def drawRandom(entrants, size, rng):
     pool = list(entrants)
     if rng is not None:
         rng.shuffle(pool)
-    for slot in _freeSlots(bracket, reserved):
-        if not pool:
-            break
-        bracket[slot] = pool.pop(0)
-    return bracket
+    return _fill(bracket, reserved, pool)
 
 
 def _bySkill(entrants):
@@ -197,11 +197,7 @@ def drawVariableSeeds(entrants, size, numSeeds, rng):
         if 0 <= slot < size:
             bracket[slot] = seeds[seedRank - 1]
 
-    for slot in _freeSlots(bracket, reserved):
-        if not pool:
-            break
-        bracket[slot] = pool.pop(0)
-    return bracket
+    return _fill(bracket, reserved, pool)
 
 
 def isWellFormed(slots, real):
