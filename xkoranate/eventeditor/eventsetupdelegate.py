@@ -1,8 +1,12 @@
 from PySide6.QtCore import QModelIndex, Qt
 from PySide6.QtWidgets import QComboBox, QItemDelegate, QLineEdit
 
+from ..athlete import BYE_ID, BYE_NAME
 from ..ui.comboindicator import XkorComboIndicatorMixin
 from ..variant import toString
+
+
+BYE_LABEL = "— %s —" % BYE_NAME
 
 
 def _uuidToString(u):
@@ -17,6 +21,9 @@ class XkorEventSetupDelegate(XkorComboIndicatorMixin, QItemDelegate):
         # shared (mutated in place) with XkorEventSetupWidget
         self.availableAthleteNames = displayNames
         self.availableAthletes = IDs
+        # a bye is only a valid entry in a knockout bracket, so the widget
+        # turns it on and off as the competition type changes
+        self.allowBye = False
 
     def usesComboEditor(self, index):
         return index.parent() != QModelIndex()  # a participant, not a group name
@@ -25,7 +32,8 @@ class XkorEventSetupDelegate(XkorComboIndicatorMixin, QItemDelegate):
         if index.parent() != QModelIndex():  # if this is an athlete, not a group name
             comboBox = QComboBox(parent)
             comboBox.setFrame(False)
-            comboBox.insertItems(0, self.availableAthleteNames)
+            for label, id in self.choices(self.currentName(index), self.currentId(index)):
+                comboBox.addItem(label, id)
             comboBox.currentIndexChanged.connect(self.prepareToCommit)
             return self.bindComboEditor(comboBox)
         else:
@@ -34,13 +42,43 @@ class XkorEventSetupDelegate(XkorComboIndicatorMixin, QItemDelegate):
             lineEdit.textEdited.connect(self.prepareToCommit)
             return lineEdit
 
+    def currentName(self, index):
+        return toString(index.model().data(index, Qt.DisplayRole))
+
+    def currentId(self, index):
+        return toString(index.model().data(index, Qt.UserRole))
+
+    def choices(self, current=None, currentId=None):
+        """What a slot can be set to, as (label, id) pairs: whoever is in it,
+        a free participant, or a bye.
+
+        The id travels with the entry rather than being looked back up from
+        the label, because two participants can share a name and nation —
+        resolving by name took whichever came first, so picking the second
+        placed the first.
+
+        Only unplaced participants are on offer — putting someone in two
+        slots at once isn't a thing — but the one already here has to be
+        listed as well, or opening the editor on an occupied slot would find
+        nothing selected and blank it on the way out.
+        """
+        rval = [(name, _uuidToString(id)) for name, id
+                in zip(self.availableAthleteNames, self.availableAthletes)]
+        if current and current != BYE_LABEL \
+                and currentId not in [id for _, id in rval]:
+            rval.insert(0, (current, currentId))
+        if self.allowBye:
+            rval.insert(0, (BYE_LABEL, _uuidToString(BYE_ID)))
+        return rval
+
     def prepareToCommit(self):
         self.commitData.emit(self.sender())
 
     def setEditorData(self, editor, index):
         if index.parent() != QModelIndex():  # if this is an athlete, not a group name
             comboBox = editor
-            comboBox.setCurrentIndex(comboBox.findText(toString(index.model().data(index, Qt.DisplayRole))))
+            # by id, not by label: two entries can carry the same text
+            comboBox.setCurrentIndex(comboBox.findData(self.currentId(index)))
         else:
             lineEdit = editor
             lineEdit.setText(toString(index.model().data(index, Qt.DisplayRole)))
@@ -49,17 +87,12 @@ class XkorEventSetupDelegate(XkorComboIndicatorMixin, QItemDelegate):
         if index.parent() != QModelIndex():  # if this is an athlete, not a group name
             comboBox = editor
             longName = comboBox.currentText()
-            try:
-                athleteIndex = self.availableAthleteNames.index(longName)
-            except ValueError:
-                athleteIndex = -1
-            if athleteIndex != -1:
-                id = self.availableAthletes[athleteIndex]
-            else:
-                id = None
-                longName = "<unknown participant>"
+            id = comboBox.currentData()
+            if longName == "" or id is None or id == self.currentId(index):
+                return  # nothing was chosen; leave the slot as it was
+
             model.setData(index, longName)
-            model.setData(index, _uuidToString(id), Qt.UserRole)
+            model.setData(index, id, Qt.UserRole)
         else:
             lineEdit = editor
             model.setData(index, lineEdit.text())

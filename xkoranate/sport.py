@@ -56,6 +56,10 @@ class XkorSport:
     def randGaussian(self):
         # Box–Muller method
         r1, r2 = self.randUniform(), self.randUniform()
+        # randUniform() returns exactly 0.0 whenever the Mersenne Twister
+        # yields its minimum value, and log(0) is the same "math domain
+        # error" that used to take a scorination down from rand_kumaraswamy()
+        r1 = max(r1, 1e-12)
         return math.pow(-2 * math.log(r1), 0.5) * math.cos(2 * math.pi * r2)
 
     def randGaussianCapped(self, cap):
@@ -68,7 +72,13 @@ class XkorSport:
 
     def rand_kumaraswamy(self, a, b, skew):
         # skew = True: skewed toward 1; False: skewed toward 0
+        # both shape parameters must be positive: a non-positive one turns the
+        # inner power into a negative exponent on a zero base, which raises
+        # "math domain error" and takes the whole scorination down
+        a = max(a, 1e-6)
+        b = max(b, 1e-6)
         rand = self.randUniform()
+        rand = min(max(rand, 0.0), 1.0)
         if skew:
             rval = math.pow(1 - math.pow(1 - rand, 1 / b), 1 / a)
         else:
@@ -90,7 +100,11 @@ class XkorSport:
         return self.randWeightedFull(0.5 + (skill - oppSkill) / 2, 1.02, 2.4, 3.8, False)
 
     def randWeightedFull(self, skill, minConstant, midConstant, maxConstant, skew):
-        scorSkill = skill
+        # the a/b parameterisation below is only meaningful for a normalised
+        # skill. A signup list whose min/max don't bracket its entries (say,
+        # after the sport is switched to a paradigm that rescales) yields
+        # skills well outside it, so pin them rather than produce nonsense.
+        scorSkill = min(max(skill, 0.0), 1.0)
         if scorSkill > 0.5:
             a = (scorSkill - 0.5) * 2 * (maxConstant - midConstant) + midConstant
         else:

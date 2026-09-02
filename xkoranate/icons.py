@@ -35,6 +35,8 @@ _MDI = {
     "add-all-participants": "mdi6.account-multiple-plus-outline",
     "schedule": "mdi6.calendar-month-outline",
     "odds": "mdi6.percent-outline",
+    "seed": "mdi6.sort-numeric-ascending",
+    "spread-seeds": "mdi6.arrow-expand-horizontal",
 }
 
 # (action, glyph key) pairs created via icon_action(), so refresh_icons() can

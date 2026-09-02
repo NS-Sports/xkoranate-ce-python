@@ -41,7 +41,6 @@ Two issues are already resolved or moot:
 Tracked as issues in this repo (each links back to the original upstream
 report):
 
-- [#22](https://github.com/NS-Sports/xkoranate-ce-python/issues/22) Single-elimination tournaments — new bracket/competition logic + options widget. (upstream #6)
 - [#23](https://github.com/NS-Sports/xkoranate-ce-python/issues/23) New paradigms (boxing, MMA, quidditch, 3×3; Baseinator-style additive mods) — multiple new scoring engines. (upstream #11)
 - [#24](https://github.com/NS-Sports/xkoranate-ce-python/issues/24) Inter-conference play — new competition type + options file. (upstream #18)
 - [#25](https://github.com/NS-Sports/xkoranate-ce-python/issues/25) Sailing multi-round Olympic automation — domain-heavy. (upstream #5)
