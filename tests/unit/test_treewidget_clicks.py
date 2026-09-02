@@ -11,7 +11,7 @@ three clicks to open an editor.
 import pytest
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QAbstractItemView, QApplication
+from PySide6.QtWidgets import QAbstractItemView, QApplication, QComboBox
 
 from xkoranate.tablegenerator.sortcriteriawidget import XkorSortCriteriaWidget
 
@@ -101,3 +101,30 @@ def test_the_list_is_still_reorderable(widget):
     click(widget.treeWidget, 0)
     widget.moveDown()
     assert widget.sortCriteria()[:2] == ["goalDifference", "points"]
+
+
+def settle():
+    """The editor is placed, and its popup opened, on the next event loop pass."""
+    for _ in range(6):
+        QApplication.processEvents()
+
+
+def test_a_double_click_drops_the_list_open(widget):
+    """Opening the editor only puts a closed combo in the row, so reaching the
+    choices still took another click."""
+    tree = widget.treeWidget
+    click(tree, 0)
+    doubleClick(tree, 3)
+    settle()
+
+    combo = tree.viewport().findChild(QComboBox)
+    assert combo is not None
+    assert combo.view().isVisible()
+
+
+def test_the_arrow_is_a_hint_not_a_row_high_chevron():
+    """It was drawn into the full row height and looked absurd."""
+    from xkoranate.ui.comboindicator import ARROW_SIZE, INDICATOR_WIDTH
+
+    assert ARROW_SIZE <= 8
+    assert ARROW_SIZE < INDICATOR_WIDTH

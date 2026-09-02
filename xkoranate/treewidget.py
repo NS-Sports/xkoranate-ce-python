@@ -1,4 +1,5 @@
-from PySide6.QtWidgets import QAbstractItemView, QTreeWidget
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QAbstractItemView, QComboBox, QTreeWidget
 
 
 class XkorTreeWidget(QTreeWidget):
@@ -21,9 +22,24 @@ class XkorTreeWidget(QTreeWidget):
             return
         if not (self.editTriggers() & QAbstractItemView.EditTrigger.DoubleClicked):
             return
-        if self.state() == QAbstractItemView.State.EditingState:
-            return  # Qt already opened it
-        self.edit(index)
+        if self.state() != QAbstractItemView.State.EditingState:
+            self.edit(index)
+        self.dropDownEditor()
+
+    def dropDownEditor(self):
+        """Drop the list open if the editor that just opened is a combo box.
+
+        Opening the editor only puts a closed combo in the row, so reaching
+        the actual choices still took another click. Deferred, because the
+        editor isn't placed and shown until the view gets back to its event
+        loop.
+        """
+        QTimer.singleShot(0, self._showEditorPopup)
+
+    def _showEditorPopup(self):
+        editor = self.viewport().findChild(QComboBox)
+        if editor is not None and editor.isVisible():
+            editor.showPopup()
 
     def moveCursor(self, cursorAction, modifiers):
         index = self.currentIndex()

@@ -9,7 +9,8 @@ every row and turning the list into a wall of chevrons.
 from PySide6.QtCore import QRect
 from PySide6.QtWidgets import QApplication, QStyle, QStyleOption, QStyleOptionViewItem
 
-INDICATOR_WIDTH = 16
+INDICATOR_WIDTH = 14
+ARROW_SIZE = 7  # the glyph itself: a hint, not a control
 
 
 class XkorComboIndicatorMixin:
@@ -34,8 +35,12 @@ class XkorComboIndicatorMixin:
                       INDICATOR_WIDTH, option.rect.height())
         painter.save()
         painter.fillRect(strip, option.palette.highlight())
+        # PE_IndicatorArrowDown fills whatever rect it is given, so give it a
+        # small centred one rather than the whole row height
+        glyph = QRect(0, 0, ARROW_SIZE, ARROW_SIZE)
+        glyph.moveCenter(strip.center())
         arrow = QStyleOption()
-        arrow.rect = strip
+        arrow.rect = glyph
         arrow.state = option.state
         arrow.palette = option.palette
         style = option.widget.style() if option.widget else QApplication.style()
