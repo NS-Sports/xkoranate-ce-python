@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import (QGridLayout, QLabel, QPushButton, QStackedLayout,
-                               QWidget)
+from PySide6.QtWidgets import (QGridLayout, QLabel, QMessageBox, QPushButton,
+                               QStackedLayout, QWidget)
 
 from ..event import XkorEvent
 from ..rplist import XkorRPList
@@ -8,7 +8,7 @@ from ..signuplist import XkorSignupList
 from ..signuplisteditor.signuplisteditor import XkorSignupListEditor
 from ..sport import XkorSport
 from .. import theme
-from ..ui.dialogs import text_preview_dialog
+from ..ui.dialogs import message_box, text_preview_dialog
 from .competitionselector import XkorCompetitionSelector
 from .eventsetupwidget import XkorEventSetupWidget
 from .scorinatewidget import (XkorScorinateWidget, _cloneEvent, _cloneRPList,
@@ -101,6 +101,7 @@ class XkorEventEditor(QWidget):
         self.eventSetupWidget = XkorEventSetupWidget()
         self.eventSetupWidget.listChanged.connect(self.setDataChanged)
         self.eventSetupWidget.viewScheduleRequested.connect(self.viewSchedule)
+        self.eventSetupWidget.resultsGuard = self.confirmDiscardBracketResults
         self.signupListEditor.itemDeleted.connect(self.eventSetupWidget.deleteAthlete)
 
     def initLayout(self):
@@ -209,6 +210,25 @@ class XkorEventEditor(QWidget):
         self.eventSetupWidget.setGroups(data.groups())
 
         self.isLoading = False  # allow dataChanged to be emitted if the user does stuff
+
+    def confirmDiscardBracketResults(self):
+        """Ask before an edit throws away results already generated.
+
+        A bracket only describes the tournament while the results match it,
+        so rearranging one drops them. That is the right behaviour — showing
+        results for a draw that no longer exists would be worse — but it used
+        to happen with no warning at the point of the edit.
+        """
+        if not any(self.m_data.results().values()):
+            return True
+        warning = message_box(
+            self, "Are you sure you want to change the bracket?",
+            QMessageBox.Discard | QMessageBox.Cancel,
+            informativeText="This event has already been scorinated. Changing "
+                            "the bracket discards the results played from it.",
+            defaultButton=QMessageBox.Cancel, escapeButton=QMessageBox.Cancel,
+            destructiveButton=QMessageBox.Discard)
+        return warning.exec() == QMessageBox.Discard
 
     def setDataChanged(self):
         if not self.isLoading:

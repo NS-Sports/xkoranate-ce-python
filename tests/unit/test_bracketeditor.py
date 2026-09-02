@@ -544,3 +544,64 @@ def test_the_pools_are_not_restored_over_a_changed_field(widget):
     groups = widget.groups()
     assert len(groups) == 1
     assert len([i for i in groups[0].athletes if i != BYE_ID]) == 4
+
+
+def test_the_edit_paths_ask_before_discarding_results(widget):
+    """Rearranging a bracket drops the results played from it — silently.
+
+    The competition is right to drop them, but the user was only told later,
+    by finding the results pane blank.
+    """
+    loadBracket(widget, 8)
+    before = list(widget.bracketEntrants())
+    asked = []
+    widget.resultsGuard = lambda: (asked.append(1), False)[1]  # "Cancel"
+
+    widget.setBracketSize(4)
+    assert widget.bracketEntrants() == before
+    assert len(asked) == 1
+
+    widget._resultsGuardAsked = False
+    widget.seedBracket()
+    assert widget.bracketEntrants() == before
+    assert len(asked) == 2
+
+    widget._resultsGuardAsked = False
+    match = widget.treeWidget.topLevelItem(0)
+    widget.treeWidget.clearSelection()
+    match.child(0).setSelected(True)
+    widget.deleteItems()
+    assert widget.bracketEntrants() == before
+    assert len(asked) == 3
+
+
+def test_the_bracket_is_only_guarded_once_per_event(widget):
+    """Having said "discard", the user isn't asked again for every nudge."""
+    loadBracket(widget, 8)
+    asked = []
+    widget.resultsGuard = lambda: (asked.append(1), True)[1]  # "Discard"
+
+    widget.setBracketSize(4)
+    widget.seedBracket()
+    widget.randomizeGroup()
+    assert len(asked) == 1
+
+    # a freshly loaded event has its own results to protect
+    loadBracket(widget, 8)
+    widget.setBracketSize(4)
+    assert len(asked) == 2
+
+
+def test_a_declined_drag_puts_the_bracket_back(widget):
+    """A drop can't be vetoed, so reflow undoes it instead."""
+    loadBracket(widget, 8)
+    before = list(widget.bracketEntrants())
+    widget.resultsGuard = lambda: False
+
+    # move a row between matches, as an internal drag does
+    first = widget.treeWidget.topLevelItem(0)
+    second = widget.treeWidget.topLevelItem(1)
+    second.addChild(first.takeChild(0))
+    widget.reflowBracket()
+
+    assert widget.bracketEntrants() == before

@@ -54,6 +54,11 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.bracketGroupName = "Bracket"  # the pooled group a knockout stores
         self.bracketSlotCount = 0  # how many slots the user has asked for
         self._groupsBeforeBracket = None  # pools to restore if the format changes back
+        # set by the event editor: asks the user whether results already
+        # generated may be discarded. None means nothing to protect.
+        self.resultsGuard = None
+        self._resultsGuardAsked = False
+        self._lastLaidSlots = []  # the arrangement before the edit in progress
         self.headingLabel = None  # created in setupLayout(), below
 
         self._delegate = XkorEventSetupDelegate(self.availableAthleteNames, self.availableAthletes)
@@ -140,6 +145,9 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         the end, which go back to the pool of available participants.
         """
         size = max(2, size)
+        if size != self.bracketSlotCount and not self.confirmBracketChange():
+            self.syncBracketSizeCombo()  # put the dropdown back
+            return
         slots = [i for i in self.bracketEntrants() if i is not None and i != BYE_ID][:size]
         if len(slots) >= 2:
             # a size nothing can fill would leave whole matches empty
@@ -157,6 +165,19 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         else:
             self.setBracketSlots(self.padToBracket(slots))
         self.syncBracketSizeCombo()
+
+    def confirmBracketChange(self):
+        """Whether a structural change to the bracket may go ahead.
+
+        Rearranging a bracket invalidates any results played from the old one
+        — _drawIsCurrent() drops them — and that used to happen silently, so
+        the loss was only discovered later as a blank results pane. Ask once
+        per event; after that the user has said they know.
+        """
+        if self.resultsGuard is None or self._resultsGuardAsked:
+            return True
+        self._resultsGuardAsked = True
+        return bool(self.resultsGuard())
 
     def largestDrawableSize(self, entrants):
         """The biggest bracket the draw functions can fill for this many.
@@ -247,6 +268,10 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
             for slot in (slots[2 * m], slots[2 * m + 1]):
                 self.initAthlete(self.createAthlete(match), slot)
         self.isInUse = False
+        # the last arrangement we put there ourselves: a drag mutates the tree
+        # directly, so this is the state to go back to if the user declines to
+        # discard the results played from it
+        self._lastLaidSlots = list(slots)
         self.listChanged.emit()
 
     def headingText(self):
@@ -321,8 +346,14 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         """Re-pair the bracket after a drag, keeping the visual order."""
         if self.isInUse or not self.isBracket():
             return
-        slots = self.padToBracket(self.bracketEntrants())
-        if slots != self.bracketEntrants():
+        current = self.bracketEntrants()
+        if self._lastLaidSlots and current != self._lastLaidSlots \
+                and not self.confirmBracketChange():
+            # a drop can't be vetoed, so put the bracket back as it was
+            self.setBracketSlots(self._lastLaidSlots)
+            return
+        slots = self.padToBracket(current)
+        if slots != current:
             self.setBracketSlots(slots)
         else:
             self.renumberMatches()
@@ -397,6 +428,8 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
 
     def insertAll(self):
         if self.isBracket():
+            if not self.confirmBracketChange():
+                return
             # fill the empty slots first, keeping the draw as it stands
             slots = list(self.bracketEntrants())
             pool = list(self.availableAthletes)
@@ -446,6 +479,8 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
 
     def deleteItems(self):
         if self.isBracket():
+            if not self.confirmBracketChange():
+                return
             # emptying a slot leaves a bye behind: removing the row itself
             # would leave the bracket a size that isn't a power of two
             self.isInUse = True
@@ -472,7 +507,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
                 athletes.append(self.getAthleteByID(id))
             except XkorSearchFailedException:
                 pass
-        if len(athletes) < 2:
+        if len(athletes) < 2 or not self.confirmBracketChange():
             return
         size = min(max(self.bracketSlotCount, bracket.bracketSize(len(athletes))),
                    self.largestDrawableSize(len(athletes)))
@@ -554,6 +589,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.listChanged.emit()
 
     def setGroups(self, g):
+        self._resultsGuardAsked = False
         if self.isBracket():
             if g:
                 self.bracketGroupName = g[0].name
