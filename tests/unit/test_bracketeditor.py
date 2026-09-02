@@ -193,13 +193,13 @@ def setSlot(w, match, child, label):
 def test_bye_is_offered_as_a_slot_choice_in_a_bracket(widget):
     loadBracket(widget, 6)
     assert widget._delegate.allowBye
-    assert widget._delegate.choices()[0] == BYE_LABEL
+    assert widget._delegate.choices()[0][0] == BYE_LABEL
 
 
 def test_bye_is_not_offered_outside_a_bracket(widget):
     widget.setCompetition("roundRobin")
     assert not widget._delegate.allowBye
-    assert BYE_LABEL not in widget._delegate.choices()
+    assert BYE_LABEL not in [label for label, _ in widget._delegate.choices()]
 
 
 def test_selecting_bye_puts_a_bye_in_that_slot(widget):
@@ -773,3 +773,38 @@ def test_setBracketSize_snaps_to_a_power_of_two(widget, asked, expected):
     assert size == expected
     assert size & (size - 1) == 0
     assert all(len(p) == 2 for p in pairs(widget))
+
+
+def test_two_participants_sharing_a_name_are_told_apart(widget):
+    """The slot editor resolved a pick by looking its label back up, taking
+    whichever entry came first — so choosing the second of two identically
+    named participants placed the first."""
+    from PySide6.QtWidgets import QStyleOptionViewItem
+
+    sl = XkorSignupList()
+    sl.setMinRank(0.0)
+    sl.setMaxRank(100.0)
+    ids = []
+    for _ in range(4):
+        a = XkorAthlete()
+        a.name, a.nation, a.skill = "Same Name", "SAM", 50.0
+        a.id = uuid.uuid4()
+        sl.addAthlete(a)
+        ids.append(a.id)
+    widget.setSignupList(sl)
+    widget.signupList = sl
+    widget.setCompetition("singleElimination")
+    widget.setGroups([XkorGroup("Bracket", ids[:2])])
+    widget.updateButtons()
+
+    # two identically named participants are still on offer for a slot
+    item = widget.treeWidget.topLevelItem(0).child(0)
+    index = widget.treeWidget.indexFromItem(item, 0)
+    editor = widget._delegate.createEditor(widget.treeWidget, QStyleOptionViewItem(), index)
+    wanted = editor.findData("{%s}" % ids[3])
+    assert wanted >= 0
+
+    editor.setCurrentIndex(wanted)
+    widget._delegate.setModelData(editor, widget.treeWidget.model(), index)
+
+    assert widget.bracketEntrants()[0] == ids[3]
