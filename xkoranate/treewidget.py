@@ -2,6 +2,29 @@ from PySide6.QtWidgets import QAbstractItemView, QTreeWidget
 
 
 class XkorTreeWidget(QTreeWidget):
+    def mouseDoubleClickEvent(self, event):
+        """Open the editor on any double click, selected row or not.
+
+        These lists are drag-reorderable, and Qt treats the first press on an
+        unselected row as the start of a possible drag — so its double click
+        selects the row but never reaches the DoubleClicked edit trigger. The
+        row had to be selected first, making it three clicks to open an editor
+        on a row you hadn't already picked. Issue #41 removed SelectedClicked
+        because it made ordinary single clicks wait out the double-click
+        interval; asking for the edit explicitly here gets the double click
+        working without bringing that lag back.
+        """
+        index = self.indexAt(event.position().toPoint())
+        super().mouseDoubleClickEvent(event)
+
+        if not index.isValid():
+            return
+        if not (self.editTriggers() & QAbstractItemView.EditTrigger.DoubleClicked):
+            return
+        if self.state() == QAbstractItemView.State.EditingState:
+            return  # Qt already opened it
+        self.edit(index)
+
     def moveCursor(self, cursorAction, modifiers):
         index = self.currentIndex()
         if cursorAction == QAbstractItemView.CursorAction.MoveNext:
