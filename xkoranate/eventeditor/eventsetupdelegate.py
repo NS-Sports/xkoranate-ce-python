@@ -1,6 +1,7 @@
 from PySide6.QtCore import QModelIndex, Qt
 from PySide6.QtWidgets import QComboBox, QItemDelegate, QLineEdit
 
+from ..ui.comboindicator import XkorComboIndicatorMixin
 from ..variant import toString
 
 
@@ -10,12 +11,15 @@ def _uuidToString(u):
     return "{%s}" % u
 
 
-class XkorEventSetupDelegate(QItemDelegate):
+class XkorEventSetupDelegate(XkorComboIndicatorMixin, QItemDelegate):
     def __init__(self, displayNames, IDs, parent=None):
         super().__init__(parent)
         # shared (mutated in place) with XkorEventSetupWidget
         self.availableAthleteNames = displayNames
         self.availableAthletes = IDs
+
+    def usesComboEditor(self, index):
+        return index.parent() != QModelIndex()  # a participant, not a group name
 
     def createEditor(self, parent, option, index):
         if index.parent() != QModelIndex():  # if this is an athlete, not a group name
@@ -23,7 +27,7 @@ class XkorEventSetupDelegate(QItemDelegate):
             comboBox.setFrame(False)
             comboBox.insertItems(0, self.availableAthleteNames)
             comboBox.currentIndexChanged.connect(self.prepareToCommit)
-            return comboBox
+            return self.bindComboEditor(comboBox)
         else:
             lineEdit = QLineEdit(parent)
             lineEdit.setFrame(False)
