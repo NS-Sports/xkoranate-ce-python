@@ -7,7 +7,8 @@ every row and turning the list into a wall of chevrons.
 """
 
 from PySide6.QtCore import QRect
-from PySide6.QtWidgets import QApplication, QStyle, QStyleOption, QStyleOptionViewItem
+from PySide6.QtWidgets import (QApplication, QComboBox, QStyle, QStyleOption,
+                               QStyleOptionViewItem)
 
 INDICATOR_WIDTH = 14
 ARROW_MAX = 9  # the glyph is a hint, not a control, so it never grows with the row
@@ -16,6 +17,30 @@ ARROW_MIN = 5
 
 class XkorComboIndicatorMixin:
     """Draws the arrow. Mix in before the delegate's own base class."""
+
+    def bindComboEditor(self, comboBox):
+        """Commit and close as soon as a choice is made.
+
+        Otherwise the combo sits in the row afterwards, taller than the row
+        it replaced, until something else takes the focus.
+        """
+        comboBox.activated.connect(lambda _index, c=comboBox: self.finishComboEditor(c))
+        return comboBox
+
+    def finishComboEditor(self, comboBox):
+        self.commitData.emit(comboBox)
+        self.closeEditor.emit(comboBox)
+
+    def updateEditorGeometry(self, editor, option, index):
+        super().updateEditorGeometry(editor, option, index)
+        if isinstance(editor, QComboBox):
+            # the theme's stylesheet gives combo boxes a min-height of their
+            # own, which outranks setMinimumHeight() and leaves the editor
+            # overlapping the rows above and below. A stylesheet set on the
+            # widget itself outranks the application's (see theme.py).
+            editor.setStyleSheet("QComboBox { min-height: 0px; "
+                                 "padding-top: 0px; padding-bottom: 0px; }")
+            editor.setGeometry(option.rect)
 
     def usesComboEditor(self, index):
         """Whether this cell's editor is a combo box. Override as needed."""

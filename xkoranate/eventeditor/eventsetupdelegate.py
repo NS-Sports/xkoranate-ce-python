@@ -27,7 +27,7 @@ class XkorEventSetupDelegate(XkorComboIndicatorMixin, QItemDelegate):
             comboBox.setFrame(False)
             comboBox.insertItems(0, self.availableAthleteNames)
             comboBox.currentIndexChanged.connect(self.prepareToCommit)
-            return comboBox
+            return self.bindComboEditor(comboBox)
         else:
             lineEdit = QLineEdit(parent)
             lineEdit.setFrame(False)

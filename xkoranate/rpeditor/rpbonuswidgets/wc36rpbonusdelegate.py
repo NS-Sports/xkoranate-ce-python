@@ -18,7 +18,7 @@ class XkorWC36RPBonusDelegate(XkorComboIndicatorMixin, QItemDelegate):
             comboBox.addItem("Good", 2)
             comboBox.addItem("Great", 3)
             comboBox.addItem("Exceptional", 4)
-            return comboBox
+            return self.bindComboEditor(comboBox)
         elif index.column() == 2:
             spinBox = QSpinBox(parent)
             spinBox.setFrame(False)

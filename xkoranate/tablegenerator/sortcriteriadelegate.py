@@ -15,7 +15,7 @@ class XkorSortCriteriaDelegate(XkorComboIndicatorMixin, QStyledItemDelegate):
         comboBox = QComboBox(parent)
         comboBox.setFrame(False)
         comboBox.insertItems(0, self.sortNames)
-        return comboBox
+        return self.bindComboEditor(comboBox)
 
     def setEditorData(self, editor, index):
         comboBox = editor

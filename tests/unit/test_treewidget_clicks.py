@@ -133,3 +133,40 @@ def test_the_arrow_never_grows_with_the_row():
     for rowHeight in (14, 20, 26, 40, 80):
         size = max(ARROW_MIN, min(ARROW_MAX, rowHeight - 6))
         assert ARROW_MIN <= size <= ARROW_MAX
+
+
+def openEditorOn(widget, row):
+    tree = widget.treeWidget
+    click(tree, 0)
+    doubleClick(tree, row)
+    settle()
+    return tree.viewport().findChild(QComboBox)
+
+
+def test_the_editor_does_not_overlap_the_rows_around_it(widget):
+    """The theme's stylesheet gives combo boxes a min-height of their own, so
+    the editor stood taller than the row it replaced and covered its
+    neighbours."""
+    tree = widget.treeWidget
+    combo = openEditorOn(widget, 3)
+    rowHeight = tree.visualRect(tree.model().index(3, 0)).height()
+
+    assert combo is not None
+    assert combo.height() <= rowHeight
+
+
+def test_choosing_an_entry_closes_the_editor(widget):
+    """It used to sit there over the row until something else took focus."""
+    tree = widget.treeWidget
+    combo = openEditorOn(widget, 3)
+    before = widget.sortCriteria()[3]
+
+    combo.setCurrentIndex(combo.currentIndex() + 1)
+    combo.activated.emit(combo.currentIndex())
+    settle()
+
+    # closeEditor defers the widget's deletion, so it is still a child for a
+    # moment — what matters is that it is no longer on screen
+    remaining = tree.viewport().findChild(QComboBox)
+    assert remaining is None or not remaining.isVisible()
+    assert widget.sortCriteria()[3] != before  # and the choice was kept
