@@ -18,7 +18,12 @@ class XkorSignupList:
 
     def adjustRank(self, rank):
         if self.max == self.min:
-            return 0.0  # no range to normalise against
+            # An unrankable field is evenly matched, not uniformly hopeless.
+            # H2H paradigms only look at the difference, but the absolute
+            # value reaches rand_kumaraswamy() for score-based sports, where
+            # 0.0 would generate everyone's worst performance rather than an
+            # average one.
+            return 0.5
         return (rank - self.min) / (self.max - self.min)
 
     def athletes(self):
