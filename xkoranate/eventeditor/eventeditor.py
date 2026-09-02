@@ -16,6 +16,7 @@ from .scorinatewidget import (XkorScorinateWidget, _cloneEvent, _cloneRPList,
 from .sportselector import XkorSportSelector
 
 _STEP_NAMES = ["Sport", "Signups", "Competition", "Groups", "Scorinate"]
+_GROUPS_STEP = 3  # the step whose name depends on the competition type
 
 
 class XkorEventEditor(QWidget):
@@ -29,6 +30,7 @@ class XkorEventEditor(QWidget):
         self.selectionModel = None
         self.stack = None
         self.signupListEditor = None
+        self.eventSetupWidget = None  # built after the competition selector
         self.isLoading = False
 
         self.m_data = XkorEvent()
@@ -68,11 +70,17 @@ class XkorEventEditor(QWidget):
             self.prev.setDisabled(True)
         self.updateStepIndicator()
 
+    def stepNames(self):
+        names = list(_STEP_NAMES)
+        if self.m_data.competition() == "singleElimination":
+            names[_GROUPS_STEP] = "Bracket"  # match the page's own heading
+        return names
+
     def updateStepIndicator(self):
         # read-only reflection of the current stack page
         active = self.stack.currentIndex()
         parts = []
-        for i, name in enumerate(_STEP_NAMES):
+        for i, name in enumerate(self.stepNames()):
             if i == active:
                 parts.append(
                     '<span style="color:%s; font-weight:600;">%d&nbsp;%s</span>'
@@ -213,6 +221,12 @@ class XkorEventEditor(QWidget):
 
     def updateCompetition(self, competition):
         self.m_data.setCompetition(competition)
+        # the competition selector is built before these two, and emits while
+        # it initialises, so both can still be absent here
+        if self.eventSetupWidget is not None:
+            self.eventSetupWidget.setCompetition(competition)
+        if self.stack is not None:
+            self.updateStepIndicator()
         self.setDataChanged()
 
     def updateCompetitionOptions(self, options):

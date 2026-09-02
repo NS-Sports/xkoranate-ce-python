@@ -1,7 +1,11 @@
 from PySide6.QtCore import QModelIndex, Qt
 from PySide6.QtWidgets import QComboBox, QItemDelegate, QLineEdit
 
+from ..athlete import BYE_ID, BYE_NAME
 from ..variant import toString
+
+
+BYE_LABEL = "— %s —" % BYE_NAME
 
 
 def _uuidToString(u):
@@ -16,12 +20,15 @@ class XkorEventSetupDelegate(QItemDelegate):
         # shared (mutated in place) with XkorEventSetupWidget
         self.availableAthleteNames = displayNames
         self.availableAthletes = IDs
+        # a bye is only a valid entry in a knockout bracket, so the widget
+        # turns it on and off as the competition type changes
+        self.allowBye = False
 
     def createEditor(self, parent, option, index):
         if index.parent() != QModelIndex():  # if this is an athlete, not a group name
             comboBox = QComboBox(parent)
             comboBox.setFrame(False)
-            comboBox.insertItems(0, self.availableAthleteNames)
+            comboBox.insertItems(0, self.choices())
             comboBox.currentIndexChanged.connect(self.prepareToCommit)
             return comboBox
         else:
@@ -29,6 +36,13 @@ class XkorEventSetupDelegate(QItemDelegate):
             lineEdit.setFrame(False)
             lineEdit.textEdited.connect(self.prepareToCommit)
             return lineEdit
+
+    def choices(self):
+        """What a slot can be set to: a free participant, or a bye."""
+        rval = list(self.availableAthleteNames)
+        if self.allowBye:
+            rval.insert(0, BYE_LABEL)
+        return rval
 
     def prepareToCommit(self):
         self.commitData.emit(self.sender())
@@ -45,15 +59,18 @@ class XkorEventSetupDelegate(QItemDelegate):
         if index.parent() != QModelIndex():  # if this is an athlete, not a group name
             comboBox = editor
             longName = comboBox.currentText()
-            try:
-                athleteIndex = self.availableAthleteNames.index(longName)
-            except ValueError:
-                athleteIndex = -1
-            if athleteIndex != -1:
-                id = self.availableAthletes[athleteIndex]
+            if self.allowBye and longName == BYE_LABEL:
+                id = BYE_ID
             else:
-                id = None
-                longName = "<unknown participant>"
+                try:
+                    athleteIndex = self.availableAthleteNames.index(longName)
+                except ValueError:
+                    athleteIndex = -1
+                if athleteIndex != -1:
+                    id = self.availableAthletes[athleteIndex]
+                else:
+                    id = None
+                    longName = "<unknown participant>"
             model.setData(index, longName)
             model.setData(index, _uuidToString(id), Qt.UserRole)
         else:
