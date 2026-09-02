@@ -1,25 +1,11 @@
-import uuid
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QTreeWidgetItem
 
+from ..uuids import parseAssignedUuid
 from ..abstracttreewidget import XkorAbstractTreeWidget
 from ..rng import Mt19937
 from ..variant import toDouble
-
-
-def _uuidToString(u):
-    if u is None:  # null QUuid
-        return "{00000000-0000-0000-0000-000000000000}"
-    return "{%s}" % u
-
-
-def _uuidFromString(s):
-    try:
-        u = uuid.UUID(str(s).strip("{}"))
-    except (AttributeError, TypeError, ValueError):
-        return None
-    return None if u.int == 0 else u
 
 
 def _indexOf(l, value):
@@ -82,7 +68,7 @@ class XkorAbstractAthleteWidget(XkorAbstractTreeWidget):
     def deleteItems(self):
         selection = self.treeWidget.selectedItems()
         for i in selection:
-            self.itemDeleted.emit(_uuidFromString(i.data(_indexOf(self.m_columnKeys, "name"), Qt.UserRole)))
+            self.itemDeleted.emit(parseAssignedUuid(i.data(_indexOf(self.m_columnKeys, "name"), Qt.UserRole)))
         XkorAbstractTreeWidget.deleteItems(self)
 
     def athletes(self):

@@ -3,7 +3,6 @@ import math
 from xkoranate.athlete import isBye
 from xkoranate.competitions import bracket
 from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
-from xkoranate.tablegenerator.decider import nudgeForShootout
 from xkoranate.variant import qNumber, toDouble, toInt, toList, toString
 
 BYE_MARKER = "— BYE —"
@@ -375,13 +374,6 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
 
     # ------------------------------------------------------------------ odds
 
-    def _oddsParadigm(self):
-        from xkoranate.paradigms.abstracth2hparadigm import XkorAbstractH2HParadigm
-        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
-
-        p = XkorParadigmFactory.newParadigmForSport(self.sport, dict(self.paradigmOpt))
-        return p if isinstance(p, XkorAbstractH2HParadigm) else None
-
     def supportsOdds(self):
         return self._rounds() > 0 and self._oddsParadigm() is not None
 
@@ -436,7 +428,7 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
             score1 = p.findResult(home.id)
             score2 = p.findResult(away.id)
 
-        value1, value2, decider = self._effectiveScores(p, score1, score2)
+        value1, value2, decider = self.effectiveScores(p, score1, score2)
 
         # a stoppage result names the loser directly (see
         # XkorAbstractH2HParadigm.outputLine): a status on one side means
@@ -455,45 +447,6 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
             decider = COIN_TOSS
 
         return (value1, value2, decider, winner)
-
-    def _effectiveScores(self, p, score1, score2):
-        """Scores with any tiebreaker rolled in, plus an OT/SO tag.
-
-        Mirrors the accumulation XkorRoundRobinCompetition does before
-        inserting a match into a table, so a knockout tie decided in extra
-        time or on penalties reads the same way here as it does there.
-        """
-        value1 = score1.score()
-        value2 = score2.score()
-        tiebreakers = toList(p.option("tiebreakers"))
-        tiebreakerNames = toList(p.option("tiebreakerNames"))
-
-        decider = None
-        shootoutName = None
-        usedNames = []  # extraTime and goldenGoal can share the "OT" name
-        for i in range(len(tiebreakerNames)):
-            name = toString(tiebreakerNames[i])
-            kind = toString(tiebreakers[i]) if i < len(tiebreakers) else ""
-            if not (score1.contains(name) or score2.contains(name)):
-                continue
-            if kind == "shootout":
-                # shootout scores aren't part of the score line, but they do
-                # decide the match
-                decider = "SO"
-                shootoutName = name
-            elif name not in usedNames:
-                value1 += toDouble(score1.value(name))
-                value2 += toDouble(score2.value(name))
-                usedNames.append(name)
-                decider = "OT"
-
-        if decider == "SO" and shootoutName is not None:
-            value1, value2 = nudgeForShootout(
-                value1, value2,
-                toDouble(score1.value(shootoutName)),
-                toDouble(score2.value(shootoutName)))
-
-        return (value1, value2, decider)
 
     def _coinFlip(self):
         rng = self.sport.r

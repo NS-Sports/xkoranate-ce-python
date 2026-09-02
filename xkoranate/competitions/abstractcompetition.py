@@ -4,7 +4,8 @@ from xkoranate.athlete import XkorAthlete, isBye
 from xkoranate.result import XkorResult
 from xkoranate.sport import XkorSport
 from xkoranate.startlist import XkorStartList, XkorStartListGroup
-from xkoranate.variant import toString
+from xkoranate.tablegenerator.decider import nudgeForShootout
+from xkoranate.variant import toDouble, toList, toString
 
 
 class XkorAbstractCompetition:
@@ -78,6 +79,54 @@ class XkorAbstractCompetition:
 
     def supportsOdds(self):
         return False
+
+    def _oddsParadigm(self):
+        """The event's paradigm, if it can estimate head-to-head odds."""
+        from xkoranate.paradigms.abstracth2hparadigm import XkorAbstractH2HParadigm
+        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
+
+        p = XkorParadigmFactory.newParadigmForSport(self.sport, dict(self.paradigmOpt))
+        return p if isinstance(p, XkorAbstractH2HParadigm) else None
+
+    def effectiveScores(self, paradigm, score1, score2):
+        """Two scores with any tiebreaker rolled in, and an "OT"/"SO" tag.
+
+        A match settled in extra time carries the extra goals in the score
+        it is recorded with; one settled on penalties keeps its full-time
+        score, because shootout goals don't belong in a table, but is still
+        tagged as decided that way.
+        """
+        value1 = score1.score()
+        value2 = score2.score()
+        tiebreakers = toList(paradigm.option("tiebreakers"))
+        tiebreakerNames = toList(paradigm.option("tiebreakerNames"))
+
+        decider = None
+        shootoutName = None
+        used = []  # extraTime and goldenGoal can share the "OT" name
+        for i in range(len(tiebreakerNames)):
+            name = toString(tiebreakerNames[i])
+            kind = toString(tiebreakers[i]) if i < len(tiebreakers) else ""
+            if not (score1.contains(name) or score2.contains(name)):
+                continue
+            if kind == "shootout":
+                decider = "SO"
+                shootoutName = name
+            elif name not in used:
+                value1 += toDouble(score1.value(name))
+                value2 += toDouble(score2.value(name))
+                used.append(name)
+                decider = "OT"
+
+        if decider == "SO" and shootoutName is not None:
+            # the shootout may not have followed a stage that separated them
+            # (extra time can stay scoreless), so nudge the winner ahead
+            value1, value2 = nudgeForShootout(
+                value1, value2,
+                toDouble(score1.value(shootoutName)),
+                toDouble(score2.value(shootoutName)))
+
+        return (value1, value2, decider)
 
     def _formatAthleteName(self, athlete):
         showTLAs = toString(self.paradigmOpt.get("showTLAs", "true")) == "true"
