@@ -53,6 +53,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.competition = ""  # retitles the page; set by the event editor
         self.bracketGroupName = "Bracket"  # the pooled group a knockout stores
         self.bracketSlotCount = 0  # how many slots the user has asked for
+        self._groupsBeforeBracket = None  # pools to restore if the format changes back
         self.headingLabel = None  # created in setupLayout(), below
 
         self._delegate = XkorEventSetupDelegate(self.availableAthleteNames, self.availableAthletes)
@@ -259,15 +260,44 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         if competition == self.competition:
             return
         previous = self.groups()  # read the tree in its old shape
+        wasBracket = self.isBracket()
         self.competition = competition
         if self.headingLabel is not None:
             self.headingLabel.setText(self.headingText())
         self.updateBracketActions()
         if previous:
             # re-render: groups become matches, or matches pool back together
+            restore = None
+            if not wasBracket and self.isBracket():
+                # a bracket is one pooled group, so the group structure is
+                # about to be flattened. Hold on to it: an organiser who
+                # clicks the format dropdown to see what a cup would look
+                # like should get their pools back, not eight of them merged
+                # into one with only the first name kept.
+                self._groupsBeforeBracket = previous
+            elif wasBracket and not self.isBracket():
+                if self._sameParticipants(self._groupsBeforeBracket, previous):
+                    restore = self._groupsBeforeBracket
+                self._groupsBeforeBracket = None
             self.clear()
-            self.setGroups(previous)
+            self.setGroups(restore if restore is not None else previous)
         self.updateButtons()
+
+    @staticmethod
+    def _sameParticipants(groups, other):
+        """Whether two group lists hold the same participants, byes aside.
+
+        Only then can a remembered layout be put back: if the bracket gained
+        or lost entrants while it was a bracket, the old pools no longer
+        describe the field.
+        """
+        if not groups or not other:
+            return False
+
+        def ids(gs):
+            return set(i for g in gs for i in g.athletes if i not in (None, BYE_ID))
+
+        return ids(groups) == ids(other)
 
     def updateBracketActions(self):
         isBracket = self.isBracket()

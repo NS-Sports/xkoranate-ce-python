@@ -509,3 +509,38 @@ def test_the_bracket_size_never_exceeds_what_can_be_filled(widget):
 
     assert widget.bracketSlotCount == 4
     assert all(p.count(BYE_LABEL) <= 1 for p in pairs(widget))
+
+
+def test_switching_to_a_bracket_and_back_keeps_the_pools(widget):
+    """A bracket is one pooled group; the pools must survive the round trip.
+
+    Clicking the format dropdown to see what a cup would look like used to
+    merge every pool into one and keep only the first pool's name, with no
+    confirmation and no way back.
+    """
+    ids = [a.id for a in widget.signupList.athletes()[:8]]
+    widget.setCompetition("roundRobin")
+    widget.setGroups([XkorGroup("Pool A", ids[:4]), XkorGroup("Pool B", ids[4:])])
+    before = [(g.name, list(g.athletes)) for g in widget.groups()]
+    assert len(before) == 2
+
+    widget.setCompetition("singleElimination")
+    assert len(widget.groups()) == 1  # pooled, as a bracket must be
+
+    widget.setCompetition("roundRobin")
+    assert [(g.name, list(g.athletes)) for g in widget.groups()] == before
+
+
+def test_the_pools_are_not_restored_over_a_changed_field(widget):
+    """Once the bracket's entrants change, the old pools no longer describe it."""
+    ids = [a.id for a in widget.signupList.athletes()[:8]]
+    widget.setCompetition("roundRobin")
+    widget.setGroups([XkorGroup("Pool A", ids[:4]), XkorGroup("Pool B", ids[4:])])
+
+    widget.setCompetition("singleElimination")
+    widget.setBracketSize(4)  # drops half the field
+    widget.setCompetition("roundRobin")
+
+    groups = widget.groups()
+    assert len(groups) == 1
+    assert len([i for i in groups[0].athletes if i != BYE_ID]) == 4
