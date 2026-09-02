@@ -605,3 +605,22 @@ def test_a_declined_drag_puts_the_bracket_back(widget):
     widget.reflowBracket()
 
     assert widget.bracketEntrants() == before
+
+
+def test_group_setup_still_offers_a_participant_already_in_a_group(widget):
+    """Filtering placed participants is a bracket rule, not a global one.
+
+    A participant has always been allowed in more than one group, and the
+    file format represents it; making the filter unconditional quietly
+    changed how every other competition type is set up.
+    """
+    ids = [a.id for a in widget.signupList.athletes()[:4]]
+    widget.setCompetition("roundRobin")
+    widget.setGroups([XkorGroup("Pool A", ids), XkorGroup("Pool B", [])])
+
+    assert set(ids) <= set(widget.availableAthletes)
+
+
+def test_a_bracket_does_not_offer_a_participant_already_in_the_draw(widget):
+    ids = loadBracket(widget, 8)
+    assert not (set(ids) & set(widget.availableAthletes))

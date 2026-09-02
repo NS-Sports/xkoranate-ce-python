@@ -715,11 +715,18 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         return rval
 
     def recomputeAvailableAthletes(self):
-        """Participants not yet in the tree. Emits nothing, so it is safe to
-        call from updateButtons (which listChanged already drives)."""
+        """Participants available to place. Emits nothing, so it is safe to
+        call from updateButtons (which listChanged already drives).
+
+        A bracket slot can only hold someone who isn't already in the draw,
+        so those are filtered out. Group setup is not filtered: a participant
+        has always been allowed in more than one group, the file format
+        represents it, and quietly dropping them from the dropdown would
+        change how every other competition type is set up.
+        """
         self.availableAthletes.clear()
         self.availableAthleteNames.clear()
-        placed = self.placedAthletes()
+        placed = set(self.placedAthletes()) if self.isBracket() else set()
         for j in self.sl.athletes():
             if j.id in placed:
                 continue
