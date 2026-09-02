@@ -173,35 +173,61 @@ def drawVariableSeeds(entrants, size, numSeeds, rng):
         return drawRandom(entrants, size, rng)
 
     byes = size - len(ranked)
-    seedOrder = standardSeedOrder(size)
-    bracket, reserved = _emptyBracket(size, byeSlots(size, byes, seedOrder))
+    if byes > size // 2:
+        raise ValueError("cannot place %d byes in a %d-slot bracket" % (byes, size))
 
     seeds = ranked[:numSeeds]
     pool = ranked[numSeeds:]
     if rng is not None:
         rng.shuffle(pool)
 
-    # place the seeds at evenly spaced target slots, walking forward to the
-    # next usable slot when the target is taken or reserved for a bye
+    bracket = [None] * size
+    seededMatches = set()
+    slotOfSeed = {}
+
+    # Place the seeds at evenly spaced target slots. The walk skips any match
+    # that already holds a seed, not merely any occupied slot: putting two
+    # seeds in one match is the one thing this draw exists to prevent, and
+    # checking only the slot let a seed displaced off a reserved slot land
+    # opposite its neighbour.
     placementOrder = [s for s in standardSeedOrder(bracketSize(numSeeds)) if s <= numSeeds]
     for index, seedRank in enumerate(placementOrder):
         target = int(round(index * (size - 1) / float(numSeeds - 1)))
-        slot = target
-        while slot < size and (bracket[slot] is not None or slot in reserved):
-            slot += 1
-        if slot >= size:
-            # walk backwards instead if we ran off the end
-            slot = target
-            while slot >= 0 and (bracket[slot] is not None or slot in reserved):
-                slot -= 1
-        if 0 <= slot < size:
-            bracket[slot] = seeds[seedRank - 1]
+        slot = _freeSeedSlot(bracket, seededMatches, target)
+        if slot is None:
+            # more seeds than matches: some of them have to meet
+            slot = _freeSeedSlot(bracket, set(), target)
+        if slot is None:
+            break
+        bracket[slot] = seeds[seedRank - 1]
+        seededMatches.add(matchOf(slot))
+        slotOfSeed[seedRank] = slot
+
+    # Byes go one to a match, to the partners of the strongest seeds first —
+    # byeSlots()'s free-passage-to-the-top rule — but keyed on where the seeds
+    # actually landed rather than on the standard order they were displaced
+    # from, which used to hand a bye to an unseeded entrant.
+    byeMatches = [matchOf(slotOfSeed[r]) for r in sorted(slotOfSeed)]
+    byeMatches += [m for m in range(size // 2) if m not in seededMatches]
+    reserved = set()
+    for m in byeMatches[:byes]:
+        reserved.add(2 * m if bracket[2 * m] is None else 2 * m + 1)
 
     for slot in _freeSlots(bracket, reserved):
         if not pool:
             break
         bracket[slot] = pool.pop(0)
     return bracket
+
+
+def _freeSeedSlot(bracket, seededMatches, target):
+    """The first empty slot at or after `target` whose match holds no seed."""
+    size = len(bracket)
+    for step in range(size):
+        slot = (target + step) % size
+        if bracket[slot] is None and matchOf(slot) not in seededMatches:
+            return slot
+    return None
 
 
 def isWellFormed(slots, real):
