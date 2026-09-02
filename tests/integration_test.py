@@ -785,3 +785,15 @@ def test_a_coin_toss_without_a_prng_is_still_reproducible(sport_index, rng, caps
     c2.sport.r = None
     assert [c2._coinFlip() for _ in range(8)] == flips
     assert "no PRNG set" in capsys.readouterr().err
+
+
+def test_scorinating_a_round_out_of_order_says_why_it_is_empty(sport_index, rng):
+    """Leaving resultsBuf unset gave a blank matchday with no explanation,
+    where the third-place playoff writes a line for the same situation."""
+    ev, sport, sl = buildKnockout(sport_index, rng, 8)
+    c = newKnockout(ev, sport, sl)
+
+    c.scorinate(2)  # the final, with the earlier rounds unplayed
+    result = c.results(2)
+    assert "hasn't been played yet" in result
+    assert c.matchdayNames()[2] in result

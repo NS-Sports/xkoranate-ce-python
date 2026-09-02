@@ -345,9 +345,6 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
         self._loadState()
 
         lines = [self._bracketHeader(), "Rounds: " + ", ".join(self.matchdayNames()), ""]
-        if self._fixtures(0) is None:
-            lines.append("No bracket has been set up yet.")
-            return "\n".join(lines)
 
         names = self.matchdayNames()
         width = len("%d." % self._matchNumber(self._rounds() - 1, 0))
@@ -539,7 +536,13 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
     def _scorinateRound(self, matchday, round_):
         fixtures = self._fixtures(round_)
         if fixtures is None:
-            # the previous round hasn't been played, so we don't know who is here
+            # the previous round hasn't been played, so we don't know who is
+            # here. Say so: leaving resultsBuf unset gave the user a blank
+            # matchday with no explanation, where _scorinateThirdPlace()
+            # writes a line for the same situation.
+            self.resultsBuf[matchday] = (
+                self.matchdayNames()[matchday] + "\n"
+                + "The previous round hasn't been played yet.\n\n")
             return
 
         self._dropRowsForRound(round_)
