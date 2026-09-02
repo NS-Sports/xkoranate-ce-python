@@ -350,3 +350,80 @@ def test_add_all_grows_the_bracket_to_hold_everyone(widget):
     assert widget.bracketSize() == 16
     # and the byes are still spread one to a match
     assert all(p.count("— BYE —") <= 1 for p in pairs(widget))
+
+
+def openEditor(w, item):
+    """Open a slot's editor the way the view does, and return (editor, index)."""
+    from PySide6.QtWidgets import QStyleOptionViewItem
+
+    index = w.treeWidget.indexFromItem(item, 0)
+    editor = w._delegate.createEditor(w.treeWidget, QStyleOptionViewItem(), index)
+    w._delegate.setEditorData(editor, index)
+    return editor, index
+
+
+def test_opening_an_occupied_slot_offers_whoever_is_in_it(widget):
+    """Only unplaced participants are on offer, so without this the occupant
+    of a slot isn't in its own dropdown."""
+    loadBracket(widget, 12)
+    assert widget.availableAthletes == []  # everyone is placed
+
+    slot = widget.treeWidget.topLevelItem(4).child(0)
+    editor, _ = openEditor(widget, slot)
+
+    assert slot.text(0) in [editor.itemText(i) for i in range(editor.count())]
+    assert editor.currentText() == slot.text(0)
+
+
+def test_closing_a_slot_editor_without_choosing_leaves_it_alone(widget):
+    """Merely opening the dropdown used to blank the slot to
+    "<unknown participant>" on the way out."""
+    loadBracket(widget, 12)
+    slot = widget.treeWidget.topLevelItem(4).child(0)
+    before = slot.text(0)
+
+    editor, index = openEditor(widget, slot)
+    widget._delegate.setModelData(editor, widget.treeWidget.model(), index)
+
+    assert slot.text(0) == before
+    assert "unknown" not in slot.text(0)
+
+
+def test_a_cleared_participant_can_be_put_back(widget):
+    from PySide6.QtCore import QItemSelectionModel
+
+    loadBracket(widget, 12)
+    slot = widget.treeWidget.topLevelItem(0).child(0)
+    name = slot.text(0)
+
+    widget.treeWidget.setCurrentItem(slot, 0, QItemSelectionModel.ClearAndSelect)
+    widget.deleteAction.trigger()
+    assert slot.text(0) == "— BYE —"
+
+    editor, index = openEditor(widget, slot)
+    editor.setCurrentIndex(editor.findText(name))
+    widget._delegate.setModelData(editor, widget.treeWidget.model(), index)
+
+    assert slot.text(0) == name
+    placed = realEntrants(widget)
+    assert len(placed) == len(set(placed)) == 12
+
+
+def test_a_slot_can_still_be_swapped_for_a_free_participant(widget):
+    from PySide6.QtCore import QItemSelectionModel
+
+    loadBracket(widget, 12)
+    # free one club up by clearing its slot
+    cleared = widget.treeWidget.topLevelItem(0).child(0)
+    freed = cleared.text(0)
+    widget.treeWidget.setCurrentItem(cleared, 0, QItemSelectionModel.ClearAndSelect)
+    widget.deleteAction.trigger()
+
+    other = widget.treeWidget.topLevelItem(5).child(1)
+    editor, index = openEditor(widget, other)
+    editor.setCurrentIndex(editor.findText(freed))
+    widget._delegate.setModelData(editor, widget.treeWidget.model(), index)
+
+    assert other.text(0) == freed
+    placed = realEntrants(widget)
+    assert len(placed) == len(set(placed))  # nobody placed twice

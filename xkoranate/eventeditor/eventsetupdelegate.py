@@ -28,7 +28,7 @@ class XkorEventSetupDelegate(QItemDelegate):
         if index.parent() != QModelIndex():  # if this is an athlete, not a group name
             comboBox = QComboBox(parent)
             comboBox.setFrame(False)
-            comboBox.insertItems(0, self.choices())
+            comboBox.insertItems(0, self.choices(self.currentName(index)))
             comboBox.currentIndexChanged.connect(self.prepareToCommit)
             return comboBox
         else:
@@ -37,9 +37,21 @@ class XkorEventSetupDelegate(QItemDelegate):
             lineEdit.textEdited.connect(self.prepareToCommit)
             return lineEdit
 
-    def choices(self):
-        """What a slot can be set to: a free participant, or a bye."""
+    def currentName(self, index):
+        return toString(index.model().data(index, Qt.DisplayRole))
+
+    def choices(self, current=None):
+        """What a slot can be set to: whoever is in it, a free participant,
+        or a bye.
+
+        Only unplaced participants are on offer — putting someone in two
+        slots at once isn't a thing — but the one already here has to be
+        listed as well, or opening the editor on an occupied slot would find
+        nothing selected and blank it on the way out.
+        """
         rval = list(self.availableAthleteNames)
+        if current and current != BYE_LABEL and current not in rval:
+            rval.insert(0, current)
         if self.allowBye:
             rval.insert(0, BYE_LABEL)
         return rval
@@ -59,6 +71,9 @@ class XkorEventSetupDelegate(QItemDelegate):
         if index.parent() != QModelIndex():  # if this is an athlete, not a group name
             comboBox = editor
             longName = comboBox.currentText()
+            if longName == "" or longName == self.currentName(index):
+                return  # nothing was chosen; leave the slot as it was
+
             if self.allowBye and longName == BYE_LABEL:
                 id = BYE_ID
             else:
