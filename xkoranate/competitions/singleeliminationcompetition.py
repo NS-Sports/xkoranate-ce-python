@@ -136,29 +136,48 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
             self._rows = [toString(i) for i in toList(self.userOpt.get("bracketResults")) if toString(i) != ""]
         if self._draw is None:
             raw = [toString(i) for i in toList(self.userOpt.get("bracketDraw"))]
-            if raw and self._orderMatchesDraw(raw):
+            if raw and self._drawIsCurrent(raw):
                 self._draw = [self._athleteById(i) for i in raw]
             elif raw:
-                # the user has rearranged the bracket since this draw was
-                # made, so it — and the results that came out of it — no
-                # longer describe this tournament
+                # the bracket has been changed since this draw was made, so
+                # it — and everything that came out of it — no longer
+                # describes this tournament
                 self._rows = []
+                self.resultsBuf = {}
 
-    def _orderMatchesDraw(self, raw):
-        """Whether a stored draw still matches the bracket as it stands now.
+    def _drawIsCurrent(self, raw):
+        """Whether stored results still describe the tournament as set up now.
 
-        Compared against the draw the current entrant order would produce,
-        not the order itself: a bare list of entrants and the full slot list
-        it expands to describe the same bracket.
+        The draw is compared against the one the current entrant order would
+        produce, not the order itself: a bare list of entrants and the full
+        slot list it expands to describe the same bracket. The third-place
+        setting matters too — turning it on or off shifts which matchday each
+        round sits on, so results stored under the old numbering would show
+        up against the wrong round name.
         """
         derived = ["" if a is None else str(a.id)
                    for a in bracket.drawFromOrder(self._entrants())]
-        return derived == list(raw)
+        if derived != list(raw):
+            return False
+        stored = toString(self.userOpt.get("bracketThirdPlace", ""))
+        return stored == "" or stored == self._thirdPlaceFlag()
+
+    def _thirdPlaceFlag(self):
+        return "true" if self._thirdPlaceEnabled() else "false"
+
+    def results(self, matchday):
+        # the results we were constructed with may describe a bracket that has
+        # since been changed, and _loadState is what works that out
+        self._loadState()
+        return super().results(matchday)
 
     def _saveState(self):
         self.resumeOpt["bracketDraw"] = ([(str(a.id) if a is not None else "") for a in self._draw]
                                          if self._draw is not None else [])
         self.resumeOpt["bracketResults"] = list(self._rows)
+        # remembered so that toggling the playoff later invalidates results
+        # stored under the old matchday numbering
+        self.resumeOpt["bracketThirdPlace"] = self._thirdPlaceFlag()
 
     def _makeDraw(self):
         # the draw is whatever order the bracket editor left the entrants in,
@@ -310,7 +329,9 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
 
     def schedule(self):
         if self._rounds() == 0:
-            return None
+            entrants = len(self._realEntrants())
+            return ("A knockout needs at least two participants; this bracket has %d.\n"
+                    "Add participants to the bracket on the previous page." % entrants)
         self._loadState()
 
         lines = [self._bracketHeader(), "Rounds: " + ", ".join(self.matchdayNames()), ""]

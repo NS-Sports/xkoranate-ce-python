@@ -172,6 +172,16 @@ class XkorScorinateWidget(QWidget):
             self.resultExportDirectoryChanged.emit(path.canonicalPath())
 
     def scorinate(self):
+        if self.c is None or self.c.matchdays() == 0:
+            # nothing to score: without this the checks below offer to
+            # regenerate matchday -1, naming a round that doesn't exist
+            message_box(
+                self, "There is nothing to scorinate yet.",
+                QMessageBox.Ok,
+                informativeText="This event doesn't have any rounds to generate. "
+                                "Check the participants and groups you've set up.").exec()
+            return
+
         if self.matchday.currentIndex() <= self.lastMatchday:
             if self.matchday.currentIndex() == self.lastMatchday:
                 warning = message_box(

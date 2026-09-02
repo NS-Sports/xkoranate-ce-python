@@ -289,3 +289,35 @@ def test_the_size_dropdown_is_only_shown_for_a_bracket(widget):
     assert widget.bracketSizeCombo.isVisible() or not widget.isVisible()
     widget.setCompetition("roundRobin")
     assert not widget.bracketSizeCombo.isVisible()
+
+
+def test_only_playable_bracket_sizes_are_offered(widget):
+    """A 32-slot draw for four clubs leaves twelve matches empty, and the
+    competition quietly plays a four-slot bracket instead."""
+    loadBracket(widget, 4)
+    sizes = [widget.bracketSizeCombo.itemData(i)
+             for i in range(widget.bracketSizeCombo.count())]
+    assert sizes == [4, 8]  # at most one bye per match
+    assert 32 not in sizes
+
+    loadBracket(widget, 12)
+    sizes = [widget.bracketSizeCombo.itemData(i)
+             for i in range(widget.bracketSizeCombo.count())]
+    assert sizes == [16]
+
+
+def test_the_offered_sizes_follow_the_entrant_count(widget):
+    from PySide6.QtCore import QItemSelectionModel
+
+    loadBracket(widget, 8)
+    assert 16 in [widget.bracketSizeCombo.itemData(i)
+                  for i in range(widget.bracketSizeCombo.count())]
+
+    # empty four slots; 16 is no longer playable with four entrants
+    for match in range(4):
+        slot = widget.treeWidget.topLevelItem(match).child(1)
+        widget.treeWidget.setCurrentItem(slot, 0, QItemSelectionModel.ClearAndSelect)
+        widget.deleteAction.trigger()
+    assert len(realEntrants(widget)) == 4
+    assert 16 not in [widget.bracketSizeCombo.itemData(i)
+                      for i in range(widget.bracketSizeCombo.count())]

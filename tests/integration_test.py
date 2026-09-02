@@ -535,3 +535,42 @@ def test_the_editor_never_shows_a_type_the_event_will_not_use(editor, sport_inde
 
     editor.updateCurrentEvent()
     assert ev.competition() == selectedCompetition(editor)
+
+
+def test_resizing_the_bracket_clears_results_that_no_longer_apply(sport_index, rng):
+    """Results from a bracket that has since been changed were still shown."""
+    ev, sport, sl = buildKnockout(sport_index, rng, 8)
+    playKnockout(ev, sport, sl, upTo=2)
+    assert newKnockout(ev, sport, sl).results(0).strip()
+
+    # cut the field down: the played rounds describe a bracket that is gone
+    ev.setGroups([XkorGroup("Bracket", ev.groups()[0].athletes[:4])])
+    c = newKnockout(ev, sport, ev.makeStartList(XkorRPList()))
+    assert [c.results(i).strip() for i in range(3)] == ["", "", ""]
+
+
+def test_toggling_the_playoff_clears_results_stored_under_the_old_numbering(sport_index, rng):
+    """The playoff sits before the final, so enabling it shifts every later
+    round along one and the final's result ends up under its heading."""
+    ev, sport, sl = buildKnockout(sport_index, rng, 8)
+    c = playKnockout(ev, sport, sl)
+    assert c.matchdays() == 3
+    assert c.results(2).strip()  # the final
+
+    options = dict(ev.competitionOptions())
+    options["thirdPlacePlayoff"] = "true"
+    ev.setCompetitionOptions(options)
+
+    c = newKnockout(ev, sport, sl)
+    assert c.matchdays() == 4
+    assert [c.results(i).strip() for i in range(4)] == ["", "", "", ""]
+
+
+def test_a_bracket_too_small_to_play_says_so(sport_index, rng):
+    ev, sport, sl = buildKnockout(sport_index, rng, 1)
+    c = newKnockout(ev, sport, sl)
+
+    assert c.matchdays() == 0
+    schedule = c.schedule()
+    assert schedule is not None  # not "this type has no schedule to preview"
+    assert "at least two participants" in schedule

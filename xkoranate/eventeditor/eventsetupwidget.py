@@ -144,15 +144,33 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.setBracketSlots(self.padToBracket(slots))
         self.syncBracketSizeCombo()
 
+    def usableBracketSizes(self):
+        """Sizes that can actually be played, given who is in the bracket.
+
+        Every match needs at least one participant, so a bracket can hold at
+        most twice as many slots as it has entrants — a 32-slot draw for four
+        clubs would leave twelve matches with nobody in them, and the
+        competition would quietly play a four-slot bracket instead.
+        """
+        entrants = len([i for i in self.bracketEntrants() if i not in (None, BYE_ID)])
+        if entrants < 2:
+            return list(self.BRACKET_SIZES)
+        return [s for s in self.BRACKET_SIZES
+                if s >= bracket.bracketSize(entrants) and s // 2 <= entrants]
+
     def syncBracketSizeCombo(self):
-        """Show the size the bracket actually has, without re-triggering."""
+        """Show the size the bracket has, and the sizes it could usefully be."""
         size = self.bracketSize()
+        sizes = self.usableBracketSizes()
+        if size and size not in sizes:
+            # a bracket loaded from a file may be a size we wouldn't offer
+            sizes = sorted(set(sizes + [size]))
+
         self.bracketSizeCombo.blockSignals(True)
+        self.bracketSizeCombo.clear()
+        for s in sizes:
+            self.bracketSizeCombo.addItem("%d-participant bracket" % s, s)
         index = self.bracketSizeCombo.findData(size)
-        if index == -1 and size:
-            # a bracket loaded from a file may be a size we don't offer
-            self.bracketSizeCombo.addItem("%d-participant bracket" % size, size)
-            index = self.bracketSizeCombo.count() - 1
         self.bracketSizeCombo.setCurrentIndex(max(0, index))
         self.bracketSizeCombo.blockSignals(False)
 
@@ -564,6 +582,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
             entrants = len([i for i in self.bracketEntrants() if i not in (None, BYE_ID)])
             for action in (self.randomizeAction, self.seedAction, self.spreadSeedsAction):
                 action.setEnabled(entrants >= 2)
+            self.syncBracketSizeCombo()
             return
 
         self.deleteAction.setEnabled(len(selection) > 0)
