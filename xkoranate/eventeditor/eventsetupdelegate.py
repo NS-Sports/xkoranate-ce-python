@@ -1,17 +1,12 @@
 from PySide6.QtCore import QModelIndex, Qt
 from PySide6.QtWidgets import QComboBox, QItemDelegate, QLineEdit
 
+from ..uuids import uuidToString
 from ..athlete import BYE_ID, BYE_NAME
 from ..variant import toString
 
 
 BYE_LABEL = "— %s —" % BYE_NAME
-
-
-def _uuidToString(u):
-    if u is None:  # null QUuid
-        return "{00000000-0000-0000-0000-000000000000}"
-    return "{%s}" % u
 
 
 class XkorEventSetupDelegate(QItemDelegate):
@@ -72,7 +67,7 @@ class XkorEventSetupDelegate(QItemDelegate):
                     id = None
                     longName = "<unknown participant>"
             model.setData(index, longName)
-            model.setData(index, _uuidToString(id), Qt.UserRole)
+            model.setData(index, uuidToString(id), Qt.UserRole)
         else:
             lineEdit = editor
             model.setData(index, lineEdit.text())

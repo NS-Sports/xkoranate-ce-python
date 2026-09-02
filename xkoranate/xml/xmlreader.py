@@ -1,22 +1,14 @@
 import sys
-import uuid
 
 from PySide6.QtCore import QFile, QIODevice, QXmlStreamReader
 
+from ..uuids import parseUuid
 from ..event import XkorEvent
 from ..group import XkorGroup
 from ..athlete import XkorAthlete
 from ..rplist import XkorRPList
 from ..signuplist import XkorSignupList
 from ..variant import toDouble, toInt
-
-
-def _toUuid(s):
-    """QUuid(QString): null uuid (None) on parse failure."""
-    try:
-        return uuid.UUID(s.strip("{}"))
-    except (ValueError, AttributeError):
-        return None
 
 
 class XkorXmlReader(QXmlStreamReader):
@@ -68,7 +60,7 @@ class XkorXmlReader(QXmlStreamReader):
 
     def readEvent(self):
         event = XkorEvent()
-        id = _toUuid(self.attributes().value("id"))
+        id = parseUuid(self.attributes().value("id"))
         event.setName(self.attributes().value("name"))
         while not self.atEnd():
             self.readNext()
@@ -134,7 +126,7 @@ class XkorXmlReader(QXmlStreamReader):
             if self.isStartElement():
                 if self.name() == "signup":
                     # C++: QList<QUuid>::append(QString) converts implicitly via QUuid(QString)
-                    rval.athletes.append(_toUuid(self.readString()))
+                    rval.athletes.append(parseUuid(self.readString()))
                 else:
                     self.readUnknownElement()
         return rval
@@ -250,7 +242,7 @@ class XkorXmlReader(QXmlStreamReader):
 
     def readSignup(self):
         ath = XkorAthlete()
-        ath.id = _toUuid(self.attributes().value("id"))
+        ath.id = parseUuid(self.attributes().value("id"))
         ath.name = self.attributes().value("name")
         ath.nation = self.attributes().value("nation")
         ath.skill = toDouble(self.attributes().value("skill"))

@@ -1,10 +1,10 @@
-import uuid
 
 from PySide6.QtCore import QItemSelectionModel, QSize, Qt, QTimer, Signal
 from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QGridLayout, QHBoxLayout,
                                QLabel, QStackedLayout, QStyle, QToolBar, QTreeWidgetItem,
                                QTreeWidgetItemIterator, QWidget)
 
+from ..uuids import parseAssignedUuid, uuidToString
 from ..abstracttreewidget import XkorAbstractTreeWidget
 from ..ui.typography import heading_label
 from .. import theme
@@ -16,20 +16,6 @@ from ..icons import icon_action
 from ..rng import Mt19937
 from ..signuplist import XkorSignupList
 from .eventsetupdelegate import XkorEventSetupDelegate
-
-
-def _uuidToString(u):
-    if u is None:  # null QUuid
-        return "{00000000-0000-0000-0000-000000000000}"
-    return "{%s}" % u
-
-
-def _uuidFromString(s):
-    try:
-        u = uuid.UUID(str(s).strip("{}"))
-    except (AttributeError, TypeError, ValueError):
-        return None
-    return None if u.int == 0 else u
 
 
 def _cloneSignupList(sl):
@@ -189,7 +175,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         """Keep the match labels in step with their positions and contents."""
         for i in range(self.treeWidget.topLevelItemCount()):
             match = self.treeWidget.topLevelItem(i)
-            ids = [_uuidFromString(match.child(j).data(0, Qt.UserRole))
+            ids = [parseAssignedUuid(match.child(j).data(0, Qt.UserRole))
                    for j in range(match.childCount())]
             # a match of nothing but byes has nobody to send to the next round
             empty = bool(ids) and all(id is None or id == BYE_ID for id in ids)
@@ -206,7 +192,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         for i in range(self.treeWidget.topLevelItemCount()):
             match = self.treeWidget.topLevelItem(i)
             for j in range(match.childCount()):
-                rval.append(_uuidFromString(match.child(j).data(0, Qt.UserRole)))
+                rval.append(parseAssignedUuid(match.child(j).data(0, Qt.UserRole)))
         return rval
 
     def realBracketEntrants(self):
@@ -288,7 +274,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
             item = i.value()
             # if this is an athlete, look up its ID
             if item.parent():
-                if _uuidFromString(item.data(0, Qt.UserRole)) == id:
+                if parseAssignedUuid(item.data(0, Qt.UserRole)) == id:
                     toDelete.append(item)
             i += 1
         for item in toDelete:
@@ -305,7 +291,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
 
         if rval == XkorAthlete():
             err = "No athlete with ID "
-            err += _uuidToString(id)
+            err += uuidToString(id)
             err += " in XkorEventEditor::getAthleteBySN(QString)"
             raise XkorSearchFailedException(err)
         return rval
@@ -321,7 +307,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
             group = XkorGroup()
             group.name = self.treeWidget.topLevelItem(i).text(0)
             for j in range(self.treeWidget.topLevelItem(i).childCount()):
-                group.athletes.append(_uuidFromString(self.treeWidget.topLevelItem(i).child(j).data(0, Qt.UserRole)))
+                group.athletes.append(parseAssignedUuid(self.treeWidget.topLevelItem(i).child(j).data(0, Qt.UserRole)))
             rval.append(group)
         return rval
 
@@ -337,7 +323,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
                 athlete.setText(0, "<unknown participant>")
 
         athlete.setFlags(athlete.flags() & ~Qt.ItemIsDropEnabled)
-        athlete.setData(0, Qt.UserRole, _uuidToString(id))
+        athlete.setData(0, Qt.UserRole, uuidToString(id))
 
     def initItem(self, group, groupName=""):  # initItem is used for groups
         group.setFlags((group.flags() | Qt.ItemIsDropEnabled) & ~Qt.ItemIsDragEnabled)
@@ -619,7 +605,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         while i.value():
             item = i.value()
             if item.parent():
-                id = _uuidFromString(item.data(0, Qt.UserRole))
+                id = parseAssignedUuid(item.data(0, Qt.UserRole))
                 if id is not None and id != BYE_ID:
                     rval.append(id)
             i += 1
@@ -645,7 +631,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
             item = i.value()
             # if this is an athlete, look up its ID
             if item.parent():
-                id = _uuidFromString(item.data(0, Qt.UserRole))
+                id = parseAssignedUuid(item.data(0, Qt.UserRole))
                 if id == BYE_ID:
                     i += 1
                     continue  # a bye has no participant to look up
