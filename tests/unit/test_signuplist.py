@@ -62,3 +62,19 @@ def test_generateID_produces_unique_uuids():
     sl = XkorSignupList()
     ids = {sl.generateID() for _ in range(50)}
     assert len(ids) == 50
+
+
+def test_adjustRank_survives_a_degenerate_range():
+    """max == min divided by zero, which crashed scorination outright.
+
+    A freshly added participant sitting at the minimum, or a field where
+    everyone carries the same rating, gets there without anything unusual.
+    """
+    sl = XkorSignupList()
+    sl.setMinRank(1.0)
+    sl.setMaxRank(1.0)
+    # the value is a judgement call (see the review's S1: 0.5 would model an
+    # unrankable field as evenly matched rather than uniformly weakest); what
+    # this pins is that it resolves to a usable number instead of raising
+    assert 0.0 <= sl.adjustRank(1.0) <= 1.0
+    assert 0.0 <= sl.adjustRank(5.0) <= 1.0
