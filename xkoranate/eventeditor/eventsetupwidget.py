@@ -144,6 +144,19 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.setBracketSlots(self.padToBracket(slots))
         self.syncBracketSizeCombo()
 
+    def largestDrawableSize(self, entrants):
+        """The biggest bracket the draw functions can fill for this many.
+
+        byeSlots() puts at most one bye in a match, so it raises rather than
+        build a bracket with an empty match — the same ceiling
+        usableBracketSizes() applies. bracketSlotCount can sit above it after
+        slots have been cleared to byes, so the draw buttons must clamp.
+        """
+        size = bracket.bracketSize(entrants)
+        while size * 2 <= 2 * entrants:
+            size *= 2
+        return size
+
     def usableBracketSizes(self):
         """Sizes that can actually be played, given who is in the bracket.
 
@@ -418,7 +431,8 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
                 pass
         if len(athletes) < 2:
             return
-        size = max(self.bracketSlotCount, bracket.bracketSize(len(athletes)))
+        size = min(max(self.bracketSlotCount, bracket.bracketSize(len(athletes))),
+                   self.largestDrawableSize(len(athletes)))
         slots = drawFunction(athletes, size)
         self.bracketSlotCount = size
         self.setBracketSlots([BYE_ID if a is None else a.id for a in slots])

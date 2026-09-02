@@ -427,3 +427,48 @@ def test_a_slot_can_still_be_swapped_for_a_free_participant(widget):
     assert other.text(0) == freed
     placed = realEntrants(widget)
     assert len(placed) == len(set(placed))  # nobody placed twice
+
+
+def clearSlots(w, count):
+    """Clear `count` occupied slots the way selecting rows and hitting Delete does."""
+    cleared = 0
+    for i in range(w.treeWidget.topLevelItemCount()):
+        match = w.treeWidget.topLevelItem(i)
+        for j in range(match.childCount()):
+            if cleared >= count:
+                return
+            if match.child(j).text(0) != BYE_LABEL:
+                w.treeWidget.clearSelection()
+                match.child(j).setSelected(True)
+                w.deleteItems()
+                cleared += 1
+
+
+def test_the_draw_buttons_survive_a_bracket_emptied_down_to_a_few(widget):
+    """bracketSlotCount outlives the entrants that justified it.
+
+    Clearing slots leaves byes behind without shrinking the bracket, so a
+    16-slot draw could be asked to hold 12 byes — which byeSlots() refuses,
+    one bye per match being its whole contract. The buttons stayed enabled
+    and the ValueError came straight out of the toolbar handler.
+    """
+    loadBracket(widget, 12)
+    assert widget.bracketSlotCount == 16
+    clearSlots(widget, 8)
+    assert len(realEntrants(widget)) == 4
+
+    for draw in (widget.seedBracket, widget.randomizeGroup):
+        draw()  # must not raise
+        assert len(realEntrants(widget)) == 4
+        # clamped to a bracket the draw can actually fill
+        assert widget.bracketSlotCount == 8
+        assert all(p.count(BYE_LABEL) <= 1 for p in pairs(widget))
+
+
+def test_largest_drawable_size_never_leaves_an_empty_match(widget):
+    for entrants in range(2, 40):
+        size = widget.largestDrawableSize(entrants)
+        assert size & (size - 1) == 0  # a power of two
+        assert size >= bracket.bracketSize(entrants)
+        assert size - entrants <= size // 2  # at most one bye per match
+        bracket.byeSlots(size, size - entrants)  # must not raise
