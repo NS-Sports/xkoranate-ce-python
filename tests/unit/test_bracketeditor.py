@@ -9,6 +9,7 @@ from xkoranate.competitions import bracket
 from xkoranate.eventeditor.eventsetupdelegate import BYE_LABEL
 from xkoranate.eventeditor.eventsetupwidget import XkorEventSetupWidget
 from xkoranate.group import XkorGroup
+from xkoranate.rng import Mt19937
 from xkoranate.signuplist import XkorSignupList
 
 CLUBS = [("Club %d" % (i + 1), "C%02d" % (i + 1), 100 - i * 5) for i in range(12)]
@@ -27,6 +28,9 @@ def widget(qapp):
     w = XkorEventSetupWidget()
     w.setSignupList(sl)
     w.signupList = sl
+    # the widget seeds its own generator from the clock, so the dice test
+    # would otherwise assert against genuinely unpredictable input
+    w.r = Mt19937(2026)
     return w
 
 

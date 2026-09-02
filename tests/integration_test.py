@@ -49,8 +49,16 @@ def sport_index():
     return index
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def rng():
+    """A fresh seeded generator per test.
+
+    Module scope shared one stream across the whole file, so how far into it
+    any given test started depended on which tests ran before it. Running a
+    subset, or inserting a test above an existing one, silently changed every
+    later test's numbers — fine for today's structural assertions, a
+    heisenbug for the first outcome-sensitive one.
+    """
     return Mt19937(2026)
 
 
