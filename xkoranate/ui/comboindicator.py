@@ -10,7 +10,8 @@ from PySide6.QtCore import QRect
 from PySide6.QtWidgets import QApplication, QStyle, QStyleOption, QStyleOptionViewItem
 
 INDICATOR_WIDTH = 14
-ARROW_SIZE = 7  # the glyph itself: a hint, not a control
+ARROW_MAX = 9  # the glyph is a hint, not a control, so it never grows with the row
+ARROW_MIN = 5
 
 
 class XkorComboIndicatorMixin:
@@ -36,8 +37,11 @@ class XkorComboIndicatorMixin:
         painter.save()
         painter.fillRect(strip, option.palette.highlight())
         # PE_IndicatorArrowDown fills whatever rect it is given, so give it a
-        # small centred one rather than the whole row height
-        glyph = QRect(0, 0, ARROW_SIZE, ARROW_SIZE)
+        # small centred one rather than the whole row height. Row height
+        # varies with the user's font, so leave a margin around it but never
+        # let it grow past ARROW_MAX.
+        size = max(ARROW_MIN, min(ARROW_MAX, strip.height() - 6))
+        glyph = QRect(0, 0, size, size)
         glyph.moveCenter(strip.center())
         arrow = QStyleOption()
         arrow.rect = glyph

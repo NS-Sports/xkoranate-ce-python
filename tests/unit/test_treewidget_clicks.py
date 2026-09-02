@@ -122,9 +122,14 @@ def test_a_double_click_drops_the_list_open(widget):
     assert combo.view().isVisible()
 
 
-def test_the_arrow_is_a_hint_not_a_row_high_chevron():
-    """It was drawn into the full row height and looked absurd."""
-    from xkoranate.ui.comboindicator import ARROW_SIZE, INDICATOR_WIDTH
+def test_the_arrow_never_grows_with_the_row():
+    """It was drawn into the full row height and looked absurd. Row height
+    follows the user's font, so the glyph has to stay capped."""
+    from xkoranate.ui.comboindicator import ARROW_MAX, ARROW_MIN, INDICATOR_WIDTH
 
-    assert ARROW_SIZE <= 8
-    assert ARROW_SIZE < INDICATOR_WIDTH
+    assert ARROW_MIN <= ARROW_MAX <= 9
+    assert ARROW_MAX < INDICATOR_WIDTH
+
+    for rowHeight in (14, 20, 26, 40, 80):
+        size = max(ARROW_MIN, min(ARROW_MAX, rowHeight - 6))
+        assert ARROW_MIN <= size <= ARROW_MAX
