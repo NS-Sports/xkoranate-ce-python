@@ -551,6 +551,32 @@ def test_head_to_head_paradigms_all_offer_a_knockout(sport_index, rng, sportName
     assert paradigm.supportsCompetition("singleElimination")
 
 
+def test_every_paradigm_that_runs_matches_offers_a_knockout(sport_index):
+    """The support rule, rather than a list of paradigms to keep in step.
+
+    singleElimination used to be declared by hand in five places, and the
+    first extension already diverged: archery and parallel giant slalom both
+    run individual matches — everything a bracket needs — and neither was
+    offered one.
+    """
+    seen = set()
+    missing = []
+    for name in sport_index.index:
+        try:
+            sport = XkorXmlSportReader(sport_index.lookup(name)).sport()
+            paradigm = XkorParadigmFactory.newParadigmForSport(sport, {})
+        except Exception:
+            continue
+        if type(paradigm).__name__ in seen:
+            continue
+        seen.add(type(paradigm).__name__)
+        if paradigm.supportsCompetition("matches") \
+                and not paradigm.supportsCompetition("singleElimination"):
+            missing.append(type(paradigm).__name__)
+    assert seen  # the sweep actually found paradigms
+    assert missing == []
+
+
 @pytest.mark.parametrize("sportName", H2H_PARADIGM_SPORTS)
 def test_a_knockout_plays_out_for_every_head_to_head_paradigm(sport_index, rng, sportName):
     ev, sport, sl = buildKnockout(sport_index, rng, 8, sportName=sportName)
