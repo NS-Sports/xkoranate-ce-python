@@ -297,13 +297,24 @@ def test_only_playable_bracket_sizes_are_offered(widget):
     loadBracket(widget, 4)
     sizes = [widget.bracketSizeCombo.itemData(i)
              for i in range(widget.bracketSizeCombo.count())]
-    assert sizes == [4, 8]  # at most one bye per match
+    assert sizes == [2, 4, 8]  # at most one bye per match
     assert 32 not in sizes
 
     loadBracket(widget, 12)
     sizes = [widget.bracketSizeCombo.itemData(i)
              for i in range(widget.bracketSizeCombo.count())]
-    assert sizes == [16]
+    assert sizes == [2, 4, 8, 16]  # smaller cups are allowed too
+
+
+def test_a_smaller_bracket_can_be_chosen_than_the_field_needs(widget):
+    """A 12-club signup list can still be run as a four-club cup."""
+    loadBracket(widget, 12)
+    widget.setBracketSize(4)
+
+    assert widget.treeWidget.topLevelItemCount() == 2
+    assert len(realEntrants(widget)) == 4
+    assert widget.bracketEntrants().count(BYE_ID) == 0
+    assert len(widget.availableAthletes) == 8
 
 
 def test_the_offered_sizes_follow_the_entrant_count(widget):
@@ -321,3 +332,21 @@ def test_the_offered_sizes_follow_the_entrant_count(widget):
     assert len(realEntrants(widget)) == 4
     assert 16 not in [widget.bracketSizeCombo.itemData(i)
                       for i in range(widget.bracketSizeCombo.count())]
+
+
+def test_add_all_grows_the_bracket_to_hold_everyone(widget):
+    """After shrinking, "add all" filled only the gaps — so the participants
+    that no longer fitted could not get back in without enlarging the bracket
+    one step at a time."""
+    loadBracket(widget, 12)
+    widget.setBracketSize(2)
+    assert len(realEntrants(widget)) == 2
+    assert len(widget.availableAthletes) == 10
+
+    widget.insertAllAction.trigger()
+
+    assert len(realEntrants(widget)) == 12
+    assert widget.availableAthletes == []
+    assert widget.bracketSize() == 16
+    # and the byes are still spread one to a match
+    assert all(p.count("— BYE —") <= 1 for p in pairs(widget))

@@ -151,12 +151,15 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         most twice as many slots as it has entrants — a 32-slot draw for four
         clubs would leave twelve matches with nobody in them, and the
         competition would quietly play a four-slot bracket instead.
+
+        Smaller brackets are offered too: a 16-club signup list can still be
+        run as an eight-club cup, and the clubs that don't fit go back to the
+        pool of available participants.
         """
         entrants = len([i for i in self.bracketEntrants() if i not in (None, BYE_ID)])
         if entrants < 2:
             return list(self.BRACKET_SIZES)
-        return [s for s in self.BRACKET_SIZES
-                if s >= bracket.bracketSize(entrants) and s // 2 <= entrants]
+        return [s for s in self.BRACKET_SIZES if s // 2 <= entrants]
 
     def syncBracketSizeCombo(self):
         """Show the size the bracket has, and the sizes it could usefully be."""
@@ -338,7 +341,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
 
     def insertAll(self):
         if self.isBracket():
-            # fill the empty slots rather than growing the bracket
+            # fill the empty slots first, keeping the draw as it stands
             slots = list(self.bracketEntrants())
             pool = list(self.availableAthletes)
             for i in range(len(slots)):
@@ -346,9 +349,19 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
                     break
                 if slots[i] is None or slots[i] == BYE_ID:
                     slots[i] = pool.pop(0)
-            if not slots:
-                slots = pool  # nothing set up yet: size the bracket to fit
-            self.setBracketSlots(self.padToBracket(slots))
+
+            if pool or not slots:
+                # more participants than slots: grow the bracket to hold them
+                # all rather than leaving anyone out of a button called "add
+                # all". Sizing to fit spreads the byes one to a match.
+                everyone = [i for i in slots if i not in (None, BYE_ID)] + pool
+                self.bracketSlotCount = 0
+                laid = self.padToBracket(everyone)
+                self.bracketSlotCount = len(laid)
+            else:
+                laid = self.padToBracket(slots)
+
+            self.setBracketSlots(laid)
             self.syncBracketSizeCombo()
             return
 
