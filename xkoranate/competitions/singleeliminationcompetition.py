@@ -32,10 +32,12 @@ def _roundName(matchesInRound):
 class XkorSingleEliminationCompetition(XkorAbstractCompetition):
     """A knockout bracket: losers are out, winners meet in the next round.
 
-    The first-round draw is made once, when the first round is scorinated,
-    and persisted — it is random for most seeding methods, so it cannot be
-    regenerated. Every later round's fixtures are derived from the winners
-    of the round before it.
+    The first-round draw is read off the slot order the bracket editor left
+    behind, so it is fully determined by the event: the randomness lives in
+    the editor's draw buttons, not here. It is persisted when the first round
+    is scorinated so that _drawIsCurrent() can tell whether the bracket has
+    been rearranged since, and drop results that no longer describe it.
+    Every later round's fixtures come from the winners of the round before.
     """
 
     def __init__(self, *args, **kwargs):

@@ -13,14 +13,6 @@ import math
 
 from xkoranate.athlete import isBye
 
-MANUAL = "manual"
-RANDOM = "random"
-SEEDED = "seeded"
-VARIABLE_SEEDS = "variableSeeds"
-
-SEEDING_METHODS = [MANUAL, RANDOM, SEEDED, VARIABLE_SEEDS]
-
-
 def bracketSize(n):
     """Smallest power of two that holds n entrants (at least 2)."""
     if n <= 2:
@@ -268,17 +260,3 @@ def drawFromOrder(entrants):
         return slots
     return drawManual(real, bracketSize(len(real)))
 
-
-def draw(entrants, method, numSeeds=0, rng=None):
-    """Build a first-round bracket for `entrants` using the named method."""
-    size = bracketSize(len(entrants))
-    if len(entrants) > size:
-        raise ValueError("%d entrants do not fit a %d-slot bracket" % (len(entrants), size))
-
-    if method == MANUAL:
-        return drawManual(entrants, size)
-    if method == SEEDED:
-        return drawSeeded(entrants, size, rng)
-    if method == VARIABLE_SEEDS:
-        return drawVariableSeeds(entrants, size, numSeeds, rng)
-    return drawRandom(entrants, size, rng)

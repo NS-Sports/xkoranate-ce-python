@@ -81,19 +81,29 @@ def test_bye_slots_rejects_more_byes_than_matches():
         bracket.byeSlots(8, 5, bracket.standardSeedOrder(8))
 
 
-@pytest.mark.parametrize("method", bracket.SEEDING_METHODS)
+# the four draws the bracket editor's buttons call, behind one signature
+DRAWS = {
+    "manual": lambda ents, size, rng: bracket.drawManual(ents, size),
+    "random": lambda ents, size, rng: bracket.drawRandom(ents, size, rng),
+    "seeded": lambda ents, size, rng: bracket.drawSeeded(ents, size, rng),
+    "variableSeeds": lambda ents, size, rng: bracket.drawVariableSeeds(ents, size, 4, rng),
+}
+
+
+@pytest.mark.parametrize("method", sorted(DRAWS))
 @pytest.mark.parametrize("n", [2, 3, 5, 8, 11, 12, 16, 17])
 def test_every_method_produces_a_well_formed_bracket(method, n):
     ents = entrants(n)
-    slots = bracket.draw(ents, method, numSeeds=4, rng=Mt19937(2026))
+    slots = DRAWS[method](ents, bracket.bracketSize(n), Mt19937(2026))
     assertWellFormed(slots, ents)
 
 
-@pytest.mark.parametrize("method", bracket.SEEDING_METHODS)
+@pytest.mark.parametrize("method", sorted(DRAWS))
 def test_draws_are_reproducible_under_a_fixed_seed(method):
     ents = entrants(12)
-    a = bracket.draw(ents, method, numSeeds=4, rng=Mt19937(2026))
-    b = bracket.draw(ents, method, numSeeds=4, rng=Mt19937(2026))
+    size = bracket.bracketSize(12)
+    a = DRAWS[method](ents, size, Mt19937(2026))
+    b = DRAWS[method](ents, size, Mt19937(2026))
     assert [x.name if x else None for x in a] == [x.name if x else None for x in b]
 
 
@@ -175,11 +185,6 @@ def test_variable_seeds_clamps_to_the_entrant_count():
     ents = entrants(6)
     slots = bracket.drawVariableSeeds(ents, 8, 99, Mt19937(2026))
     assertWellFormed(slots, ents)
-
-
-def test_unknown_method_falls_back_to_a_random_draw():
-    ents = entrants(8)
-    assertWellFormed(bracket.draw(ents, "nonsense", rng=Mt19937(2026)), ents)
 
 
 def _seedPairings(size, n, numSeeds, rng=None):
