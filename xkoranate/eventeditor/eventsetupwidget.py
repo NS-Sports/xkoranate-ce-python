@@ -139,9 +139,22 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         the end, which go back to the pool of available participants.
         """
         size = max(2, size)
-        self.bracketSlotCount = size
         slots = [i for i in self.bracketEntrants() if i is not None and i != BYE_ID][:size]
-        self.setBracketSlots(self.padToBracket(slots))
+        if len(slots) >= 2:
+            # a size nothing can fill would leave whole matches empty
+            size = min(size, self.largestDrawableSize(len(slots)))
+            slots = slots[:size]
+        self.bracketSlotCount = size
+        if len(slots) < size:
+            # Growing the bracket: spread the byes one to a match rather than
+            # letting padToBracket() append them all at the tail, which leaves
+            # the last matches holding nobody. drawFromOrder() rejects a
+            # bracket like that and silently re-pairs it, so what the page
+            # showed would not be what got played.
+            self.setBracketSlots([BYE_ID if i is None else i
+                                  for i in bracket.drawManual(slots, size)])
+        else:
+            self.setBracketSlots(self.padToBracket(slots))
         self.syncBracketSizeCombo()
 
     def largestDrawableSize(self, entrants):

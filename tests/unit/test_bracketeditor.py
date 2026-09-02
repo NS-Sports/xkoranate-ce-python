@@ -472,3 +472,40 @@ def test_largest_drawable_size_never_leaves_an_empty_match(widget):
         assert size >= bracket.bracketSize(entrants)
         assert size - entrants <= size // 2  # at most one bye per match
         bracket.byeSlots(size, size - entrants)  # must not raise
+
+
+def test_growing_the_bracket_spreads_the_byes_one_to_a_match(widget):
+    """Padding at the tail left the last matches holding nobody.
+
+    drawFromOrder() rejects a bracket with an empty match and silently
+    re-pairs it, so the tournament shown on the page was not the one played.
+    """
+    ids = loadBracket(widget, 6)
+    widget.setBracketSize(4)  # drops two clubs
+    assert len(realEntrants(widget)) == 4
+    widget.setBracketSize(8)  # and grow again
+
+    assert widget.treeWidget.topLevelItemCount() == 4
+    assert all(p.count(BYE_LABEL) == 1 for p in pairs(widget)), pairs(widget)
+    assert len(realEntrants(widget)) == 4
+
+
+def test_a_grown_bracket_is_played_as_shown(widget):
+    """The slot list the editor leaves behind must survive drawFromOrder()."""
+    loadBracket(widget, 6)
+    widget.setBracketSize(4)
+    widget.setBracketSize(8)
+
+    entrants = widget.bracketEntrants()
+    real = [i for i in entrants if i != BYE_ID]
+    slots = [None if i == BYE_ID else i for i in entrants]
+    assert bracket.isWellFormed(slots, real)
+
+
+def test_the_bracket_size_never_exceeds_what_can_be_filled(widget):
+    loadBracket(widget, 12)
+    widget.setBracketSize(2)  # down to two clubs
+    widget.setBracketSize(128)  # a size nothing could fill
+
+    assert widget.bracketSlotCount == 4
+    assert all(p.count(BYE_LABEL) <= 1 for p in pairs(widget))
