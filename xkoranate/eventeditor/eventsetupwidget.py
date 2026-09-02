@@ -146,7 +146,12 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         Growing it adds byes; shrinking it drops the entrants that fall off
         the end, which go back to the pool of available participants.
         """
-        size = max(2, size)
+        # A bracket is a power of two by definition, and the combo only ever
+        # offers one — but this is the public method, and the one the tests
+        # use. A size that isn't one makes drawFromOrder() reject the slot
+        # list and fall back to drawManual(), discarding the arrangement
+        # without a word, so snap rather than trust the caller.
+        size = bracket.bracketSize(min(max(2, size), self.BRACKET_SIZES[-1]))
         if size != self.bracketSlotCount and not self.confirmBracketChange():
             self.syncBracketSizeCombo()  # put the dropdown back
             return

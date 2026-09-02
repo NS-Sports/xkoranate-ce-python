@@ -755,3 +755,17 @@ def test_a_new_signup_list_refreshes_the_available_list(widget):
     widget.updateButtons()
 
     assert "Late Entry (LTE)" in widget.availableAthleteNames
+
+
+@pytest.mark.parametrize("asked,expected", [(0, 2), (1, 2), (3, 4), (5, 8), (9, 16), (999, 16)])
+def test_setBracketSize_snaps_to_a_power_of_two(widget, asked, expected):
+    """A size that isn't one makes drawFromOrder() reject the slot list and
+    silently re-pair it. The combo can't produce one, but this is the public
+    method and the one the tests themselves use."""
+    loadBracket(widget, 12)
+    widget.setBracketSize(asked)
+
+    size = widget.bracketSlotCount
+    assert size == expected
+    assert size & (size - 1) == 0
+    assert all(len(p) == 2 for p in pairs(widget))
