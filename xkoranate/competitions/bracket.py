@@ -230,12 +230,17 @@ def drawFromOrder(entrants):
     back to the positional rule in drawManual().
     """
     real = [a for a in entrants if not isBye(a)]
-    size = bracketSize(len(real))
 
-    slots = [None if isBye(a) else a for a in entrants][:size]
+    # The list's own length is the bracket size, not bracketSize(len(real)):
+    # the editor lets the user pick a bracket larger than the smallest one
+    # their entrants fit into (four clubs deliberately drawn as eight
+    # quarter-finals, each with a bye). Sizing from the entrant count instead
+    # would truncate the list here and silently re-pair the whole draw.
+    # isWellFormed already rejects a length that isn't a power of two.
+    slots = [None if isBye(a) else a for a in entrants]
     if isWellFormed(slots, real):
         return slots
-    return drawManual(real, size)
+    return drawManual(real, bracketSize(len(real)))
 
 
 def draw(entrants, method, numSeeds=0, rng=None):

@@ -75,7 +75,12 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
     def _bracketSize(self):
         if len(self._realEntrants()) < 2:
             return 0
-        return bracket.bracketSize(len(self._realEntrants()))
+        # Ask the draw, not the entrant count. The slot list the editor left
+        # behind carries the bracket size the user chose, which can be larger
+        # than the smallest bracket their entrants fit into; counting real
+        # entrants here would give a different, smaller bracket than the one
+        # on the setup page, and the event would be played to that instead.
+        return len(bracket.drawFromOrder(self._entrants()))
 
     def _rounds(self):
         size = self._bracketSize()

@@ -476,6 +476,37 @@ def test_the_last_round_names_the_champion(sport_index, rng):
     assert "Into the" not in final
 
 
+def test_a_bracket_larger_than_the_field_keeps_the_size_it_was_given(sport_index, rng):
+    """The slot list is the bracket size, not bracketSize(entrant count).
+
+    Four entrants deliberately drawn as eight quarter-finals used to be
+    re-sized to a four-slot bracket and re-paired, so the semi-finals played
+    were pairings that appeared nowhere on the setup page.
+    """
+    ev, sport = build_event(sport_index, rng, "Association football—LISA formula", nAthletes=4)
+    ids = [a.id for a in ev.signupList().athletes()]
+    draw = [ids[0], BYE_ID, ids[1], BYE_ID, ids[2], BYE_ID, ids[3], BYE_ID]
+    ev.setCompetition("singleElimination")
+    ev.setGroups([XkorGroup("Bracket", draw)])
+    sl = ev.makeStartList(XkorRPList())
+
+    c = newKnockout(ev, sport, sl)
+    assert c.matchdays() == 3  # quarter-finals, semi-finals, final
+
+    byId = {a.id: a.name for a in ev.signupList().athletes()}
+    fixtures = c._fixtures(0)
+    assert [(h.name if h else None, a.name if a else None) for h, a in fixtures] == [
+        (byId[ids[0]], None),
+        (byId[ids[1]], None),
+        (byId[ids[2]], None),
+        (byId[ids[3]], None),
+    ]
+
+    # and it plays out to a champion from that bracket, not a re-drawn one
+    c = playKnockout(ev, sport, sl)
+    assert "Champion" in ev.results()[c.matchdays() - 1]
+
+
 def test_rearranging_the_bracket_supersedes_a_stored_draw(sport_index, rng):
     """A draw only describes the tournament while the bracket still matches it."""
     ev, sport, sl = buildKnockout(sport_index, rng, 8)
