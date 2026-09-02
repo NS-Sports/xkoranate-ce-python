@@ -42,6 +42,10 @@ the sport's paradigm, and include:
 - **Mass start** — everyone races at once; results are times or placements.
 - **Round robin** — every participant/team plays every other one.
 - **Individual matches** — a fixed set of head-to-head matchups.
+- **Single elimination** — a knockout bracket: losers go out, and each round's
+  fixtures come from the winners of the round before it. Offered for any sport
+  whose paradigm can run individual matches. Its options widget can add a
+  third-place playoff, played as its own matchday before the final.
 - **Multiple-run competition** — best-of-N attempts (e.g. gymnastics, diving).
 - **Shooting competition** / **Archery ranking round** — precision-sport
   scoring formats.
@@ -56,8 +60,31 @@ competition format needs them. The toolbar lets you create a group, add one
 or all participants to it, delete a group, and randomize group assignment.
 Drag and drop to reorder within the tree.
 
+### Setting a bracket
+
+For **Single elimination** this step is titled **Bracket** and arranges the
+first-round draw instead. Matches aren't created by hand — the bracket size
+makes them — so the create-group and add-one-participant buttons are hidden,
+and **Delete** empties the selected slot rather than removing it.
+
+- The **x-participant bracket** dropdown sets how many slots the bracket has.
+  Any slot you don't fill is a **bye**: the participant opposite it advances
+  unopposed. Byes are entrants in their own right — you can drag them around,
+  or pick one from a slot's dropdown, to keep a particular slot open.
+- Three toolbar buttons arrange the draw once, after which you can adjust it
+  by hand: the **dice** draws at random, **Seed the draw by skill** puts the
+  strongest against the weakest so the top two can only meet in the final, and
+  **Keep the top seeds apart** asks how many seeds to spread across the
+  bracket and draws everyone else around them.
+
+Changing the bracket after you have scorinated discards the results played
+from it, since they describe a draw that no longer exists. You'll be asked
+before that happens.
+
 Click **View full schedule** to preview the fixture list for competition
-formats that have a fixed schedule (round robin, individual matches). Formats
+formats that have a fixed schedule (round robin, individual matches, single
+elimination). For a bracket the whole thing is shown, with later rounds
+reading "Match 9 winner v Match 10 winner" until they're known. Formats
 without a fixed schedule (like mass start) will tell you there's nothing to
 preview.
 
