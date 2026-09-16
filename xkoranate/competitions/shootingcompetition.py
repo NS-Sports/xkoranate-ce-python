@@ -1,17 +1,9 @@
-import uuid
 
+from ..uuids import parseUuid
 from xkoranate.athlete import XkorAthlete
 from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
 from xkoranate.result import XkorResult
 from xkoranate.variant import toDouble, toInt, toList, toString
-
-
-def _quuid(s):
-    """QUuid(QString): None for an unparseable (null) uuid."""
-    try:
-        return uuid.UUID(s.strip("{}"))
-    except (AttributeError, ValueError):
-        return None
 
 
 class XkorShootingCompetition(XkorAbstractCompetition):
@@ -52,7 +44,7 @@ class XkorShootingCompetition(XkorAbstractCompetition):
             while i < len(qualifiers) and i < len(qualifyingScores):
                 ath = XkorAthlete()
                 for j in sl.athletes:
-                    if _quuid(toString(qualifiers[i])) == j.id:
+                    if parseUuid(toString(qualifiers[i])) == j.id:
                         ath = j.clone()
                 previousResults.append(XkorResult(toDouble(qualifyingScores[i]), ath=ath))
                 athleteList.append(ath)

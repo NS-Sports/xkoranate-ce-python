@@ -5,25 +5,12 @@ from PySide6.QtCore import QItemSelectionModel, Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QAbstractItemView, QFrame, QTreeWidgetItem
 
+from .uuids import parseAssignedUuid, uuidToString
 from .abstracttreewidget import XkorAbstractTreeWidget
 from .event import XkorEvent
 from .icons import icon_action
 from .rng import Mt19937
 from .rplist import XkorRPList
-
-
-def _uuidToString(u):
-    if u is None:  # null QUuid
-        return "{00000000-0000-0000-0000-000000000000}"
-    return "{%s}" % u
-
-
-def _uuidFromString(s):
-    try:
-        u = uuid.UUID(str(s).strip("{}"))
-    except (AttributeError, TypeError, ValueError):
-        return None
-    return None if u.int == 0 else u
 
 
 class XkorNavigationWidget(XkorAbstractTreeWidget):
@@ -111,15 +98,15 @@ class XkorNavigationWidget(XkorAbstractTreeWidget):
             item = selection[0]
             if item is self.m_rpListItem:
                 self.editRPList.emit(self.m_rpList)
-            elif self.m_events.get(_uuidFromString(item.data(0, Qt.UserRole))):
+            elif self.m_events.get(parseAssignedUuid(item.data(0, Qt.UserRole))):
                 # look up the event with the unique ID
-                self.editEvent.emit(self.m_events[_uuidFromString(item.data(0, Qt.UserRole))])
+                self.editEvent.emit(self.m_events[parseAssignedUuid(item.data(0, Qt.UserRole))])
 
     def events(self):
         self.updateEventNames()
         rval = []
         for i in range(self.m_eventsItem.childCount()):
-            uniqueID = _uuidFromString(self.m_eventsItem.child(i).data(0, Qt.UserRole))
+            uniqueID = parseAssignedUuid(self.m_eventsItem.child(i).data(0, Qt.UserRole))
             rval.append((uniqueID, self.m_events.get(uniqueID)))
         return rval
 
@@ -132,7 +119,7 @@ class XkorNavigationWidget(XkorAbstractTreeWidget):
         event = XkorEvent()
         self.m_events[uniqueID] = event
 
-        item.setData(0, Qt.UserRole, _uuidToString(uniqueID))
+        item.setData(0, Qt.UserRole, uuidToString(uniqueID))
         self.isInUse = False
 
         self.editEvent.emit(event)
@@ -169,7 +156,7 @@ class XkorNavigationWidget(XkorAbstractTreeWidget):
             self.m_events[first] = second
             item = self.createItem(self.m_eventsItem)
             item.setText(0, second.name())
-            item.setData(0, Qt.UserRole, _uuidToString(first))
+            item.setData(0, Qt.UserRole, uuidToString(first))
         self.treeWidget.setCurrentItem(self.m_rpListItem, 0)
 
     def setRPList(self, rpList):
@@ -208,6 +195,6 @@ class XkorNavigationWidget(XkorAbstractTreeWidget):
 
     def updateEventNames(self):
         for i in range(self.m_eventsItem.childCount()):
-            uniqueID = _uuidFromString(self.m_eventsItem.child(i).data(0, Qt.UserRole))
+            uniqueID = parseAssignedUuid(self.m_eventsItem.child(i).data(0, Qt.UserRole))
             if uniqueID in self.m_events:
                 self.m_events[uniqueID].setName(self.m_eventsItem.child(i).text(0))

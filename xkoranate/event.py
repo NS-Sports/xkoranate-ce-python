@@ -1,3 +1,4 @@
+from .athlete import BYE_ID, makeBye
 from .exceptions import XkorSearchFailedException
 from .signuplist import XkorSignupList
 from .startlist import XkorStartList, XkorStartListGroup
@@ -39,6 +40,11 @@ class XkorEvent:
         for i in self.m_groups:
             currentGroup = XkorStartListGroup()
             for j in i.athletes:
+                if j == BYE_ID:
+                    # a bye carries no skill and takes no RP bonus; it exists
+                    # only to hold a slot in a knockout draw
+                    currentGroup.athletes.append(makeBye())
+                    continue
                 try:
                     a = ubersignuplist.getAthleteByID(j).clone()
                     if rpList is not None:

@@ -8,8 +8,8 @@ scorination math, competition formats, file formats and UI — while running on
 current macOS, Windows, and Linux via Python and Qt 6.
 
 It simulates results for one hundred–plus disciplines across sixty-plus sports:
-mass starts, head-to-head matches, round robins, multi-run events, shooting and
-archery formats, and includes the league table generator.
+mass starts, head-to-head matches, round robins, knockout brackets, multi-run
+events, shooting and archery formats, and includes the league table generator.
 
 The interface has a modern, light Material-style theme (via `qt-material`) with
 Material Design Icons (`qtawesome`); the underlying behaviour is unchanged.

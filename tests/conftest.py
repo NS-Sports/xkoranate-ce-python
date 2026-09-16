@@ -26,3 +26,27 @@ def _ensureQtPluginPath():
 
 
 _ensureQtPluginPath()
+
+
+import pytest
+
+
+@pytest.fixture(scope="session")
+def qapp():
+    """One application object for every widget test in the session.
+
+    An XkorApplication rather than a bare QApplication: it is what registers
+    the "sports:" search path, and only one QApplication may exist per
+    process. Building a plain one here left whichever test ran first to
+    decide whether sports could be looked up at all.
+    """
+    from PySide6.QtWidgets import QApplication
+
+    from xkoranate.application import XkorApplication
+
+    app = QApplication.instance()
+    if app is None:
+        app = XkorApplication([])
+    if isinstance(app, XkorApplication):
+        app.refreshSearchPaths()
+    return app
