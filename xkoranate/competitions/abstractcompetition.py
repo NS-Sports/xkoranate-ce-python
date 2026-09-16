@@ -1,6 +1,6 @@
 import math
 
-from xkoranate.athlete import XkorAthlete
+from xkoranate.athlete import XkorAthlete, isBye
 from xkoranate.result import XkorResult
 from xkoranate.sport import XkorSport
 from xkoranate.startlist import XkorStartList, XkorStartListGroup
@@ -18,6 +18,15 @@ class XkorAbstractCompetition:
         if sl is not None:
             self.init(sl, s, paradigmOptions, competitionOptions, results)
 
+    def acceptsByes(self):
+        """Whether this competition understands bye entrants.
+
+        Only a knockout bracket does. Everything else gets them stripped out
+        in init(), so a group used for a cup can be reused for a league
+        without phantom participants turning up in the results.
+        """
+        return False
+
     def hasOptionsWidget(self):
         return False
 
@@ -26,7 +35,9 @@ class XkorAbstractCompetition:
         # later changes to the caller's start list don't leak into us
         self.startList = XkorStartList()
         self.startList.name = sl.name
-        self.startList.groups = [XkorStartListGroup(g.name, list(g.athletes)) for g in sl.groups]
+        keep = (lambda a: True) if self.acceptsByes() else (lambda a: not isBye(a))
+        self.startList.groups = [XkorStartListGroup(g.name, [a for a in g.athletes if keep(a)])
+                                 for g in sl.groups]
         self.sport = s
         self.paradigmOpt = dict(paradigmOptions)
         self.userOpt = dict(competitionOptions)

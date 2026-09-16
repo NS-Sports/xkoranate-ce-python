@@ -172,6 +172,16 @@ class XkorScorinateWidget(QWidget):
             self.resultExportDirectoryChanged.emit(path.canonicalPath())
 
     def scorinate(self):
+        if self.c is None or self.c.matchdays() == 0:
+            # nothing to score: without this the checks below offer to
+            # regenerate matchday -1, naming a round that doesn't exist
+            message_box(
+                self, "There is nothing to scorinate yet.",
+                QMessageBox.Ok,
+                informativeText="This event doesn't have any rounds to generate. "
+                                "Check the participants and groups you've set up.").exec()
+            return
+
         if self.matchday.currentIndex() <= self.lastMatchday:
             if self.matchday.currentIndex() == self.lastMatchday:
                 warning = message_box(
@@ -268,10 +278,12 @@ class XkorScorinateWidget(QWidget):
                 self.lastMatchday = i
 
     def updateButtons(self):
-        if self.e.results().get(self.matchday.currentIndex(), "") == "":
-            self.exportResultsAction.setEnabled(False)
-        else:
-            self.exportResultsAction.setEnabled(True)
+        # ask the competition, not the event: a bracket that has been
+        # rearranged drops the results it no longer describes, and the event
+        # still holds the stale text — the button stayed enabled over a view
+        # that had gone blank
+        shown = "" if self.c is None else self.c.results(self.matchday.currentIndex())
+        self.exportResultsAction.setEnabled(bool(shown))
 
     def updateCompetition(self, resumeFileOptions, matchday, result):
         self.e.replaceCompetitionOptions(resumeFileOptions)

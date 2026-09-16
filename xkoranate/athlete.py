@@ -1,6 +1,29 @@
 import copy
+import uuid
 
 from .variant import toDouble, toString
+
+
+# A knockout bye: a reserved id standing in for "no opponent". It is written
+# into a group's entrant list like a real participant, so a bracket draw can
+# hold byes in particular slots, and is stripped out again for every
+# competition type that doesn't understand them (see
+# XkorAbstractCompetition.acceptsByes).
+# deliberately not the null uuid: a null id already means "no participant
+# chosen yet" for a freshly inserted row in the event setup editor
+BYE_ID = uuid.UUID("00000000-0000-0000-0000-0000000000b1")
+BYE_NAME = "BYE"
+
+
+def makeBye():
+    """A placeholder entrant representing a bye."""
+    rval = XkorAthlete(BYE_ID)
+    rval.name = BYE_NAME
+    return rval
+
+
+def isBye(athlete):
+    return athlete is not None and athlete.id == BYE_ID
 
 
 class XkorAthlete:
