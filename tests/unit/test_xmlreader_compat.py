@@ -77,11 +77,30 @@ def _commas(text):
     return header + "<rpList>" + re.sub(r"(?<=\d)\.(?=\d)", ",", body)
 
 
+def _inlineSignups(text):
+    """Put each signup on a single unindented line, as a spreadsheet paste does.
+
+    This is the shape in the bug report: the indentation inside each signup is
+    gone, but the newline between signups survives.
+    """
+    text = re.sub(r"<signup (.*?)</signup>", lambda m: re.sub(r"\s+<", "<", m.group(0)),
+                  text, flags=re.S)
+    return re.sub(r"\n\s+<signup ", "\n<signup ", text)
+
+
+def _runSignupsTogether(text):
+    """Drop the newline between signups too — no separator left at all."""
+    return _inlineSignups(text).replace("</signup>\n<signup ", "</signup><signup ")
+
+
 VARIANTS = {
-    "pretty": PRETTY,                       # what our own writer produces
-    "compact": _compact(PRETTY),            # issue #56
-    "commas": _commas(PRETTY),              # issue #57
-    "compact_commas": _compact(_commas(PRETTY)),  # both, as users actually hit it
+    "pretty": PRETTY,                                   # what our own writer produces
+    "inline_signups": _inlineSignups(PRETTY),           # issue #56 as reported
+    "run_together": _runSignupsTogether(PRETTY),        # issue #56 at its worst
+    "compact": _compact(PRETTY),                        # no indentation anywhere
+    "commas": _commas(PRETTY),                          # issue #57
+    "inline_commas": _inlineSignups(_commas(PRETTY)),   # a real file we were sent
+    "compact_commas": _compact(_commas(PRETTY)),        # both at once
 }
 
 SIGNUPS = [
