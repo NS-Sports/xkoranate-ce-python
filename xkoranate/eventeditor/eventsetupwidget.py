@@ -156,6 +156,14 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
             self.syncBracketSizeCombo()  # put the dropdown back
             return
         slots = [i for i in self.bracketEntrants() if i is not None and i != BYE_ID][:size]
+        if len(slots) < size:
+            # Growing: take back the participants a previous shrink released,
+            # so the dropdown can be walked back up. Without this, shrinking
+            # to two put the other clubs in the pool and left a field of two,
+            # which can only fill a two-slot bracket — the dropdown became a
+            # one-way ratchet out of a size the user was only looking at.
+            self.recomputeAvailableAthletes()
+            slots += [i for i in self.availableAthletes if i not in slots][:size - len(slots)]
         if len(slots) >= 2:
             # a size nothing can fill would leave whole matches empty
             size = min(size, self.largestDrawableSize(len(slots)))
@@ -215,9 +223,14 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
 
         Smaller brackets are offered too: a 16-club signup list can still be
         run as an eight-club cup, and the clubs that don't fit go back to the
-        pool of available participants.
+        pool of available participants — and are counted here, since choosing
+        a bigger size brings them back in. Only counting who is in the draw
+        made the dropdown a ratchet: shrinking to two released the rest, and
+        a field of two could never be offered anything but two again.
         """
-        entrants = len([i for i in self.bracketEntrants() if i not in (None, BYE_ID)])
+        self.recomputeAvailableAthletes()
+        entrants = len([i for i in self.bracketEntrants() if i not in (None, BYE_ID)]) \
+            + len(self.availableAthletes)
         if entrants < 2:
             return list(self.BRACKET_SIZES)
         return [s for s in self.BRACKET_SIZES if s // 2 < entrants]

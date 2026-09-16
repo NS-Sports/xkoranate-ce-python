@@ -41,6 +41,17 @@ def loadBracket(w, count=12):
     return ids
 
 
+def onlyEntrants(w, count):
+    """Trim the signup list to the field in the bracket.
+
+    The fixture signs up twelve clubs; a size the pool could fill is offered
+    even when the bracket holds fewer, since choosing it brings them in.
+    """
+    w.signupList.setAthletes(w.signupList.athletes()[:count])
+    w.setSignupList(w.signupList)
+    w.updateButtons()
+
+
 def pairs(w):
     rval = []
     for i in range(w.treeWidget.topLevelItemCount()):
@@ -308,16 +319,17 @@ def test_only_playable_bracket_sizes_are_offered(widget):
     every club would draw a bye, so the first round is one nobody plays and
     the cup that follows is the four-slot one.
     """
+    loadBracket(widget, 12)
+    sizes = [widget.bracketSizeCombo.itemData(i)
+             for i in range(widget.bracketSizeCombo.count())]
+    assert sizes == [2, 4, 8, 16]  # smaller cups are allowed too
+
+    onlyEntrants(widget, 4)
     loadBracket(widget, 4)
     sizes = [widget.bracketSizeCombo.itemData(i)
              for i in range(widget.bracketSizeCombo.count())]
     assert sizes == [2, 4]
     assert 8 not in sizes
-
-    loadBracket(widget, 12)
-    sizes = [widget.bracketSizeCombo.itemData(i)
-             for i in range(widget.bracketSizeCombo.count())]
-    assert sizes == [2, 4, 8, 16]  # smaller cups are allowed too
 
 
 def test_a_smaller_bracket_can_be_chosen_than_the_field_needs(widget):
@@ -332,20 +344,44 @@ def test_a_smaller_bracket_can_be_chosen_than_the_field_needs(widget):
 
 
 def test_the_offered_sizes_follow_the_entrant_count(widget):
+    """How many participants there are, not how many are in the draw.
+
+    A participant released by a shrink is still available, and choosing a
+    bigger size brings them back — so the sizes they could fill stay on
+    offer. Counting only the placed entrants turned the dropdown into a
+    ratchet: shrinking to two left a field of two, which could never be
+    offered anything but two again.
+    """
     loadBracket(widget, 9)
+    onlyEntrants(widget, 9)
     assert 16 in [widget.bracketSizeCombo.itemData(i)
                   for i in range(widget.bracketSizeCombo.count())]
 
-    # empty five slots; 16 is no longer playable with four entrants, and is
-    # offered only because it is the size the bracket currently has
-    clearSlots(widget, 5)
+    clearSlots(widget, 5)  # the five go back to the pool, so 16 is still on
     assert len(realEntrants(widget)) == 4
+    assert 16 in [widget.bracketSizeCombo.itemData(i)
+                  for i in range(widget.bracketSizeCombo.count())]
+
+    # a field of four, on the other hand, can only play four
+    onlyEntrants(widget, 4)
+    loadBracket(widget, 4)
     assert [widget.bracketSizeCombo.itemData(i)
-            for i in range(widget.bracketSizeCombo.count())] == [2, 4, 16]
+            for i in range(widget.bracketSizeCombo.count())] == [2, 4]
+
+
+def test_shrinking_the_bracket_can_be_walked_back(widget):
+    """Dropping to two released the rest, leaving no way back up."""
+    onlyEntrants(widget, 4)
+    loadBracket(widget, 4)
+    widget.setBracketSize(2)
+    assert len(realEntrants(widget)) == 2
+    assert [widget.bracketSizeCombo.itemData(i)
+            for i in range(widget.bracketSizeCombo.count())] == [2, 4]
 
     widget.setBracketSize(4)
-    assert 16 not in [widget.bracketSizeCombo.itemData(i)
-                      for i in range(widget.bracketSizeCombo.count())]
+    assert widget.bracketSlotCount == 4
+    assert len(realEntrants(widget)) == 4  # the two released clubs come back
+    assert widget.availableAthletes == []
 
 
 def test_add_all_grows_the_bracket_to_hold_everyone(widget):
@@ -494,15 +530,16 @@ def test_growing_the_bracket_spreads_the_byes_one_to_a_match(widget):
     drawFromOrder() rejects a bracket with an empty match and silently
     re-pairs it, so the tournament shown on the page was not the one played.
     """
-    loadBracket(widget, 12)  # a 16-slot bracket
-    clearSlots(widget, 7)  # five clubs left, still in sixteen slots
-    assert len(realEntrants(widget)) == 5
-    widget.setBracketSize(8)  # down to eight, which five clubs can't fill
+    onlyEntrants(widget, 6)
+    loadBracket(widget, 6)  # six clubs in an eight-slot bracket
+    widget.setBracketSize(4)  # drops two, which go back to the pool
+    assert len(realEntrants(widget)) == 4
+    widget.setBracketSize(8)  # and grow again, taking the two back
 
     assert widget.treeWidget.topLevelItemCount() == 4
-    assert sum(p.count(BYE_LABEL) for p in pairs(widget)) == 3
+    assert len(realEntrants(widget)) == 6
+    assert sum(p.count(BYE_LABEL) for p in pairs(widget)) == 2
     assert all(p.count(BYE_LABEL) <= 1 for p in pairs(widget)), pairs(widget)
-    assert len(realEntrants(widget)) == 5
 
 
 def test_a_grown_bracket_is_played_as_shown(widget):
@@ -522,7 +559,9 @@ def test_the_bracket_size_never_exceeds_what_can_be_filled(widget):
     widget.setBracketSize(2)  # down to two clubs
     widget.setBracketSize(128)  # a size nothing could fill
 
-    assert widget.bracketSlotCount == 2
+    # the ten released clubs come back in, and twelve stop at sixteen slots
+    assert widget.bracketSlotCount == 16
+    assert len(realEntrants(widget)) == 12
     assert all(p.count(BYE_LABEL) <= 1 for p in pairs(widget))
 
 

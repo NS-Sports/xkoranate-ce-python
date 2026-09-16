@@ -76,6 +76,7 @@ and **Delete** empties the selected slot rather than removing it.
   every one of them a first-round bye, which is the same cup one round
   smaller. Smaller sizes are always offered — a 12-club list can be run as a
   four-club cup, and the clubs that don't fit go back to the available list.
+  Choosing a bigger size again brings them back in.
 - Three toolbar buttons arrange the draw once, after which you can adjust it
   by hand: the **dice** draws at random, **Seed the draw by skill** puts the
   strongest against the weakest so the top two can only meet in the final, and
