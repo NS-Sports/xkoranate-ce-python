@@ -278,10 +278,12 @@ class XkorScorinateWidget(QWidget):
                 self.lastMatchday = i
 
     def updateButtons(self):
-        if self.e.results().get(self.matchday.currentIndex(), "") == "":
-            self.exportResultsAction.setEnabled(False)
-        else:
-            self.exportResultsAction.setEnabled(True)
+        # ask the competition, not the event: a bracket that has been
+        # rearranged drops the results it no longer describes, and the event
+        # still holds the stale text — the button stayed enabled over a view
+        # that had gone blank
+        shown = "" if self.c is None else self.c.results(self.matchday.currentIndex())
+        self.exportResultsAction.setEnabled(bool(shown))
 
     def updateCompetition(self, resumeFileOptions, matchday, result):
         self.e.replaceCompetitionOptions(resumeFileOptions)

@@ -56,6 +56,10 @@ class XkorSport:
     def randGaussian(self):
         # Box–Muller method
         r1, r2 = self.randUniform(), self.randUniform()
+        # randUniform() returns exactly 0.0 whenever the Mersenne Twister
+        # yields its minimum value, and log(0) is the same "math domain
+        # error" that used to take a scorination down from rand_kumaraswamy()
+        r1 = max(r1, 1e-12)
         return math.pow(-2 * math.log(r1), 0.5) * math.cos(2 * math.pi * r2)
 
     def randGaussianCapped(self, cap):

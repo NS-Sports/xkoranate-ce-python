@@ -1,7 +1,7 @@
 import sys
 
 from PySide6.QtCore import QItemSelectionModel, QModelIndex, Qt, Signal
-from PySide6.QtWidgets import QGridLayout, QTreeView, QWidget
+from PySide6.QtWidgets import QGridLayout, QLineEdit, QTreeView, QWidget
 
 from ..exceptions import XkorFileNotFoundException
 from ..sport import XkorSport
@@ -25,11 +25,47 @@ class XkorSportSelector(QWidget):
         self.sportView = QTreeView()
         self.sportView.setHeaderHidden(True)
 
+        self.searchBox = QLineEdit()
+        self.searchBox.setPlaceholderText("Search sports")
+        self.searchBox.setToolTip(
+            "Filter the list by discipline, event or scorinator name, "
+            "e.g. \"Wrestling\"")
+        self.searchBox.setClearButtonEnabled(True)
+        self.searchBox.textChanged.connect(self.applyFilter)
+
         self.layout = QGridLayout(self)
         label = heading_label("Select sport", level=1, center=True)
         self.layout.addWidget(label, 0, 0, Qt.AlignCenter)
-        self.layout.addWidget(self.sportView, 1, 0)
+        self.layout.addWidget(self.searchBox, 1, 0)
+        self.layout.addWidget(self.sportView, 2, 0)
         self.layout.setContentsMargins(0, 0, 0, 0)
+
+    def applyFilter(self):
+        # hide rows that don't match, keeping the ancestors of any match
+        # visible so the selected sport is still reachable
+        text = self.searchBox.text().strip().lower()
+        model = self.sportView.model()
+        if model is None:
+            return
+        self._filterRows(model, QModelIndex(), text)
+        if text:
+            self.sportView.expandAll()
+        else:
+            self.sportView.collapseAll()
+            self.setSelectedSport(self.sport().name())
+
+    def _filterRows(self, model, parent, text):
+        # returns True if this subtree contains a match (or there's no filter)
+        anyVisible = False
+        for row in range(model.rowCount(parent)):
+            index = model.index(row, 0, parent)
+            selfMatch = not text or text in (index.data() or "").lower()
+            # descendants of a matching row stay visible in their entirety
+            childMatch = self._filterRows(model, index, "" if selfMatch else text)
+            visible = selfMatch or childMatch
+            self.sportView.setRowHidden(row, parent, not visible)
+            anyVisible = anyVisible or visible
+        return anyVisible
 
     def setParadigmOptions(self, paradigmOptions):
         self.currentParadigmOptions = paradigmOptions
@@ -122,6 +158,7 @@ class XkorSportSelector(QWidget):
             self.sportView.reset()
 
             self.setSelectedSport(sportName)
+            self.applyFilter()
         except XkorFileNotFoundException as ex:
             print("caught XkorFileNotFoundException in XkorSportSelector::updateSportList for",
                   ex.fileType(), " file ", ex.fileName(), file=sys.stderr)

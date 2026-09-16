@@ -1,15 +1,21 @@
 import math
+import sys
 
 from xkoranate.athlete import isBye
 from xkoranate.competitions import bracket
 from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
+from xkoranate.competitions.bracketresults import (THIRD_PLACE_ROUND, BracketRows,
+                                                   MatchdaySchedule)
+from xkoranate.rng import Mt19937
+from xkoranate.tablegenerator.decider import nudgeForShootout
 from xkoranate.variant import qNumber, toDouble, toInt, toList, toString
 
 BYE_MARKER = "— BYE —"
 BYE_ADVANCES = "BYE — advances"
 COIN_TOSS = "coin toss"
-THIRD_PLACE_ROUND = "3P"  # sentinel round marker for the third-place playoff
-_FIELD_SEP = "|"
+# used only when the sport has no PRNG at all, which is a misconfiguration:
+# a fixed seed keeps the tie reproducible rather than clock-dependent
+_UNSEEDED_COIN_SEED = 2026
 
 
 def _roundName(matchesInRound):
@@ -26,10 +32,12 @@ def _roundName(matchesInRound):
 class XkorSingleEliminationCompetition(XkorAbstractCompetition):
     """A knockout bracket: losers are out, winners meet in the next round.
 
-    The first-round draw is made once, when the first round is scorinated,
-    and persisted — it is random for most seeding methods, so it cannot be
-    regenerated. Every later round's fixtures are derived from the winners
-    of the round before it.
+    The first-round draw is read off the slot order the bracket editor left
+    behind, so it is fully determined by the event: the randomness lives in
+    the editor's draw buttons, not here. It is persisted when the first round
+    is scorinated so that _drawIsCurrent() can tell whether the bracket has
+    been rearranged since, and drop results that no longer describe it.
+    Every later round's fixtures come from the winners of the round before.
     """
 
     def __init__(self, *args, **kwargs):
@@ -74,7 +82,12 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
     def _bracketSize(self):
         if len(self._realEntrants()) < 2:
             return 0
-        return bracket.bracketSize(len(self._realEntrants()))
+        # Ask the draw, not the entrant count. The slot list the editor left
+        # behind carries the bracket size the user chose, which can be larger
+        # than the smallest bracket their entrants fit into; counting real
+        # entrants here would give a different, smaller bracket than the one
+        # on the setup page, and the event would be played to that instead.
+        return len(bracket.drawFromOrder(self._entrants()))
 
     def _rounds(self):
         size = self._bracketSize()
@@ -88,38 +101,26 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
 
     # ------------------------------------------------------------- matchdays
 
+    def _schedule(self):
+        return MatchdaySchedule(self._rounds(), self._thirdPlaceEnabled())
+
     def matchdays(self):
-        rounds = self._rounds()
-        if rounds == 0:
-            return 0
-        return rounds + (1 if self._thirdPlaceEnabled() else 0)
+        return len(self._schedule())
 
     def matchdayNames(self):
-        rounds = self._rounds()
-        if rounds == 0:
-            return []
-        names = [_roundName(1 << (rounds - 1 - r)) for r in range(rounds)]
-        if self._thirdPlaceEnabled():
-            names.insert(rounds - 1, "Third-place playoff")  # played before the final
-        return names
+        rval = []
+        for round_, isThirdPlace in self._schedule().order:
+            rval.append("Third-place playoff" if isThirdPlace
+                        else _roundName(self._matchesInRound(round_)))
+        return rval
 
     def _roundForMatchday(self, matchday):
         """(bracket round, is the third-place playoff) for a matchday index."""
-        rounds = self._rounds()
-        if not self._thirdPlaceEnabled():
-            return (matchday, False)
-        if matchday == rounds - 1:
-            return (rounds - 2, True)  # contested by the losers of the semi-finals
-        if matchday >= rounds:
-            return (rounds - 1, False)  # the final, pushed back one matchday
-        return (matchday, False)
+        return self._schedule().roundForMatchday(matchday)
 
     def _matchdayForRound(self, round_):
         """Inverse of _roundForMatchday for real bracket rounds."""
-        rounds = self._rounds()
-        if self._thirdPlaceEnabled() and round_ == rounds - 1:
-            return rounds
-        return round_
+        return self._schedule().matchdayForRound(round_)
 
     # ----------------------------------------------------------------- state
 
@@ -185,48 +186,19 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
 
     # ------------------------------------------------------------- match rows
 
-    def _makeRow(self, round_, match, home, away, score1, score2, decider, winner):
-        return _FIELD_SEP.join([
-            str(round_), str(match),
-            str(home.id) if home is not None else "",
-            str(away.id) if away is not None else "",
-            qNumber(score1) if score1 is not None else "",
-            qNumber(score2) if score2 is not None else "",
-            decider or "",
-            str(winner.id) if winner is not None else "",
-        ])
-
-    def _parseRow(self, row):
-        f = row.split(_FIELD_SEP)
-        if len(f) < 8:
-            return None
-        return {
-            "round": f[0], "match": toInt(f[1]),
-            "home": f[2], "away": f[3],
-            "score1": toDouble(f[4]) if f[4] else None,
-            "score2": toDouble(f[5]) if f[5] else None,
-            "decider": f[6], "winner": f[7],
-        }
+    _makeRow = staticmethod(BracketRows.make)
+    _parseRow = staticmethod(BracketRows.parse)
 
     def _dropRowsForRound(self, round_):
         """Forget a round's results, so scorinating it again replaces them."""
         self._loadState()
-        kept = []
-        for row in self._rows:
-            r = self._parseRow(row)
-            if r is not None and r["round"] == str(round_):
-                continue
-            kept.append(row)
-        self._rows = kept
+        rows = BracketRows(self._rows)
+        rows.dropRound(round_)
+        self._rows = rows.rows
 
     def _rowsForRound(self, round_):
         self._loadState()
-        rval = {}
-        for row in self._rows:
-            r = self._parseRow(row)
-            if r is not None and r["round"] == str(round_):
-                rval[r["match"]] = r
-        return rval
+        return BracketRows(self._rows).forRound(round_)
 
     def _athleteById(self, id):
         if not id:
@@ -237,27 +209,13 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
 
     def _winnersOfRound(self, round_):
         """Winners of every match in a round, or None if it isn't complete."""
-        expected = 1 << (self._rounds() - 1 - round_)
-        rows = self._rowsForRound(round_)
-        if len(rows) < expected:
-            return None
-        rval = []
-        for m in range(expected):
-            if m not in rows:
-                return None
-            rval.append(self._athleteById(rows[m]["winner"]))
-        return rval
+        self._loadState()
+        return BracketRows(self._rows).winners(
+            round_, self._matchesInRound(round_), self._athleteById)
 
     def _losersOfRound(self, round_):
-        rows = self._rowsForRound(round_)
-        rval = []
-        for m in sorted(rows):
-            row = rows[m]
-            loser = row["away"] if row["winner"] == row["home"] else row["home"]
-            athlete = self._athleteById(loser)
-            if athlete is not None:
-                rval.append(athlete)
-        return rval
+        self._loadState()
+        return BracketRows(self._rows).losers(round_, self._athleteById)
 
     def _fixtures(self, round_):
         """(home, away) pairs for a round, or None if not yet determined."""
@@ -295,25 +253,22 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
         return "%s  %s" % (name.ljust(self.nameWidth()), BYE_ADVANCES)
 
     def _matchNumber(self, round_, match):
-        """Matches numbered continuously across the bracket, first round first.
+        """Matches numbered continuously across the bracket, in playing order.
 
         Every match gets a number of its own so that later rounds can refer
-        back to the ones that feed them.
+        back to the ones that feed them. Counting off the schedule is what
+        puts the playoff's number in the right place: it is played before the
+        final, so the final's matches come after it.
         """
-        base = 0
-        for r in range(round_):
-            base += 1 << (self._rounds() - 1 - r)
-        number = base + match + 1
-        if self._thirdPlaceEnabled() and round_ == self._rounds() - 1:
-            # the playoff is played before the final and takes its number
-            number += 1
-        return number
+        schedule = self._schedule()
+        base = schedule.matchesBefore(schedule.matchdayForRound(round_),
+                                      self._matchesInRound)
+        return base + match + 1
 
     def _thirdPlaceMatchNumber(self):
-        base = 0
-        for r in range(self._rounds() - 1):
-            base += 1 << (self._rounds() - 1 - r)
-        return base + 1
+        schedule = self._schedule()
+        return schedule.matchesBefore(schedule.thirdPlaceMatchday(),
+                                      self._matchesInRound) + 1
 
     def _matchesInRound(self, round_):
         return 1 << (self._rounds() - 1 - round_)
@@ -334,9 +289,6 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
         self._loadState()
 
         lines = [self._bracketHeader(), "Rounds: " + ", ".join(self.matchdayNames()), ""]
-        if self._fixtures(0) is None:
-            lines.append("No bracket has been set up yet.")
-            return "\n".join(lines)
 
         names = self.matchdayNames()
         width = len("%d." % self._matchNumber(self._rounds() - 1, 0))
@@ -451,9 +403,14 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
     def _coinFlip(self):
         rng = self.sport.r
         if rng is None:
-            from xkoranate.rng import Mt19937
-
-            rng = Mt19937()
+            # Everything else in a scorination replays from the event's
+            # seed. Falling back to a clock-seeded Mt19937() made the one
+            # result the paradigm can't derive the one result that can't be
+            # reproduced either — two runs of the same event could crown
+            # different champions with nothing to show why. A sport with no
+            # PRNG is a misconfiguration, so say so and stay deterministic.
+            print("no PRNG set", file=sys.stderr)  # as XkorSport.randUniform does
+            rng = Mt19937(_UNSEEDED_COIN_SEED)
         return (rng.next32() & 1) == 0
 
     def scorinate(self, matchday):
@@ -477,7 +434,13 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
     def _scorinateRound(self, matchday, round_):
         fixtures = self._fixtures(round_)
         if fixtures is None:
-            # the previous round hasn't been played, so we don't know who is here
+            # the previous round hasn't been played, so we don't know who is
+            # here. Say so: leaving resultsBuf unset gave the user a blank
+            # matchday with no explanation, where _scorinateThirdPlace()
+            # writes a line for the same situation.
+            self.resultsBuf[matchday] = (
+                self.matchdayNames()[matchday] + "\n"
+                + "The previous round hasn't been played yet.\n\n")
             return
 
         self._dropRowsForRound(round_)
@@ -608,7 +571,7 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
             if r is None:
                 continue
             if r["round"] == THIRD_PLACE_ROUND:
-                rowMatchday = self._rounds() - 1 if self._thirdPlaceEnabled() else self._rounds()
+                rowMatchday = self._schedule().thirdPlaceMatchday()
             else:
                 rowMatchday = self._matchdayForRound(toInt(r["round"]))
             if rowMatchday < matchday:

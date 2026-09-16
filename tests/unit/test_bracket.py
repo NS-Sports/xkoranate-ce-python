@@ -81,19 +81,29 @@ def test_bye_slots_rejects_more_byes_than_matches():
         bracket.byeSlots(8, 5, bracket.standardSeedOrder(8))
 
 
-@pytest.mark.parametrize("method", bracket.SEEDING_METHODS)
+# the four draws the bracket editor's buttons call, behind one signature
+DRAWS = {
+    "manual": lambda ents, size, rng: bracket.drawManual(ents, size),
+    "random": lambda ents, size, rng: bracket.drawRandom(ents, size, rng),
+    "seeded": lambda ents, size, rng: bracket.drawSeeded(ents, size, rng),
+    "variableSeeds": lambda ents, size, rng: bracket.drawVariableSeeds(ents, size, 4, rng),
+}
+
+
+@pytest.mark.parametrize("method", sorted(DRAWS))
 @pytest.mark.parametrize("n", [2, 3, 5, 8, 11, 12, 16, 17])
 def test_every_method_produces_a_well_formed_bracket(method, n):
     ents = entrants(n)
-    slots = bracket.draw(ents, method, numSeeds=4, rng=Mt19937(2026))
+    slots = DRAWS[method](ents, bracket.bracketSize(n), Mt19937(2026))
     assertWellFormed(slots, ents)
 
 
-@pytest.mark.parametrize("method", bracket.SEEDING_METHODS)
+@pytest.mark.parametrize("method", sorted(DRAWS))
 def test_draws_are_reproducible_under_a_fixed_seed(method):
     ents = entrants(12)
-    a = bracket.draw(ents, method, numSeeds=4, rng=Mt19937(2026))
-    b = bracket.draw(ents, method, numSeeds=4, rng=Mt19937(2026))
+    size = bracket.bracketSize(12)
+    a = DRAWS[method](ents, size, Mt19937(2026))
+    b = DRAWS[method](ents, size, Mt19937(2026))
     assert [x.name if x else None for x in a] == [x.name if x else None for x in b]
 
 
@@ -177,6 +187,60 @@ def test_variable_seeds_clamps_to_the_entrant_count():
     assertWellFormed(slots, ents)
 
 
-def test_unknown_method_falls_back_to_a_random_draw():
-    ents = entrants(8)
-    assertWellFormed(bracket.draw(ents, "nonsense", rng=Mt19937(2026)), ents)
+def _seedPairings(size, n, numSeeds, rng=None):
+    """First-round matches, as (seedIndex or None, seedIndex or None) pairs."""
+    athletes = entrants(n)
+    ranked = sorted(athletes, key=lambda a: -a.skill)
+    rank = {id(a): i for i, a in enumerate(ranked)}
+    slots = bracket.drawVariableSeeds(athletes, size, numSeeds, rng)
+    out = []
+    for m in range(size // 2):
+        pair = []
+        for slot in (2 * m, 2 * m + 1):
+            a = slots[slot]
+            pair.append(None if a is None else rank[id(a)])
+        out.append(tuple(pair))
+    return out
+
+
+def test_variable_seeds_never_pair_two_seeds_in_the_first_round():
+    """The button promises the top seeds are kept apart; byes used to break it.
+
+    Bye slots were reserved from the standard seed order but the seeds were
+    then placed at evenly spaced targets, and a seed displaced off a reserved
+    slot only checked that the slot was free — not that its partner was
+    already a seed. 6 entrants / 8 slots / 4 seeds put S2 against S3.
+    """
+    size = 2
+    while size <= 64:
+        for n in range(2, size + 1):
+            if size - n > size // 2:
+                continue
+            for numSeeds in range(2, n + 1):
+                if numSeeds > size // 2:
+                    continue  # more seeds than matches: they must meet
+                for pair in _seedPairings(size, n, numSeeds):
+                    seeded = [p for p in pair if p is not None and p < numSeeds]
+                    assert len(seeded) <= 1, (
+                        "size=%d entrants=%d numSeeds=%d pair=%s"
+                        % (size, n, numSeeds, pair))
+        size *= 2
+
+
+def test_variable_seeds_give_the_byes_to_the_seeds():
+    """A bye handed to an unseeded entrant while a seed played was the other
+    half of the same bug: 6 entrants / 8 slots / 4 seeds gave one to S6."""
+    for size, n, numSeeds in ((8, 6, 4), (16, 12, 4), (16, 9, 8), (32, 20, 8)):
+        pairings = _seedPairings(size, n, numSeeds)
+        byeGetters = sorted(p[0] if p[1] is None else p[1]
+                            for p in pairings if None in p)
+        byes = size - n
+        assert len(byeGetters) == byes
+        # the byes went to the strongest entrants there were byes for
+        assert byeGetters == list(range(byes))
+
+
+def test_variable_seeds_never_leave_a_match_empty():
+    for size, n, numSeeds in ((8, 4, 4), (8, 6, 2), (16, 8, 4), (32, 17, 8)):
+        pairings = _seedPairings(size, n, numSeeds)
+        assert all(pair != (None, None) for pair in pairings)

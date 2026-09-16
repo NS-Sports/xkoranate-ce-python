@@ -99,6 +99,17 @@ class XkorAbstractParadigm:
         raise NotImplementedError
 
     def supportsCompetition(self, competition):
+        # A knockout asks a paradigm for exactly what an individual-matches
+        # competition asks: scorinate a pair, compare and break the tie,
+        # output the line. So anything that can run "matches" can run a
+        # bracket, and deriving that here keeps the two from drifting — the
+        # five places that declared singleElimination by hand had already
+        # missed archery and parallel giant slalom, the latter a sport
+        # actually run as a knockout. A paradigm can still opt out by
+        # declaring the key False.
+        if competition == "singleElimination" \
+                and "singleElimination" not in self.supportedCompetitions:
+            competition = "matches"
         return self.supportedCompetitions.get(competition, False)
 
     # protected:

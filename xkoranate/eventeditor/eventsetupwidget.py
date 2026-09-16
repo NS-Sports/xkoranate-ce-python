@@ -39,6 +39,14 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.competition = ""  # retitles the page; set by the event editor
         self.bracketGroupName = "Bracket"  # the pooled group a knockout stores
         self.bracketSlotCount = 0  # how many slots the user has asked for
+        self._groupsBeforeBracket = None  # pools to restore if the format changes back
+        # set by the event editor: asks the user whether results already
+        # generated may be discarded. None means nothing to protect.
+        self.resultsGuard = None
+        self._resultsGuardAsked = False
+        self._lastLaidSlots = []  # the arrangement before the edit in progress
+        self._availablePlaced = None  # placements the available list was built for
+        self._availableDirty = True
         self.headingLabel = None  # created in setupLayout(), below
 
         self._delegate = XkorEventSetupDelegate(self.availableAthleteNames, self.availableAthletes)
@@ -124,11 +132,69 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         Growing it adds byes; shrinking it drops the entrants that fall off
         the end, which go back to the pool of available participants.
         """
-        size = max(2, size)
-        self.bracketSlotCount = size
+        # A bracket is a power of two by definition, and the combo only ever
+        # offers one — but this is the public method, and the one the tests
+        # use. A size that isn't one makes drawFromOrder() reject the slot
+        # list and fall back to drawManual(), discarding the arrangement
+        # without a word, so snap rather than trust the caller.
+        size = bracket.bracketSize(min(max(2, size), self.BRACKET_SIZES[-1]))
+        if size != self.bracketSlotCount and not self.confirmBracketChange():
+            self.syncBracketSizeCombo()  # put the dropdown back
+            return
         slots = self.realBracketEntrants()[:size]
-        self.setBracketSlots(self.padToBracket(slots))
+        if len(slots) < size:
+            # Growing: take back the participants a previous shrink released,
+            # so the dropdown can be walked back up. Without this, shrinking
+            # to two put the other clubs in the pool and left a field of two,
+            # which can only fill a two-slot bracket — the dropdown became a
+            # one-way ratchet out of a size the user was only looking at.
+            self.recomputeAvailableAthletes()
+            slots += [i for i in self.availableAthletes if i not in slots][:size - len(slots)]
+        if len(slots) >= 2:
+            # a size nothing can fill would leave whole matches empty
+            size = min(size, self.largestDrawableSize(len(slots)))
+            slots = slots[:size]
+        self.bracketSlotCount = size
+        if len(slots) < size:
+            # Growing the bracket: spread the byes one to a match rather than
+            # letting padToBracket() append them all at the tail, which leaves
+            # the last matches holding nobody. drawFromOrder() rejects a
+            # bracket like that and silently re-pairs it, so what the page
+            # showed would not be what got played.
+            self.setBracketSlots([BYE_ID if i is None else i
+                                  for i in bracket.drawManual(slots, size)])
+        else:
+            self.setBracketSlots(self.padToBracket(slots))
         self.syncBracketSizeCombo()
+
+    def confirmBracketChange(self):
+        """Whether a structural change to the bracket may go ahead.
+
+        Rearranging a bracket invalidates any results played from the old one
+        — _drawIsCurrent() drops them — and that used to happen silently, so
+        the loss was only discovered later as a blank results pane. Ask once
+        per event; after that the user has said they know.
+        """
+        if self.resultsGuard is None or self._resultsGuardAsked:
+            return True
+        self._resultsGuardAsked = True
+        return bool(self.resultsGuard())
+
+    def largestDrawableSize(self, entrants):
+        """The biggest bracket worth drawing for this many entrants.
+
+        byeSlots() puts at most one bye in a match, so it raises rather than
+        build a bracket with an empty match, and a bracket of exactly twice
+        the entrants gives every one of them a bye — a first round nobody
+        plays, which is the same tournament one round smaller. The ceiling is
+        the same one usableBracketSizes() applies. bracketSlotCount can sit
+        above it after slots have been cleared to byes, so the draw buttons
+        must clamp.
+        """
+        size = bracket.bracketSize(entrants)
+        while size * 2 < 2 * entrants:
+            size *= 2
+        return size
 
     def usableBracketSizes(self):
         """Sizes that can actually be played, given who is in the bracket.
@@ -136,16 +202,23 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         Every match needs at least one participant, so a bracket can hold at
         most twice as many slots as it has entrants — a 32-slot draw for four
         clubs would leave twelve matches with nobody in them, and the
-        competition would quietly play a four-slot bracket instead.
+        competition would quietly play a four-slot bracket instead. Exactly
+        twice is out too: eight slots for four clubs is four matches with one
+        club apiece, a first round nobody plays, and the cup that follows is
+        the four-slot one.
 
         Smaller brackets are offered too: a 16-club signup list can still be
         run as an eight-club cup, and the clubs that don't fit go back to the
-        pool of available participants.
+        pool of available participants — and are counted here, since choosing
+        a bigger size brings them back in. Only counting who is in the draw
+        made the dropdown a ratchet: shrinking to two released the rest, and
+        a field of two could never be offered anything but two again.
         """
-        entrants = len(self.realBracketEntrants())
+        self.recomputeAvailableAthletes()
+        entrants = len(self.realBracketEntrants()) + len(self.availableAthletes)
         if entrants < 2:
             return list(self.BRACKET_SIZES)
-        return [s for s in self.BRACKET_SIZES if s // 2 <= entrants]
+        return [s for s in self.BRACKET_SIZES if s // 2 < entrants]
 
     def syncBracketSizeCombo(self):
         """Show the size the bracket has, and the sizes it could usefully be."""
@@ -210,6 +283,10 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
             for slot in (slots[2 * m], slots[2 * m + 1]):
                 self.initAthlete(self.createAthlete(match), slot)
         self.isInUse = False
+        # the last arrangement we put there ourselves: a drag mutates the tree
+        # directly, so this is the state to go back to if the user declines to
+        # discard the results played from it
+        self._lastLaidSlots = list(slots)
         self.listChanged.emit()
 
     def headingText(self):
@@ -223,15 +300,45 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         if competition == self.competition:
             return
         previous = self.groups()  # read the tree in its old shape
+        wasBracket = self.isBracket()
         self.competition = competition
+        self._availableDirty = True  # the filter only applies inside a bracket
         if self.headingLabel is not None:
             self.headingLabel.setText(self.headingText())
         self.updateBracketActions()
         if previous:
             # re-render: groups become matches, or matches pool back together
+            restore = None
+            if not wasBracket and self.isBracket():
+                # a bracket is one pooled group, so the group structure is
+                # about to be flattened. Hold on to it: an organiser who
+                # clicks the format dropdown to see what a cup would look
+                # like should get their pools back, not eight of them merged
+                # into one with only the first name kept.
+                self._groupsBeforeBracket = previous
+            elif wasBracket and not self.isBracket():
+                if self._sameParticipants(self._groupsBeforeBracket, previous):
+                    restore = self._groupsBeforeBracket
+                self._groupsBeforeBracket = None
             self.clear()
-            self.setGroups(previous)
+            self.setGroups(restore if restore is not None else previous)
         self.updateButtons()
+
+    @staticmethod
+    def _sameParticipants(groups, other):
+        """Whether two group lists hold the same participants, byes aside.
+
+        Only then can a remembered layout be put back: if the bracket gained
+        or lost entrants while it was a bracket, the old pools no longer
+        describe the field.
+        """
+        if not groups or not other:
+            return False
+
+        def ids(gs):
+            return set(i for g in gs for i in g.athletes if i not in (None, BYE_ID))
+
+        return ids(groups) == ids(other)
 
     def updateBracketActions(self):
         isBracket = self.isBracket()
@@ -255,11 +362,27 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         """Re-pair the bracket after a drag, keeping the visual order."""
         if self.isInUse or not self.isBracket():
             return
-        slots = self.padToBracket(self.bracketEntrants())
-        if slots != self.bracketEntrants():
+        current = self.bracketEntrants()
+        if self._lastLaidSlots and current != self._lastLaidSlots \
+                and not self.confirmBracketChange():
+            # a drop can't be vetoed, so put the bracket back as it was
+            self.setBracketSlots(self._lastLaidSlots)
+            return
+        slots = self.padToBracket(current)
+        if slots != current or not self.bracketShapeIsSound():
+            # the slot list is read flat, so a drag that moves a row from one
+            # match to another leaves the contents identical and only the
+            # shape wrong — comparing the lists alone missed it entirely and
+            # left a match holding one entrant and another holding three
             self.setBracketSlots(slots)
         else:
             self.renumberMatches()
+
+    def bracketShapeIsSound(self):
+        """Whether every match in the tree holds exactly two slots."""
+        tree = self.treeWidget
+        return all(tree.topLevelItem(i).childCount() == 2
+                   for i in range(tree.topLevelItemCount()))
 
     def createAthlete(self, parent):
         item = QTreeWidgetItem(parent)
@@ -331,6 +454,8 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
 
     def insertAll(self):
         if self.isBracket():
+            if not self.confirmBracketChange():
+                return
             # fill the empty slots first, keeping the draw as it stands
             slots = list(self.bracketEntrants())
             pool = list(self.availableAthletes)
@@ -380,6 +505,8 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
 
     def deleteItems(self):
         if self.isBracket():
+            if not self.confirmBracketChange():
+                return
             # emptying a slot leaves a bye behind: removing the row itself
             # would leave the bracket a size that isn't a power of two
             self.isInUse = True
@@ -406,9 +533,10 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
                 athletes.append(self.getAthleteByID(id))
             except XkorSearchFailedException:
                 pass
-        if len(athletes) < 2:
+        if len(athletes) < 2 or not self.confirmBracketChange():
             return
-        size = max(self.bracketSlotCount, bracket.bracketSize(len(athletes)))
+        size = min(max(self.bracketSlotCount, bracket.bracketSize(len(athletes))),
+                   self.largestDrawableSize(len(athletes)))
         slots = drawFunction(athletes, size)
         self.bracketSlotCount = size
         self.setBracketSlots([BYE_ID if a is None else a.id for a in slots])
@@ -487,6 +615,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.listChanged.emit()
 
     def setGroups(self, g):
+        self._resultsGuardAsked = False
         if self.isBracket():
             if g:
                 self.bracketGroupName = g[0].name
@@ -523,6 +652,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
 
     def setSignupList(self, l):
         self.sl = _cloneSignupList(l)
+        self._availableDirty = True  # names and ids may both have changed
         self.slChanged.emit()
 
     def setupLayout(self, actions):
@@ -612,16 +742,34 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         return rval
 
     def recomputeAvailableAthletes(self):
-        """Participants not yet in the tree. Emits nothing, so it is safe to
-        call from updateButtons (which listChanged already drives)."""
+        """Participants available to place. Emits nothing, so it is safe to
+        call from updateButtons (which listChanged already drives).
+
+        A bracket slot can only hold someone who isn't already in the draw,
+        so those are filtered out. Group setup is not filtered: a participant
+        has always been allowed in more than one group, the file format
+        represents it, and quietly dropping them from the dropdown would
+        change how every other competition type is set up.
+        """
+        placed = frozenset(self.placedAthletes()) if self.isBracket() else frozenset()
+        if not self._availableDirty and placed == self._availablePlaced:
+            # updateButtons() runs on every selection change, and rebuilding
+            # both lists over the whole signup list each time is work nothing
+            # asked for. Only the placements and the signup list itself can
+            # change what's available, and both are cheap to notice.
+            return
+
+        # these two lists are shared in place with the delegate, so they are
+        # emptied and refilled rather than rebound
         self.availableAthletes.clear()
         self.availableAthleteNames.clear()
-        placed = self.placedAthletes()
         for j in self.sl.athletes():
             if j.id in placed:
                 continue
             self.availableAthletes.append(j.id)
             self.availableAthleteNames.append(j.name + " (" + j.nation + ")")
+        self._availablePlaced = placed
+        self._availableDirty = False
 
     def updateAvailableAthletes(self):
         self.recomputeAvailableAthletes()

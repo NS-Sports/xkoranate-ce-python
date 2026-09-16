@@ -13,14 +13,6 @@ import math
 
 from xkoranate.athlete import isBye
 
-MANUAL = "manual"
-RANDOM = "random"
-SEEDED = "seeded"
-VARIABLE_SEEDS = "variableSeeds"
-
-SEEDING_METHODS = [MANUAL, RANDOM, SEEDED, VARIABLE_SEEDS]
-
-
 def bracketSize(n):
     """Smallest power of two that holds n entrants (at least 2)."""
     if n <= 2:
@@ -173,31 +165,57 @@ def drawVariableSeeds(entrants, size, numSeeds, rng):
         return drawRandom(entrants, size, rng)
 
     byes = size - len(ranked)
-    seedOrder = standardSeedOrder(size)
-    bracket, reserved = _emptyBracket(size, byeSlots(size, byes, seedOrder))
+    if byes > size // 2:
+        raise ValueError("cannot place %d byes in a %d-slot bracket" % (byes, size))
 
     seeds = ranked[:numSeeds]
     pool = ranked[numSeeds:]
     if rng is not None:
         rng.shuffle(pool)
 
-    # place the seeds at evenly spaced target slots, walking forward to the
-    # next usable slot when the target is taken or reserved for a bye
+    bracket = [None] * size
+    seededMatches = set()
+    slotOfSeed = {}
+
+    # Place the seeds at evenly spaced target slots. The walk skips any match
+    # that already holds a seed, not merely any occupied slot: putting two
+    # seeds in one match is the one thing this draw exists to prevent, and
+    # checking only the slot let a seed displaced off a reserved slot land
+    # opposite its neighbour.
     placementOrder = [s for s in standardSeedOrder(bracketSize(numSeeds)) if s <= numSeeds]
     for index, seedRank in enumerate(placementOrder):
         target = int(round(index * (size - 1) / float(numSeeds - 1)))
-        slot = target
-        while slot < size and (bracket[slot] is not None or slot in reserved):
-            slot += 1
-        if slot >= size:
-            # walk backwards instead if we ran off the end
-            slot = target
-            while slot >= 0 and (bracket[slot] is not None or slot in reserved):
-                slot -= 1
-        if 0 <= slot < size:
-            bracket[slot] = seeds[seedRank - 1]
+        slot = _freeSeedSlot(bracket, seededMatches, target)
+        if slot is None:
+            # more seeds than matches: some of them have to meet
+            slot = _freeSeedSlot(bracket, set(), target)
+        if slot is None:
+            break
+        bracket[slot] = seeds[seedRank - 1]
+        seededMatches.add(matchOf(slot))
+        slotOfSeed[seedRank] = slot
+
+    # Byes go one to a match, to the partners of the strongest seeds first —
+    # byeSlots()'s free-passage-to-the-top rule — but keyed on where the seeds
+    # actually landed rather than on the standard order they were displaced
+    # from, which used to hand a bye to an unseeded entrant.
+    byeMatches = [matchOf(slotOfSeed[r]) for r in sorted(slotOfSeed)]
+    byeMatches += [m for m in range(size // 2) if m not in seededMatches]
+    reserved = set()
+    for m in byeMatches[:byes]:
+        reserved.add(2 * m if bracket[2 * m] is None else 2 * m + 1)
 
     return _fill(bracket, reserved, pool)
+
+
+def _freeSeedSlot(bracket, seededMatches, target):
+    """The first empty slot at or after `target` whose match holds no seed."""
+    size = len(bracket)
+    for step in range(size):
+        slot = (target + step) % size
+        if bracket[slot] is None and matchOf(slot) not in seededMatches:
+            return slot
+    return None
 
 
 def isWellFormed(slots, real):
@@ -226,24 +244,15 @@ def drawFromOrder(entrants):
     back to the positional rule in drawManual().
     """
     real = [a for a in entrants if not isBye(a)]
-    size = bracketSize(len(real))
 
-    slots = [None if isBye(a) else a for a in entrants][:size]
+    # The list's own length is the bracket size, not bracketSize(len(real)):
+    # the editor lets the user pick a bracket larger than the smallest one
+    # their entrants fit into (four clubs deliberately drawn as eight
+    # quarter-finals, each with a bye). Sizing from the entrant count instead
+    # would truncate the list here and silently re-pair the whole draw.
+    # isWellFormed already rejects a length that isn't a power of two.
+    slots = [None if isBye(a) else a for a in entrants]
     if isWellFormed(slots, real):
         return slots
-    return drawManual(real, size)
+    return drawManual(real, bracketSize(len(real)))
 
-
-def draw(entrants, method, numSeeds=0, rng=None):
-    """Build a first-round bracket for `entrants` using the named method."""
-    size = bracketSize(len(entrants))
-    if len(entrants) > size:
-        raise ValueError("%d entrants do not fit a %d-slot bracket" % (len(entrants), size))
-
-    if method == MANUAL:
-        return drawManual(entrants, size)
-    if method == SEEDED:
-        return drawSeeded(entrants, size, rng)
-    if method == VARIABLE_SEEDS:
-        return drawVariableSeeds(entrants, size, numSeeds, rng)
-    return drawRandom(entrants, size, rng)

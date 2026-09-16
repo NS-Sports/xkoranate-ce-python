@@ -1,10 +1,14 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QItemDelegate, QLineEdit, QSpinBox
 
+from ...ui.comboindicator import XkorComboIndicatorMixin
 from ...variant import toInt, toString
 
 
-class XkorWC36RPBonusDelegate(QItemDelegate):
+class XkorWC36RPBonusDelegate(XkorComboIndicatorMixin, QItemDelegate):
+    def usesComboEditor(self, index):
+        return index.column() == 1
+
     def createEditor(self, parent, option, index):
         if index.column() == 1:
             comboBox = QComboBox(parent)
@@ -14,7 +18,7 @@ class XkorWC36RPBonusDelegate(QItemDelegate):
             comboBox.addItem("Good", 2)
             comboBox.addItem("Great", 3)
             comboBox.addItem("Exceptional", 4)
-            return comboBox
+            return self.bindComboEditor(comboBox)
         elif index.column() == 2:
             spinBox = QSpinBox(parent)
             spinBox.setFrame(False)

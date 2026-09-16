@@ -94,16 +94,23 @@ class XkorSignupListEditor(QWidget):
             return "pinned"
         return "manual"
 
-    def _applyMaxRankMode(self):
+    def _applyMaxRankMode(self, raiseCeiling=True):
+        """Re-derive the ceiling for the current paradigm.
+
+        raiseCeiling is what handles a paradigm change: one that passes skill
+        through pins the ceiling to 1.0, and switching to one that rescales
+        must not keep that, or every entered skill above it is scaled far out
+        of range. Loading an event passes False — the stored ceiling is the
+        organiser's, and lifting one they deliberately lowered rewrites the
+        whole field's normalisation behind their back, while isLoading is
+        true so nothing even marks the event as modified.
+        """
         mode = self._maxRankMode()
         if mode == "fixed":
             self.maxRank.setValue(1.0)
         elif mode == "pinned":
             self._updatePinnedMax()
-        elif mode == "manual":
-            # a paradigm that passes skill through pins the ceiling to 1.0;
-            # switching to one that rescales must not keep that, or every
-            # entered skill above it is scaled far out of range
+        elif mode == "manual" and raiseCeiling:
             self._raiseMaxAboveParticipants()
         self.maxRank.setEnabled(mode == "manual")
         if self.athletes:
@@ -184,7 +191,7 @@ class XkorSignupListEditor(QWidget):
         # sync the correction back into m_data -- still while isLoading, so
         # this internal correction doesn't mark the event as modified just
         # from loading it
-        self._applyMaxRankMode()
+        self._applyMaxRankMode(raiseCeiling=False)
         self.updateData()
 
         self.isLoading = False  # allow dataChanged to be emitted if the user does stuff
@@ -200,6 +207,21 @@ class XkorSignupListEditor(QWidget):
         self.signupListDirectoryChanged.emit(dir)
 
     def setSport(self, sport, paradigmOptions):
+        # rebuilding for a new paradigm churns through a torn-down athlete
+        # widget and re-checks the pin box, and every one of those touches
+        # emits dataChanged -- which makes the event editor write the
+        # (momentarily empty) editor state back over the signup list it is
+        # still in the middle of loading. Suppress those intermediate
+        # emissions; an actual user-driven sport change is already flagged
+        # as modified by the event editor itself.
+        wasLoading = self.isLoading
+        self.isLoading = True
+        try:
+            self._setSport(sport, paradigmOptions)
+        finally:
+            self.isLoading = wasLoading
+
+    def _setSport(self, sport, paradigmOptions):
         self.updateData()
 
         if self.athletes:

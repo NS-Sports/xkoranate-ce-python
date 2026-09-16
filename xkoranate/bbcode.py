@@ -9,11 +9,15 @@ import re
 # (Gaelic/Australian scores, period tables, draws) are left alone.
 _DEF_BY_RE = re.compile(r"^(?P<loser>[^\d\n]+?) def\. by (?P<winner>[^\d\n]+?) \((?P<status>.+)\)$")
 _DEF_RE = re.compile(r"^(?P<winner>[^\d\n]+?) def\. (?P<loser>[^\d\n]+?) \((?P<status>.+)\)$")
-# sport files overwhelmingly separate the two scores with an en dash, but
-# nothing enforces it, so accept a plain hyphen or em dash too rather than
-# silently declining to bold the winner (see esports_bestof1.xml)
+# The en dash is what separates the two scores; it is also what keeps this
+# regex off a Gaelic score's goals-points hyphen ("Kerry 1-12 (15)"), whose
+# names contain digits and so slip past the restriction the comment above
+# describes. Accepting a plain hyphen here made those lines match and bolded
+# a nonsense span — including a "winner" on a drawn match. A sport file
+# writing a plain hyphen is corrected in the file (see esports_bestof1.xml,
+# which is why this looked necessary), not tolerated here.
 _SCORE_LINE_RE = re.compile(
-    r"^(?P<home>.+?) (?P<homeScore>-?\d+(?:\.\d+)?)[-–—](?P<awayScore>-?\d+(?:\.\d+)?) (?P<away>.+)$")
+    r"^(?P<home>.+?) (?P<homeScore>-?\d+(?:\.\d+)?)[–—](?P<awayScore>-?\d+(?:\.\d+)?) (?P<away>.+)$")
 
 
 def boldWinnerLine(line):

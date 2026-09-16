@@ -6,12 +6,17 @@ import uuid
 
 import pytest
 
+from PySide6.QtCore import QDir
+from PySide6.QtWidgets import QApplication
+
 from xkoranate.application import XkorApplication
 from xkoranate.athlete import BYE_ID, XkorAthlete
 from xkoranate.competitions.competitionfactory import XkorCompetitionFactory
 from xkoranate.event import XkorEvent
+from xkoranate.eventeditor.eventeditor import XkorEventEditor
 from xkoranate.group import XkorGroup
 from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
+from xkoranate.paths import sportsDir
 from xkoranate.rng import Mt19937
 from xkoranate.rplist import XkorRPList
 from xkoranate.signuplist import XkorSignupList
@@ -44,8 +49,16 @@ def sport_index():
     return index
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def rng():
+    """A fresh seeded generator per test.
+
+    Module scope shared one stream across the whole file, so how far into it
+    any given test started depended on which tests ran before it. Running a
+    subset, or inserting a test above an existing one, silently changed every
+    later test's numbers — fine for today's structural assertions, a
+    heisenbug for the first outcome-sensitive one.
+    """
     return Mt19937(2026)
 
 
@@ -471,6 +484,37 @@ def test_the_last_round_names_the_champion(sport_index, rng):
     assert "Into the" not in final
 
 
+def test_a_bracket_larger_than_the_field_keeps_the_size_it_was_given(sport_index, rng):
+    """The slot list is the bracket size, not bracketSize(entrant count).
+
+    Four entrants deliberately drawn as eight quarter-finals used to be
+    re-sized to a four-slot bracket and re-paired, so the semi-finals played
+    were pairings that appeared nowhere on the setup page.
+    """
+    ev, sport = build_event(sport_index, rng, "Association football—LISA formula", nAthletes=4)
+    ids = [a.id for a in ev.signupList().athletes()]
+    draw = [ids[0], BYE_ID, ids[1], BYE_ID, ids[2], BYE_ID, ids[3], BYE_ID]
+    ev.setCompetition("singleElimination")
+    ev.setGroups([XkorGroup("Bracket", draw)])
+    sl = ev.makeStartList(XkorRPList())
+
+    c = newKnockout(ev, sport, sl)
+    assert c.matchdays() == 3  # quarter-finals, semi-finals, final
+
+    byId = {a.id: a.name for a in ev.signupList().athletes()}
+    fixtures = c._fixtures(0)
+    assert [(h.name if h else None, a.name if a else None) for h, a in fixtures] == [
+        (byId[ids[0]], None),
+        (byId[ids[1]], None),
+        (byId[ids[2]], None),
+        (byId[ids[3]], None),
+    ]
+
+    # and it plays out to a champion from that bracket, not a re-drawn one
+    c = playKnockout(ev, sport, sl)
+    assert "Champion" in ev.results()[c.matchdays() - 1]
+
+
 def test_rearranging_the_bracket_supersedes_a_stored_draw(sport_index, rng):
     """A draw only describes the tournament while the bracket still matches it."""
     ev, sport, sl = buildKnockout(sport_index, rng, 8)
@@ -513,6 +557,32 @@ def test_head_to_head_paradigms_all_offer_a_knockout(sport_index, rng, sportName
     paradigm = XkorParadigmFactory.newParadigmForSport(sport, {})
     assert paradigm.supportsCompetition("roundRobin")
     assert paradigm.supportsCompetition("singleElimination")
+
+
+def test_every_paradigm_that_runs_matches_offers_a_knockout(sport_index):
+    """The support rule, rather than a list of paradigms to keep in step.
+
+    singleElimination used to be declared by hand in five places, and the
+    first extension already diverged: archery and parallel giant slalom both
+    run individual matches — everything a bracket needs — and neither was
+    offered one.
+    """
+    seen = set()
+    missing = []
+    for name in sport_index.index:
+        try:
+            sport = XkorXmlSportReader(sport_index.lookup(name)).sport()
+            paradigm = XkorParadigmFactory.newParadigmForSport(sport, {})
+        except Exception:
+            continue
+        if type(paradigm).__name__ in seen:
+            continue
+        seen.add(type(paradigm).__name__)
+        if paradigm.supportsCompetition("matches") \
+                and not paradigm.supportsCompetition("singleElimination"):
+            missing.append(type(paradigm).__name__)
+    assert seen  # the sweep actually found paradigms
+    assert missing == []
 
 
 @pytest.mark.parametrize("sportName", H2H_PARADIGM_SPORTS)
@@ -574,3 +644,164 @@ def test_a_bracket_too_small_to_play_says_so(sport_index, rng):
     schedule = c.schedule()
     assert schedule is not None  # not "this type has no schedule to preview"
     assert "at least two participants" in schedule
+
+
+@pytest.fixture(scope="module")
+def qt_app():
+    app = QApplication.instance() or XkorApplication(sys.argv)
+    QDir.setSearchPaths("sports", [sportsDir()])
+    return app
+
+
+@pytest.mark.parametrize("sportName", [
+    # paradigms that don't use a maximum skill: loading one used to re-check
+    # the "pin to max participant" box mid-rebuild, whose dataChanged wrote
+    # the momentarily-empty editor state back over the event being loaded
+    "Basketball—xkoranate formula",
+    "Association football—SQIS formula",
+    # a paradigm that does use a maximum skill, as a control
+    "Association football—NSFS formula",
+])
+def test_loading_saved_event_keeps_participants(qt_app, sport_index, rng, tmp_path, sportName):
+    ev, _ = build_event(sport_index, rng, sportName)
+    ev.setResult(0, "some result text")
+
+    xmlPath = str(tmp_path / "event.xml")
+    XkorXmlWriter(xmlPath, XkorRPList(), [(uuid.uuid4(), ev)])
+    loaded = XkorXmlReader(xmlPath).events()[0][1]
+
+    editor = XkorEventEditor()
+    editor.loadSports()
+    editor.setData(loaded, XkorRPList())
+
+    data = editor.data()
+    assert [a.name for a in data.signupList().athletes()] == \
+        [a.name for a in ev.signupList().athletes()]
+    assert data.results()[0] == "some result text"
+    assert [g.athletes for g in data.groups()] == [g.athletes for g in ev.groups()]
+
+
+# ----------------------------------------------- odds, stoppages, coin tosses
+
+
+class _StubParadigm:
+    """Just enough paradigm for _decideMatch: results it is told to return."""
+
+    def __init__(self, results):
+        self._results = results  # {athlete id: XkorResult}
+        self.brokeTie = False
+
+    def findResult(self, id):
+        return self._results[id]
+
+    def compare(self, a, b):
+        if a.score() == b.score():
+            return 0
+        return 1 if a.score() > b.score() else -1
+
+    def breakTie(self, athletes, type=""):
+        self.brokeTie = True
+
+    def option(self, key):
+        return []
+
+
+def _result(athlete, score, **values):
+    from xkoranate.result import XkorResult
+
+    r = XkorResult(score, ath=athlete)
+    for k, v in values.items():
+        r.result[k] = v
+    return r
+
+
+def test_a_stoppage_names_the_beaten_side(sport_index, rng):
+    """A status on one side means that side was beaten, so the assignment is
+    deliberately inverted — and an inverted-back version would advance the
+    wrong athlete while every structural assertion still held."""
+    ev, sport, sl = buildKnockout(sport_index, rng, 4)
+    c = newKnockout(ev, sport, sl)
+    home, away = sl.groups[0].athletes[0], sl.groups[0].athletes[1]
+
+    p = _StubParadigm({home.id: _result(home, 0.0, status="ret."),
+                       away.id: _result(away, 0.0)})
+    _, _, _, winner = c._decideMatch(p, home, away)
+    assert winner is away
+
+    p = _StubParadigm({home.id: _result(home, 0.0),
+                       away.id: _result(away, 0.0, status="ret.")})
+    _, _, _, winner = c._decideMatch(p, home, away)
+    assert winner is home
+
+
+def test_a_match_the_paradigm_cannot_separate_is_flipped_for(sport_index, rng):
+    """A knockout cannot end level; the coin toss is the last resort."""
+    ev, sport, sl = buildKnockout(sport_index, rng, 4)
+    c = newKnockout(ev, sport, sl)
+    home, away = sl.groups[0].athletes[0], sl.groups[0].athletes[1]
+
+    seen = set()
+    for _ in range(50):
+        p = _StubParadigm({home.id: _result(home, 1.0), away.id: _result(away, 1.0)})
+        value1, value2, decider, winner = c._decideMatch(p, home, away)
+        assert p.brokeTie  # the tiebreak path runs whatever allowDraws says
+        assert decider == "coin toss"
+        assert winner in (home, away)
+        seen.add(winner.name)
+    assert len(seen) == 2  # both sides come up
+
+
+def test_a_coin_toss_is_reproducible_from_the_event_seed(sport_index, rng):
+    """Everything else in a scorination replays from the seed; this did not."""
+    def champion(seed):
+        ev, sport, sl = buildKnockout(sport_index, Mt19937(seed), 4)
+        sport.setPRNG(Mt19937(seed))
+        c = playKnockout(ev, sport, sl)
+        return c._winnersOfRound(c._rounds() - 1)[0].name
+
+    assert champion(99) == champion(99)
+
+
+def test_match_odds_cover_byes_normal_pairings_and_the_playoff(sport_index, rng):
+    ev, sport, sl = buildKnockout(sport_index, rng, 6, {"thirdPlacePlayoff": "true"})
+    c = newKnockout(ev, sport, sl)
+    assert c.supportsOdds()
+
+    first = c.matchOdds(0, trials=20)  # 6 entrants in an 8-slot bracket
+    assert first is not None
+    assert "BYE" in first
+
+    # the playoff is its own matchday, and has no contestants until the
+    # semi-finals have been played
+    playoffMatchday = c.matchdays() - 2
+    assert c.matchOdds(playoffMatchday, trials=20) is None
+
+    c = playKnockout(ev, sport, sl, upTo=2)
+    odds = c.matchOdds(playoffMatchday, trials=20)
+    assert odds is not None and odds.strip()
+
+
+def test_a_coin_toss_without_a_prng_is_still_reproducible(sport_index, rng, capsys):
+    """A sport with no PRNG is a misconfiguration, but it must not make the
+    one result the paradigm can't derive clock-dependent too."""
+    ev, sport, sl = buildKnockout(sport_index, rng, 4)
+    c = newKnockout(ev, sport, sl)
+    c.sport.r = None
+
+    flips = [c._coinFlip() for _ in range(8)]
+    c2 = newKnockout(ev, sport, sl)
+    c2.sport.r = None
+    assert [c2._coinFlip() for _ in range(8)] == flips
+    assert "no PRNG set" in capsys.readouterr().err
+
+
+def test_scorinating_a_round_out_of_order_says_why_it_is_empty(sport_index, rng):
+    """Leaving resultsBuf unset gave a blank matchday with no explanation,
+    where the third-place playoff writes a line for the same situation."""
+    ev, sport, sl = buildKnockout(sport_index, rng, 8)
+    c = newKnockout(ev, sport, sl)
+
+    c.scorinate(2)  # the final, with the earlier rounds unplayed
+    result = c.results(2)
+    assert "hasn't been played yet" in result
+    assert c.matchdayNames()[2] in result

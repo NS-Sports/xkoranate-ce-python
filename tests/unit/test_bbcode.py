@@ -46,8 +46,33 @@ def test_boldWinners_processes_each_line_independently():
     assert boldWinners(text) == "Group A\n[b]Home[/b] 3–1 Away\nHome2 0–0 Away2"
 
 
-def test_winners_are_bolded_whichever_dash_the_sport_file_uses():
-    """esports_bestof1.xml used an ASCII hyphen, and bolding silently stopped."""
-    for dash in ("-", "\u2013", "\u2014"):
+def test_winners_are_bolded_for_the_dashes_sport_files_use():
+    """esports_bestof1.xml used an ASCII hyphen and bolding silently stopped;
+    the file was corrected to an en dash, which is what every other sport file
+    uses. The hyphen is deliberately not accepted here — it is a Gaelic
+    score's goals-points separator, and matching it corrupted those lines."""
+    for dash in ("\u2013", "\u2014"):
         line = "Aquilla (AQU) 3%s1 Busby (BUS)" % dash
         assert boldWinnerLine(line) == "[b]Aquilla (AQU)[/b] 3%s1 Busby (BUS)" % dash
+
+    hyphenated = "Aquilla (AQU) 3-1 Busby (BUS)"
+    assert boldWinnerLine(hyphenated) == hyphenated
+
+
+def test_boldWinnerLine_leaves_gaelic_scores_unchanged():
+    """Accepting an ASCII hyphen let _SCORE_LINE_RE read a Gaelic goals-points
+    separator as a home-away divider, bolding a nonsense span."""
+    for line in ("Kerry 1-12 (15) def. Dublin 0-14 (14)",
+                 "Dublin 0-14 (14) def. by Kerry 1-12 (15)"):
+        assert boldWinnerLine(line) == line
+
+
+def test_boldWinnerLine_leaves_a_drawn_gaelic_match_unchanged():
+    """The worst of the hyphen regression: a draw was given a bolded winner."""
+    line = "Cork 2-08 (14) drew with Mayo 1-11 (14)"
+    assert boldWinnerLine(line) == line
+
+
+def test_boldWinnerLine_leaves_australian_scores_unchanged():
+    line = "Geelong 12.8 (80) def. Carlton 10.5 (65)"
+    assert boldWinnerLine(line) == line
