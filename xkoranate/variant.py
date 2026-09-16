@@ -27,6 +27,22 @@ def toString(v):
     return str(v)
 
 
+def _normaliseSeparators(s):
+    """Accept both decimal points and decimal commas.
+
+    Spreadsheets in comma-decimal locales paste numbers as ‘30,06’, and files
+    written that way have to keep loading. A dot always wins as the decimal
+    separator, so any comma alongside one is a thousands separator; a lone
+    comma is the decimal separator; several commas are thousands separators.
+    """
+    s = s.strip().replace(" ", "")
+    if "." in s:
+        return s.replace(",", "")
+    if s.count(",") > 1:
+        return s.replace(",", "")
+    return s.replace(",", ".")
+
+
 def toDouble(v):
     if v is None:
         return 0.0
@@ -35,7 +51,7 @@ def toDouble(v):
     if isinstance(v, (int, float)):
         return float(v)
     try:
-        return float(str(v))
+        return float(_normaliseSeparators(str(v)))
     except (TypeError, ValueError):
         return 0.0
 
@@ -50,10 +66,10 @@ def toInt(v):
     if isinstance(v, float):
         return round(v)  # Qt rounds doubles on toInt
     try:
-        return int(str(v))
+        return int(str(v).strip())
     except (TypeError, ValueError):
         try:
-            return round(float(str(v)))
+            return round(float(_normaliseSeparators(str(v))))
         except (TypeError, ValueError):
             return 0
 

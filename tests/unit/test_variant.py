@@ -45,6 +45,16 @@ def test_toString_formats_uuid_with_braces():
     (3.5, 3.5),
     ("2.5", 2.5),
     ("not a number", 0.0),
+    # Comma-decimal locales paste numbers in this way; earlier editions read
+    # them, so they still have to parse.
+    ("2,5", 2.5),
+    ("30,06", 30.06),
+    ("-0,5", -0.5),
+    (" 1,5 ", 1.5),
+    # A dot wins as the decimal separator, so commas beside it group thousands.
+    ("1,234", 1.234),
+    ("1,234.5", 1234.5),
+    ("1,234,567", 1234567.0),
 ])
 def test_toDouble(value, expected):
     assert toDouble(value) == expected
@@ -59,6 +69,10 @@ def test_toDouble(value, expected):
     (5.4, 5),
     ("7", 7),
     ("7.6", 8),
+    ("7,6", 8),
+    # A lone comma is the decimal separator, never a thousands separator:
+    # ‘1,234’ is one and a bit, which rounds down.
+    ("1,234", 1),
     ("not a number", 0),
 ])
 def test_toInt(value, expected):

@@ -254,9 +254,11 @@ class XkorXmlReader(QXmlStreamReader):
         ath.name = self.attributes().value("name")
         ath.nation = self.attributes().value("nation")
         ath.skill = toDouble(self.attributes().value("skill"))
+        # readOptions() leaves us on the signup's end element; the surrounding
+        # loop advances from there. Reading ahead here swallowed whatever
+        # followed, which is harmless whitespace in pretty-printed files but
+        # eats the next <signup> when the file has no indentation.
         ath.properties = self.readOptions()
-
-        self.readNext()
         return ath
 
     def readString(self):
