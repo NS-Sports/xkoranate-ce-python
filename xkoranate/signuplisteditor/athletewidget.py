@@ -8,10 +8,10 @@ from ..athlete import XkorAthlete
 from ..icons import icon_action
 from ..ui.dialogs import resolved_search_path
 from ..ui.fonts import column_width_for
+from ..uuids import parseAssignedUuid, uuidToString
 from ..variant import qNumber, toDouble, toString
 from .abstractathletewidget import (_AthleteTreeWidgetItem,
-                                    XkorAbstractAthleteWidget, _indexOf,
-                                    _uuidFromString, _uuidToString)
+                                    XkorAbstractAthleteWidget, _indexOf)
 from .athletedelegate import XkorAthleteDelegate
 
 
@@ -63,7 +63,7 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
             item = i.value()
             a = XkorAthlete()
             a.name = item.text(_indexOf(self.m_columnKeys, "name"))
-            a.id = _uuidFromString(item.data(_indexOf(self.m_columnKeys, "name"), Qt.UserRole))
+            a.id = parseAssignedUuid(item.data(_indexOf(self.m_columnKeys, "name"), Qt.UserRole))
             a.nation = item.text(_indexOf(self.m_columnKeys, "nation"))
             a.skill = toDouble(item.text(_indexOf(self.m_columnKeys, "skill")))
             for j in self.m_columnKeys:
@@ -131,7 +131,7 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
             properties = {}
 
         item.setText(_indexOf(self.m_columnKeys, "name"), athleteName)
-        item.setData(_indexOf(self.m_columnKeys, "name"), Qt.UserRole, _uuidToString(id))
+        item.setData(_indexOf(self.m_columnKeys, "name"), Qt.UserRole, uuidToString(id))
         item.setText(_indexOf(self.m_columnKeys, "nation"), nation)
         item.setText(_indexOf(self.m_columnKeys, "skill"), qNumber(skill))
         item.setTextAlignment(_indexOf(self.m_columnKeys, "skill"), Qt.AlignRight)

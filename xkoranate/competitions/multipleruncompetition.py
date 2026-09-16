@@ -1,6 +1,6 @@
 import sys
-import uuid
 
+from ..uuids import parseUuid
 from xkoranate.athlete import XkorAthlete
 from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
 from xkoranate.result import XkorResult
@@ -8,14 +8,6 @@ from xkoranate.variant import toDouble, toInt, toList, toString
 
 DBL_MAX = sys.float_info.max  # numeric_limits<double>::max()
 DBL_MIN = sys.float_info.min  # numeric_limits<double>::min()
-
-
-def _quuid(s):
-    """QUuid(QString): None for an unparseable (null) uuid."""
-    try:
-        return uuid.UUID(s.strip("{}"))
-    except (AttributeError, ValueError):
-        return None
 
 
 class XkorMultipleRunCompetition(XkorAbstractCompetition):
@@ -114,7 +106,7 @@ class XkorMultipleRunCompetition(XkorAbstractCompetition):
             for i in range(len(athletes)):
                 ath = XkorAthlete()
                 for j in sl.athletes:
-                    if _quuid(toString(athletes[i])) == j.id:
+                    if parseUuid(toString(athletes[i])) == j.id:
                         ath = j.clone()
 
                 r = XkorResult()
@@ -142,7 +134,7 @@ class XkorMultipleRunCompetition(XkorAbstractCompetition):
         for i in range(len(disqualifiedAthletes)):
             ath = XkorAthlete()
             for j in sl.athletes:
-                if _quuid(toString(disqualifiedAthletes[i])) == j.id:
+                if parseUuid(toString(disqualifiedAthletes[i])) == j.id:
                     ath = j.clone()
 
             r = XkorResult()

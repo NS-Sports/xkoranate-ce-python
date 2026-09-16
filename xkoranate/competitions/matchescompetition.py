@@ -48,13 +48,6 @@ class XkorMatchesCompetition(XkorAbstractCompetition):
                 lines.append(self._formatOdds(p, i.athletes[home], i.athletes[home + 1], trials))
         return "\n".join(lines) + ("\n" if lines else "")
 
-    def _oddsParadigm(self):
-        from xkoranate.paradigms.abstracth2hparadigm import XkorAbstractH2HParadigm
-        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
-
-        p = XkorParadigmFactory.newParadigmForSport(self.sport, dict(self.paradigmOpt))
-        return p if isinstance(p, XkorAbstractH2HParadigm) else None
-
     def scorinate(self, matchday):
         from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
 

@@ -2,14 +2,8 @@ import sys
 
 from PySide6.QtCore import QFile, QIODevice, QXmlStreamWriter
 
+from ..uuids import uuidToString
 from ..variant import qNumber, toList, toString
-
-
-def _uuidToString(id):
-    """QUuid::toString(): braced form; null uuid renders as all zeros."""
-    if id is None:
-        return "{00000000-0000-0000-0000-000000000000}"
-    return "{%s}" % id
 
 
 class XkorXmlWriter(QXmlStreamWriter):
@@ -37,7 +31,7 @@ class XkorXmlWriter(QXmlStreamWriter):
         for i in events:  # list of (uuid, XkorEvent) pairs
             id, event = i
             self.writeStartElement("event")
-            self.writeAttribute("id", _uuidToString(id))
+            self.writeAttribute("id", uuidToString(id))
             self.writeAttribute("name", event.name())
             self.writeTextElement("sport", event.sport())
             self.writeTextElement("competition", event.competition())
@@ -71,7 +65,7 @@ class XkorXmlWriter(QXmlStreamWriter):
             athletes = signupList.athletes()
             for j in athletes:
                 self.writeStartElement("signup")
-                self.writeAttribute("id", _uuidToString(j.id))
+                self.writeAttribute("id", uuidToString(j.id))
                 self.writeAttribute("name", j.name)
                 self.writeAttribute("nation", j.nation)
                 self.writeAttribute("skill", qNumber(j.skill))
@@ -87,7 +81,7 @@ class XkorXmlWriter(QXmlStreamWriter):
                 self.writeStartElement("group")
                 self.writeAttribute("name", j.name)
                 for k in j.athletes:
-                    self.writeTextElement("signup", _uuidToString(k))
+                    self.writeTextElement("signup", uuidToString(k))
                 self.writeEndElement()
             self.writeEndElement()
 

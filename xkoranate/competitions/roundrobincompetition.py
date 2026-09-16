@@ -1,9 +1,7 @@
 import math
 import re
-import sys
 
 from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
-from xkoranate.tablegenerator.decider import nudgeForShootout
 from xkoranate.variant import qNumber, toDouble, toInt, toList, toString, toUInt
 
 
@@ -132,13 +130,6 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
             for home, away in pairs:
                 lines.append(self._formatOdds(p, i.athletes[home], i.athletes[away], trials))
         return "\n".join(lines) + ("\n" if lines else "")
-
-    def _oddsParadigm(self):
-        from xkoranate.paradigms.abstracth2hparadigm import XkorAbstractH2HParadigm
-        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
-
-        p = XkorParadigmFactory.newParadigmForSport(self.sport, dict(self.paradigmOpt))
-        return p if isinstance(p, XkorAbstractH2HParadigm) else None
 
     def generateTableColumns(self, groupName):
         from xkoranate.tablegenerator.tablecolumn import XkorTableColumn
@@ -290,42 +281,17 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
             self.resultsBuf[matchday] = self.resultsBuf.get(matchday, "") + i.name + "\n" + p.output() + "\n"
 
             # assemble teh tablez
-            tiebreakers = toList(p.option("tiebreakers"))
-            tiebreakerNames = toList(p.option("tiebreakerNames"))
             for j in fixtures:
                 if j[0] < groupSize and j[1] < groupSize:
                     score1 = p.findResult(i.athletes[j[0]].id)
                     score2 = p.findResult(i.athletes[j[1]].id)
 
-                    # find the score we want, from the last tiebreaker
-                    scoreValue1 = score1.score()
-                    scoreValue2 = score2.score()
-                    print(scoreValue1, scoreValue2, file=sys.stderr)
-                    decider = None  # how the match was decided, for the table's OT/SO breakdown
-                    shootoutName = None
+                    # with draws allowed a tie is a result in its own right,
+                    # so the tiebreaker stages don't come into the table
                     if toString(self.userOpt.get("allowDraws")) == "false":
-                        usedTiebreakerNames = []  # if we put extraTime + goldenGoal under the same “OT” name, we don’t want to add it twice
-                        for k in range(len(tiebreakerNames)):
-                            name = toString(tiebreakerNames[k])
-                            currentTiebreaker = toString(tiebreakers[k]) if k < len(tiebreakers) else ""
-                            # shootout scores don’t belong in tables, but the match was still
-                            # decided by shootout, so tag it as such
-                            if currentTiebreaker == "shootout" and (score1.contains(name) or score2.contains(name)):
-                                decider = "SO"
-                                shootoutName = name
-                            elif currentTiebreaker != "shootout" and name not in usedTiebreakerNames and (score1.contains(name) or score2.contains(name)):
-                                scoreValue1 += toDouble(score1.value(name))
-                                scoreValue2 += toDouble(score2.value(name))
-                                print("adding", currentTiebreaker, toDouble(score1.value(name)), toDouble(score2.value(name)), file=sys.stderr)
-                                usedTiebreakerNames.append(name)
-                                decider = "OT"
-                        if decider == "SO" and shootoutName is not None:
-                            # the shootout stage may not have come after one that
-                            # separated the teams (e.g. overtime stayed scoreless)
-                            scoreValue1, scoreValue2 = nudgeForShootout(
-                                scoreValue1, scoreValue2,
-                                toDouble(score1.value(shootoutName)),
-                                toDouble(score2.value(shootoutName)))
+                        scoreValue1, scoreValue2, decider = self.effectiveScores(p, score1, score2)
+                    else:
+                        scoreValue1, scoreValue2, decider = score1.score(), score2.score(), None
                     self.tables[groupNo].insertMatch(i.athletes[j[0]].name, i.athletes[j[1]].name, scoreValue1, scoreValue2, decider)
 
                     # insert into the resume options

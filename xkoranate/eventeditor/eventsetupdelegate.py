@@ -3,16 +3,11 @@ from PySide6.QtWidgets import QComboBox, QItemDelegate, QLineEdit
 
 from ..athlete import BYE_ID, BYE_NAME
 from ..ui.comboindicator import XkorComboIndicatorMixin
+from ..uuids import uuidToString
 from ..variant import toString
 
 
 BYE_LABEL = "— %s —" % BYE_NAME
-
-
-def _uuidToString(u):
-    if u is None:  # null QUuid
-        return "{00000000-0000-0000-0000-000000000000}"
-    return "{%s}" % u
 
 
 class XkorEventSetupDelegate(XkorComboIndicatorMixin, QItemDelegate):
@@ -62,13 +57,13 @@ class XkorEventSetupDelegate(XkorComboIndicatorMixin, QItemDelegate):
         listed as well, or opening the editor on an occupied slot would find
         nothing selected and blank it on the way out.
         """
-        rval = [(name, _uuidToString(id)) for name, id
+        rval = [(name, uuidToString(id)) for name, id
                 in zip(self.availableAthleteNames, self.availableAthletes)]
         if current and current != BYE_LABEL \
                 and currentId not in [id for _, id in rval]:
             rval.insert(0, (current, currentId))
         if self.allowBye:
-            rval.insert(0, (BYE_LABEL, _uuidToString(BYE_ID)))
+            rval.insert(0, (BYE_LABEL, uuidToString(BYE_ID)))
         return rval
 
     def prepareToCommit(self):
