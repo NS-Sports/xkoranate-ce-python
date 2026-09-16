@@ -187,15 +187,18 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         return bool(self.resultsGuard())
 
     def largestDrawableSize(self, entrants):
-        """The biggest bracket the draw functions can fill for this many.
+        """The biggest bracket worth drawing for this many entrants.
 
         byeSlots() puts at most one bye in a match, so it raises rather than
-        build a bracket with an empty match — the same ceiling
-        usableBracketSizes() applies. bracketSlotCount can sit above it after
-        slots have been cleared to byes, so the draw buttons must clamp.
+        build a bracket with an empty match, and a bracket of exactly twice
+        the entrants gives every one of them a bye — a first round nobody
+        plays, which is the same tournament one round smaller. The ceiling is
+        the same one usableBracketSizes() applies. bracketSlotCount can sit
+        above it after slots have been cleared to byes, so the draw buttons
+        must clamp.
         """
         size = bracket.bracketSize(entrants)
-        while size * 2 <= 2 * entrants:
+        while size * 2 < 2 * entrants:
             size *= 2
         return size
 
@@ -205,7 +208,10 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         Every match needs at least one participant, so a bracket can hold at
         most twice as many slots as it has entrants — a 32-slot draw for four
         clubs would leave twelve matches with nobody in them, and the
-        competition would quietly play a four-slot bracket instead.
+        competition would quietly play a four-slot bracket instead. Exactly
+        twice is out too: eight slots for four clubs is four matches with one
+        club apiece, a first round nobody plays, and the cup that follows is
+        the four-slot one.
 
         Smaller brackets are offered too: a 16-club signup list can still be
         run as an eight-club cup, and the clubs that don't fit go back to the
@@ -214,7 +220,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         entrants = len([i for i in self.bracketEntrants() if i not in (None, BYE_ID)])
         if entrants < 2:
             return list(self.BRACKET_SIZES)
-        return [s for s in self.BRACKET_SIZES if s // 2 <= entrants]
+        return [s for s in self.BRACKET_SIZES if s // 2 < entrants]
 
     def syncBracketSizeCombo(self):
         """Show the size the bracket has, and the sizes it could usefully be."""

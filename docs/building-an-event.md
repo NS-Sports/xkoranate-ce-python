@@ -70,7 +70,12 @@ and **Delete** empties the selected slot rather than removing it.
 - The **x-participant bracket** dropdown sets how many slots the bracket has.
   Any slot you don't fill is a **bye**: the participant opposite it advances
   unopposed. Byes are entrants in their own right — you can drag them around,
-  or pick one from a slot's dropdown, to keep a particular slot open.
+  or pick one from a slot's dropdown, to keep a particular slot open. The
+  dropdown only offers sizes the field can play: every match needs at least
+  one participant, and a bracket of exactly twice the entrants would give
+  every one of them a first-round bye, which is the same cup one round
+  smaller. Smaller sizes are always offered — a 12-club list can be run as a
+  four-club cup, and the clubs that don't fit go back to the available list.
 - Three toolbar buttons arrange the draw once, after which you can adjust it
   by hand: the **dice** draws at random, **Seed the draw by skill** puts the
   strongest against the weakest so the top two can only meet in the final, and
