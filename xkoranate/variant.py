@@ -35,7 +35,7 @@ def _normaliseSeparators(s):
     separator, so any comma alongside one is a thousands separator; a lone
     comma is the decimal separator; several commas are thousands separators.
     """
-    s = s.strip().replace(" ", "")
+    s = s.strip()
     if "." in s:
         return s.replace(",", "")
     if s.count(",") > 1:
