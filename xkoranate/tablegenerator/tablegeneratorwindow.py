@@ -3,6 +3,7 @@ from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import QMainWindow, QToolBar
 
 from .. import __version__
+from ..help import help_action
 from ..icons import icon_action
 from .tablegenerator import XkorTableGenerator
 
@@ -45,6 +46,11 @@ class XkorTableGeneratorWindow(QMainWindow):
         self.generateAction = icon_action("table-generator-refresh", "Generate table", self)
         self.generateAction.setShortcut(QKeySequence.Refresh)
         self.generateAction.triggered.connect(lambda: self.generator.generateTable())
+
+        # this window has no menu bar, so the action lives on the window
+        # itself; the help key opens the guide's table generator page
+        self.helpAction = help_action(self, "table-generator/")
+        self.addAction(self.helpAction)
 
         self.toolBar = QToolBar()
         self.toolBar.setMovable(False)

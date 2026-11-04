@@ -1,30 +1,49 @@
-# Settings & file locations
+# Files and settings
 
-xkoranate doesn't have a separate settings/preferences dialog. Instead, it
-remembers the last folder you used for each kind of file, and defaults each
-one to your home directory the first time you run it:
+xkoranate has no settings window. It remembers two kinds of things for you.
 
-| What | Remembered when you… |
+## Your colour theme
+
+Choose **View › Light**, **Dark** or **True Dark (OLED)**. True Dark uses
+a pure black background, which suits phone-style OLED screens. Your choice
+is kept the next time you open xkoranate.
+
+## The last folder you used
+
+Each kind of file opens in the folder you last used for it. The first
+time, that's your home folder. xkoranate remembers these folders
+separately:
+
+| Kind of file | When it's remembered |
 |---|---|
-| Event directory | Open/save an event document (`.xml`) |
-| Signup list directory | Import a signup list (`.txt`) in the Signups step |
-| Result export directory | Export results (`.txt`) from the Scorinate step |
-| Result import directory | Import match results (`.txt`) into the table generator |
-| Table directory | Open/save a table generator configuration (`.xml`) |
+| Event files (`.xml`) | When you open or save an event file |
+| Sign-up lists (`.txt`) | When you import sign-ups on step 2 |
+| Exported results (`.txt`) | When you click **Export to file** on step 5 |
+| Results for the table generator (`.txt`) | When you import match results into the table generator |
+| Table files (`.xml`) | When you open or save in the table generator |
 
-These are stored using Qt's `QSettings`, under the same
-`thirdgeek.com`/`xkoranate` identifier the original C++ xkoranate-CE used —
-so if you're upgrading from the original program, your directory preferences
-carry over automatically. Concretely, that means:
+If you used the original xkoranate on the same computer, these folders
+carry over automatically.
 
-- **macOS**: `~/Library/Preferences/com.thirdgeek.xkoranate.plist`
-- **Windows**: `HKEY_CURRENT_USER\Software\thirdgeek.com\xkoranate` (registry)
-- **Linux**: `~/.config/thirdgeek.com/xkoranate.conf`
+## Kinds of file
 
-## Sport definitions
+| Extension | What it is | Made by |
+|---|---|---|
+| `.xml` | An event file: all your events, sign-ups and results | **File › Save** |
+| `.xml` | A table generator file: match results and table settings | **Save file** in the table generator |
+| `.txt` | A sign-up list you can import | You, in any text editor ([format](building-an-event.md#importing-sign-ups-from-a-file)) |
+| `.txt` | Exported results | **Export to file** on step 5 |
 
-The `sports/` folder that ships alongside xkoranate contains the sport
-definition files — plain XML, one per sport, describing its paradigm and
-default options. They're user-editable if you know what you're doing, though
-there's no in-app editor for them yet (tracked in
-[issue #27](https://github.com/NS-Sports/xkoranate-ce-python/issues/27)).
+All of these work in the original xkoranate too.
+
+## For the curious: where settings are stored
+
+| Computer | Location |
+|---|---|
+| Windows | Registry, under `HKEY_CURRENT_USER\Software\thirdgeek.com\xkoranate` |
+| Mac | `~/Library/Preferences/com.thirdgeek.xkoranate.plist` |
+| Linux | `~/.config/thirdgeek.com/xkoranate.conf` |
+
+The sport definitions live in the `sports` folder that comes with
+xkoranate. There's one file per sport. You can edit them by hand, but
+it's easy to break a sport that way, so keep a backup.

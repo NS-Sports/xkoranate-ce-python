@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QApplication, QToolBar
 
 from . import __version__
 from .centralwidget import XkorCentralWidget
+from .help import help_action
 from .icons import icon, icon_action
 from .mainwindow import XkorMainWindow
 from .paths import sportsDir
@@ -62,6 +63,8 @@ class XkorApplication(QApplication):
         self.quitAction.setShortcut(QKeySequence(QKeySequence.Quit))
         self.quitAction.triggered.connect(self.closeAllWindows)
 
+        self.helpAction = help_action(self)
+
         # View menu's theme choice — light/dark/OLED are mutually exclusive,
         # so a QActionGroup gives us the radio-button behaviour for free
         self.themeActionGroup = QActionGroup(self)
@@ -96,6 +99,11 @@ class XkorApplication(QApplication):
         viewMenu = menuBar.addMenu("&View")
         for themeMode in theme.MODES:
             viewMenu.addAction(self.themeActions[themeMode])
+
+        # a menu titled "Help" is what macOS (and most users) look for; Qt
+        # moves it to the far right on every platform
+        helpMenu = menuBar.addMenu("&Help")
+        helpMenu.addAction(self.helpAction)
 
         # toolbar
         self.toolBar = QToolBar()
