@@ -50,9 +50,6 @@ class XkorWrestlingParadigm(XkorAbstractParadigm):
 
     # protected:
 
-    def formatScore(self, score1, score2):
-        return str(score1) + "–" + str(score2)
-
     def generateScore(self, homeSkill, awaySkill):
         rval = XkorWrestlingParadigmResult()
 

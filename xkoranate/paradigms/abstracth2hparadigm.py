@@ -228,7 +228,6 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
 
         # extra time and stuff
         usedTiebreakers = []
-        tiebreakers = self.readOptionList("tiebreakers")
         tiebreakerNames = self.readOptionList("tiebreakerNames")
         for i in range(len(tiebreakerNames)):
             name = toString(tiebreakerNames[i])
@@ -280,7 +279,6 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
 
         # overtime and stuff
         usedTiebreakers = []
-        tiebreakers = self.readOptionList("tiebreakers")
         tiebreakerNames = self.readOptionList("tiebreakerNames")
         for i in range(len(tiebreakerNames)):
             name = toString(tiebreakerNames[i])

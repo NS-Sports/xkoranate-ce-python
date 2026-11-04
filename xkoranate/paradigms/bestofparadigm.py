@@ -50,8 +50,3 @@ class XkorBestOfParadigm(XkorPointByPointMixin, XkorAbstractParadigm):
             self.out.append((home.name, result))
             self.res.append(XkorResult(score[0], ath=home.clone()))
             self.res.append(XkorResult(score[1], ath=away.clone()))
-
-    # protected:
-
-    def individualResult(self, a, b, c=None):
-        return XkorResult()  # unused

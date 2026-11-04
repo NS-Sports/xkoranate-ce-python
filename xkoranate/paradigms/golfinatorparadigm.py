@@ -111,9 +111,6 @@ class XkorGolfinatorParadigm(XkorAbstractParadigm):
 
     # protected:
 
-    def individualResult(self, a, b, c=None):
-        return XkorResult()  # unused
-
     def outputLine(self, r, nameWidth=None, resultWidth=None):
         # C++ declares outputLine(XkorResult, double, double), which hides but
         # does not override the base outputLine(XkorResult); calls through the

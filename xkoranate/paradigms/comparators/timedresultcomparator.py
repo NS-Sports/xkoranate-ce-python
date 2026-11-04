@@ -20,14 +20,6 @@ class XkorTimedResultComparator(XkorBasicResultComparator):
             self.useRounding = False
             self.roundingValue = 0.0
 
-    @staticmethod
-    def compareVariant(a, b):
-        return toDouble(a) < toDouble(b)
-
-    @staticmethod
-    def compareVariantDescending(a, b):
-        return toDouble(b) < toDouble(a)
-
     def roundScore(self, score, rounding):
         if score == sys.float_info.max or score == -sys.float_info.max:
             return score

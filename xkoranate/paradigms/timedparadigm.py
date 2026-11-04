@@ -18,14 +18,6 @@ class XkorTimedParadigm(XkorAbstractParadigm):
     def comparisonFunction(self, type=""):
         return XkorTimedResultComparator(type, self.opt)
 
-    @staticmethod
-    def compareVariant(a, b):
-        return toDouble(a) < toDouble(b)
-
-    @staticmethod
-    def compareVariantDescending(a, b):
-        return toDouble(b) < toDouble(a)
-
     def formatScore(self, score):
         return self.timeFormat(score, toInt(self.opt.get("displayDigits")))
 

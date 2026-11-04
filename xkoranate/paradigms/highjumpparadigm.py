@@ -87,19 +87,6 @@ class XkorHighJumpParadigm(XkorAbstractParadigm):
 
     # protected:
 
-    def adjustSkill(self, realSkill):
-        rankModifier = toDouble(self.opt.get("rankModifier", 0))
-        rankAdjustmentFactor = toDouble(self.opt.get("rankAdjustmentFactor", 1))
-
-        # randomize the skill a bit to compensate for the fact that long
-        # sequences of arrows would otherwise be highly predictable
-        rval = (realSkill + self.s.randUniform() * rankModifier) / (1 + rankModifier)
-        rval = rval * rankAdjustmentFactor + (1 - rankAdjustmentFactor) / 2
-        return rval
-
-    def individualResult(self, a, b, c=None):
-        return XkorResult()  # unused
-
     def generateScore(self, skill, height):
         attackModifier = toDouble(self.opt.get("attackModifier"))
         rand = ((self.s.randWeighted(skill) + self.s.randUniform() * attackModifier)

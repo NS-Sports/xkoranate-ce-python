@@ -66,9 +66,6 @@ class XkorTennisParadigm(XkorAbstractParadigm):
 
     # protected:
 
-    def individualResult(self, a, b, c=None):
-        return ("", 0.0)  # unused (C++ returns QPair<QString, double>())
-
     def generateSetScore(self, homeSkill, awaySkill, isFinalSet):
         rval = (0, 0)
 

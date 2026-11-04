@@ -124,9 +124,3 @@ class XkorNSFSGridironParadigm(XkorAbstractH2HParadigm):
     def generateScore(self, skill, oppSkill, style, oppStyle,
                       homeAdvantage=False, attackMultiplier=1):
         return -1  # we don’t use this
-
-    def generateStyleModification(self, homeScore, awayScore, homeStyle, awayStyle):
-        # C++ declares this overload with int style parameters; it is never
-        # called (this paradigm overrides generateFTScore and never applies
-        # style modifiers)
-        return (0, 0)  # no style modifiers (yet?)

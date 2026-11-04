@@ -153,8 +153,5 @@ class XkorArcheryParadigm(XkorAbstractParadigm):
     def adjustSkill(self, realSkill, isRankingRound=False):
         return self._adjustSkill(realSkill, "ranking" if isRankingRound else "knockout")
 
-    def individualResult(self, a, b, c=None):
-        return XkorResult()  # unused
-
     def generateArrowScore(self, skill):
         return int(self.s.individualScore("score", skill))
