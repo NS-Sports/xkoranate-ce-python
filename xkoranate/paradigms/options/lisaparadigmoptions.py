@@ -1,6 +1,5 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFormLayout, QLabel,
-                               QRadioButton, QWidget)
+from PySide6.QtWidgets import QButtonGroup, QFormLayout, QLabel, QRadioButton, QWidget
 
 from xkoranate.abstractoptionswidget import XkorAbstractOptionsWidget
 from xkoranate.ui.tooltips import wrapped_tooltip
@@ -29,13 +28,8 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
                  parent=None):
         super().__init__(opts, parent)
 
-        self.homeAdvantage = QCheckBox("Apply home advantage")
-        if toString(self.options.get("homeAdvantage")) == "true":
-            self.homeAdvantage.setCheckState(Qt.Checked)
-        else:
-            self.homeAdvantage.setCheckState(Qt.Unchecked)
-        self.setHomeAdvantage(self.homeAdvantage.checkState())
-        self.homeAdvantage.stateChanged.connect(self.setHomeAdvantage)
+        self.homeAdvantage = self._flagCheckBox("homeAdvantage", "Apply home advantage",
+                                                self._optionIsTrue("homeAdvantage"))
 
         self.homeAdvantageEARLabel = QLabel("Home advantage (EAR):")
         self.homeAdvantageEAR = XkorConstantSpinBox(
@@ -123,13 +117,8 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         self.marginDivisor.valueChanged.connect(self.setMarginDivisor)
         self.setMarginDivisor(self.marginDivisor.value())
 
-        self.showTLAs = QCheckBox("Show team names")
-        if toString(self.options.get("showTLAs", "true")) == "true":
-            self.showTLAs.setCheckState(Qt.Checked)
-        else:
-            self.showTLAs.setCheckState(Qt.Unchecked)
-        self.setShowTLAs(self.showTLAs.checkState())
-        self.showTLAs.stateChanged.connect(self.setShowTLAs)
+        self.showTLAs = self._flagCheckBox("showTLAs", "Show team names",
+                                           self._optionIsTrue("showTLAs", True))
 
         advancedContent = QWidget()
         advancedForm = QFormLayout(advancedContent)
@@ -148,13 +137,6 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         self.form.addRow(self.homeAdvantageModeLabel, homeAdvantageModeForm)
         self.form.addRow("", self.showTLAs)
         self.form.addRow(self.advancedSection)
-
-    def setHomeAdvantage(self, x):
-        if Qt.CheckState(x) == Qt.Checked:
-            self.options["homeAdvantage"] = "true"
-        else:
-            self.options["homeAdvantage"] = "false"
-        self.optionsChanged.emit(self.options)
 
     def setHomeAdvantageEAR(self, x):
         self.options["homeAdvantageEAR"] = x
@@ -196,11 +178,4 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
 
     def setMarginDivisor(self, x):
         self.options["marginDivisor"] = x
-        self.optionsChanged.emit(self.options)
-
-    def setShowTLAs(self, x):
-        if Qt.CheckState(x) == Qt.Checked:
-            self.options["showTLAs"] = "true"
-        else:
-            self.options["showTLAs"] = "false"
         self.optionsChanged.emit(self.options)

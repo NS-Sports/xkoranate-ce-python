@@ -1,7 +1,5 @@
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QDoubleSpinBox,
-                               QFormLayout, QGridLayout, QLabel, QRadioButton,
-                               QSpinBox)
+from PySide6.QtWidgets import (QButtonGroup, QDoubleSpinBox, QFormLayout,
+                               QGridLayout, QLabel, QRadioButton, QSpinBox)
 
 from xkoranate.abstractoptionswidget import XkorAbstractOptionsWidget
 from xkoranate.variant import toDouble, toInt, toString
@@ -42,21 +40,10 @@ class XkorAutoRacingParadigmOptions(XkorAbstractOptionsWidget):
         self.trackCornering.setEnabled(False)
         self.trackCornering.valueChanged.connect(self.setTrackCornering)
 
-        self.showTLAs = QCheckBox("Show team names")
-        if toString(self.options.get("showTLAs", "true")) == "true":
-            self.showTLAs.setCheckState(Qt.Checked)
-        else:
-            self.showTLAs.setCheckState(Qt.Unchecked)
-        self.setShowTLAs(self.showTLAs.checkState())
-        self.showTLAs.stateChanged.connect(self.setShowTLAs)
-
-        self.useStartingGrid = QCheckBox("Use starting grid")
-        if toString(self.options.get("useStartingGrid")) == "true":
-            self.useStartingGrid.setCheckState(Qt.Checked)
-        else:
-            self.useStartingGrid.setCheckState(Qt.Unchecked)
-        self.setUseStartingGrid(self.useStartingGrid.checkState())
-        self.useStartingGrid.stateChanged.connect(self.setUseStartingGrid)
+        self.showTLAs = self._flagCheckBox("showTLAs", "Show team names",
+                                           self._optionIsTrue("showTLAs", True))
+        self.useStartingGrid = self._flagCheckBox("useStartingGrid", "Use starting grid",
+                                                  self._optionIsTrue("useStartingGrid"))
 
         # skill type box
         self.useSkill = QRadioButton("Single skill value")
@@ -116,13 +103,6 @@ class XkorAutoRacingParadigmOptions(XkorAbstractOptionsWidget):
         self.options["lapVariance"] = x
         self.optionsChanged.emit(self.options)
 
-    def setShowTLAs(self, x):
-        if Qt.CheckState(x) == Qt.Checked:
-            self.options["showTLAs"] = "true"
-        else:
-            self.options["showTLAs"] = "false"
-        self.optionsChanged.emit(self.options)
-
     def setSkillType(self):
         checkedButton = self.skillType.checkedButton()
         if checkedButton is self.useSkill:
@@ -142,11 +122,4 @@ class XkorAutoRacingParadigmOptions(XkorAbstractOptionsWidget):
 
     def setTrackCornering(self, x):
         self.options["trackCornering"] = x
-        self.optionsChanged.emit(self.options)
-
-    def setUseStartingGrid(self, x):
-        if Qt.CheckState(x) == Qt.Checked:
-            self.options["useStartingGrid"] = "true"
-        else:
-            self.options["useStartingGrid"] = "false"
         self.optionsChanged.emit(self.options)

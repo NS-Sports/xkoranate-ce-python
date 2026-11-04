@@ -1,6 +1,5 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFormLayout, QLabel,
-                               QRadioButton, QWidget)
+from PySide6.QtWidgets import QButtonGroup, QFormLayout, QLabel, QRadioButton, QWidget
 
 from xkoranate.abstractoptionswidget import XkorAbstractOptionsWidget
 from xkoranate.variant import toDouble, toString
@@ -20,13 +19,8 @@ class XkorSQISParadigmOptions(XkorAbstractOptionsWidget):
                  defaultAttacks=_DEFAULT_ATTACKS, parent=None):
         super().__init__(opts, parent)
 
-        self.homeAdvantage = QCheckBox("Apply home advantage")
-        if toString(self.options.get("homeAdvantage")) == "true":
-            self.homeAdvantage.setCheckState(Qt.Checked)
-        else:
-            self.homeAdvantage.setCheckState(Qt.Unchecked)
-        self.setHomeAdvantage(self.homeAdvantage.checkState())
-        self.homeAdvantage.stateChanged.connect(self.setHomeAdvantage)
+        self.homeAdvantage = self._flagCheckBox("homeAdvantage", "Apply home advantage",
+                                                self._optionIsTrue("homeAdvantage"))
 
         self.homeAdvantageMagnitudeLabel = QLabel("Home advantage magnitude:")
         self.homeAdvantageMagnitude = XkorConstantSpinBox(
@@ -57,13 +51,8 @@ class XkorSQISParadigmOptions(XkorAbstractOptionsWidget):
         self.attacks.valueChanged.connect(self.setAttacks)
         self.setAttacks(self.attacks.value())
 
-        self.showTLAs = QCheckBox("Show team names")
-        if toString(self.options.get("showTLAs", "true")) == "true":
-            self.showTLAs.setCheckState(Qt.Checked)
-        else:
-            self.showTLAs.setCheckState(Qt.Unchecked)
-        self.setShowTLAs(self.showTLAs.checkState())
-        self.showTLAs.stateChanged.connect(self.setShowTLAs)
+        self.showTLAs = self._flagCheckBox("showTLAs", "Show team names",
+                                           self._optionIsTrue("showTLAs", True))
 
         # style modifiers box
         self.xkorStyleMods = QRadioButton("xkoranate-style (additive)")
@@ -107,13 +96,6 @@ class XkorSQISParadigmOptions(XkorAbstractOptionsWidget):
         form.addRow("", self.showTLAs)
         form.addRow(self.advancedSection)
 
-    def setHomeAdvantage(self, x):
-        if Qt.CheckState(x) == Qt.Checked:
-            self.options["homeAdvantage"] = "true"
-        else:
-            self.options["homeAdvantage"] = "false"
-        self.optionsChanged.emit(self.options)
-
     def setHomeAdvantageMagnitude(self, x):
         self.options["homeAdvantageMagnitude"] = x
         self.optionsChanged.emit(self.options)
@@ -133,13 +115,6 @@ class XkorSQISParadigmOptions(XkorAbstractOptionsWidget):
 
     def setAttacks(self, x):
         self.options["attacks"] = x
-        self.optionsChanged.emit(self.options)
-
-    def setShowTLAs(self, x):
-        if Qt.CheckState(x) == Qt.Checked:
-            self.options["showTLAs"] = "true"
-        else:
-            self.options["showTLAs"] = "false"
         self.optionsChanged.emit(self.options)
 
     def setStyleMods(self):
