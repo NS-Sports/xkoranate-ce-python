@@ -92,6 +92,29 @@ class XkorAbstractCompetition:
         unchanged when there's nothing it can mark."""
         return text
 
+    def _newParadigm(self, **extra):
+        """The sport's paradigm for scorinating, with the `extra` options and
+        the name column width on top of the event's own."""
+        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
+
+        localParadigmOptions = dict(self.paradigmOpt)
+        localParadigmOptions.update(extra)
+        localParadigmOptions["nameWidth"] = self.nameWidth()
+        return XkorParadigmFactory.newParadigmForSport(self.sport, localParadigmOptions)
+
+    def allowsDraws(self):
+        return toString(self.userOpt.get("allowDraws")) != "false"
+
+    def _breakDrawnPairs(self, p, count=None):
+        """Settle every drawn match among p's results, which pair up two by
+        two in order; only the first `count` results (default: all) count."""
+        results = list(p.results())
+        if count is None:
+            count = len(results)
+        for j in range(0, count - (count % 2), 2):
+            if p.compare(results[j], results[j + 1]) == 0:
+                p.breakTie([results[j].athlete, results[j + 1].athlete])
+
     def _oddsParadigm(self):
         """The event's paradigm, if it can estimate head-to-head odds."""
         from xkoranate.paradigms.abstracth2hparadigm import XkorAbstractH2HParadigm
@@ -198,6 +221,12 @@ class XkorAbstractCompetition:
 
     def results(self, matchday):
         return self.resultsBuf.get(matchday, "")
+
+    def _clearResultsFrom(self, matchday):
+        """Blank the results of `matchday` and every one after it."""
+        for k in list(self.resultsBuf.keys()):
+            if k >= matchday:
+                self.resultsBuf[k] = ""
 
     def resumeFileOptions(self):
         return dict(self.resumeOpt)

@@ -85,13 +85,8 @@ class XkorMultipleRunCompetition(XkorAbstractCompetition):
         return dict(self.resumeOpt)
 
     def scorinate(self, matchday):
-        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
-
-        localParadigmOptions = dict(self.paradigmOpt)
-        localParadigmOptions["runNumber"] = matchday  # pass the run number to the paradigm for results formatting and such
-        localParadigmOptions["nameWidth"] = self.nameWidth()
-
-        p = XkorParadigmFactory.newParadigmForSport(self.sport, localParadigmOptions)
+        # pass the run number to the paradigm for results formatting and such
+        p = self._newParadigm(runNumber=matchday)
 
         self.resultsBuf[matchday] = ""
         sl = self.startList.groups[0]

@@ -19,13 +19,7 @@ class XkorArcheryCompetition(XkorAbstractCompetition):
         return XkorArcheryCompetitionOptions(options)
 
     def scorinate(self, matchday):
-        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
-
-        localParadigmOptions = dict(self.paradigmOpt)
-        localParadigmOptions["rankingRound"] = "true"
-        localParadigmOptions["nameWidth"] = self.nameWidth()
-
-        p = XkorParadigmFactory.newParadigmForSport(self.sport, localParadigmOptions)
+        p = self._newParadigm(rankingRound="true")
 
         self.resultsBuf[matchday] = ""
         sl = self.startList.groups[0]

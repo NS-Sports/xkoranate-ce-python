@@ -358,13 +358,6 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
 
     # ------------------------------------------------------------- scorinate
 
-    def _newParadigm(self):
-        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
-
-        localParadigmOptions = dict(self.paradigmOpt)
-        localParadigmOptions["nameWidth"] = self.nameWidth()
-        return XkorParadigmFactory.newParadigmForSport(self.sport, localParadigmOptions)
-
     def _decideMatch(self, p, home, away):
         """Resolve one match to (score1, score2, decider, winner).
 
@@ -561,9 +554,7 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
         # "matchday" is the first that will be erased
         self._loadState()
 
-        for k in list(self.resultsBuf.keys()):
-            if k >= matchday:
-                self.resultsBuf[k] = ""
+        self._clearResultsFrom(matchday)
 
         kept = []
         for row in self._rows:

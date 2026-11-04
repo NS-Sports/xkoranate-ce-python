@@ -27,14 +27,7 @@ class XkorShootingCompetition(XkorAbstractCompetition):
         return XkorShootingCompetitionOptions(options)
 
     def scorinate(self, matchday):
-        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
-
-        localParadigmOptions = dict(self.paradigmOpt)
-        localParadigmOptions["nameWidth"] = self.nameWidth()
-        if matchday == 0:
-            localParadigmOptions["qualifying"] = "true"
-
-        p = XkorParadigmFactory.newParadigmForSport(self.sport, localParadigmOptions)
+        p = self._newParadigm(qualifying="true") if matchday == 0 else self._newParadigm()
 
         self.resultsBuf[matchday] = ""
         sl = self.startList.groups[0]

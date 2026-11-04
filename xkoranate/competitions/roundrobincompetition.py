@@ -185,8 +185,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
 
         return standingsColumns(
             self.tableSortCriteria(), heading, groupName, nameWidth, positionWidth, matchdayWidth,
-            draws=(toString(opt.get("forceTieBreak")) != "1"
-                   and toString(self.userOpt.get("allowDraws")) != "false"),
+            draws=toString(opt.get("forceTieBreak")) != "1" and self.allowsDraws(),
             gridWidth=(self.largestGroupSize(self.startList) * 5
                        if toString(self.userOpt.get("showResultsGrid")) == "true" else None))
 
@@ -230,10 +229,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
 
     def revertToMatchday(self, matchday):
         # “matchday” is the first that will be erased
-        # delete the results
-        for k in list(self.resultsBuf.keys()):
-            if k >= matchday:
-                self.resultsBuf[k] = ""
+        self._clearResultsFrom(matchday)
 
         # sort out the table data
         tableData = toList(self.userOpt.get("tableData"))
@@ -250,12 +246,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         return dict(self.resumeOpt)
 
     def scorinateMatchday(self, matchday):
-        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
-
-        localParadigmOptions = dict(self.paradigmOpt)
-        localParadigmOptions["nameWidth"] = self.nameWidth()
-
-        p = XkorParadigmFactory.newParadigmForSport(self.sport, localParadigmOptions)
+        p = self._newParadigm()
 
         fixtures = self.generateFixtures(matchday, self.largestGroupSize(self.startList))
 
@@ -278,15 +269,9 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
 
             p.scorinate(athletes)
 
-            if toString(self.userOpt.get("allowDraws")) == "false":
+            if not self.allowsDraws():
                 # if there’s a tie, deal with it
-                results = list(p.results())
-                for j in range(0, len(results) - (len(results) % 2), 2):
-                    score1 = results[j]
-                    score2 = results[j + 1]
-                    if p.compare(score1, score2) == 0:
-                        tiebreakAthletes = [score1.athlete, score2.athlete]
-                        p.breakTie(tiebreakAthletes)
+                self._breakDrawnPairs(p)
 
             self.resultsBuf[matchday] = self.resultsBuf.get(matchday, "") + i.name + "\n" + p.output() + "\n"
 
@@ -297,7 +282,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
                     score2 = p.findResult(i.athletes[j[1]].id)
 
                     scoreValue1, scoreValue2, decider = self.tableScores(
-                        p, score1, score2, toString(self.userOpt.get("allowDraws")) != "false")
+                        p, score1, score2, self.allowsDraws())
                     self.tables[groupNo].insertMatch(i.athletes[j[0]].name, i.athletes[j[1]].name, scoreValue1, scoreValue2, decider)
 
                     # insert into the resume options
@@ -442,7 +427,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         criteria = self.tableSortCriteria()
         first = criteria[0] if criteria else ""
         draws = (toString(self.sport.paradigmOptions().get("forceTieBreak")) != "1"
-                 and toString(self.userOpt.get("allowDraws")) != "false")
+                 and self.allowsDraws())
         perGame = None if not gamesPerTeam else Fraction(1, gamesPerTeam)
         win = [(1, 0), (0, 1)]  # one side wins, the other loses
 

@@ -156,14 +156,10 @@ class XkorInterConferenceCompetition(XkorRoundRobinCompetition):
         self.resultsBuf[matchday] += "\n"
 
     def scorinateMatchday(self, matchday):
-        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
         from xkoranate.tablegenerator.tablematch import XkorTableMatch
 
-        localParadigmOptions = dict(self.paradigmOpt)
-        localParadigmOptions["nameWidth"] = self.nameWidth()
-        p = XkorParadigmFactory.newParadigmForSport(self.sport, localParadigmOptions)
-
-        allowDraws = toString(self.userOpt.get("allowDraws")) != "false"
+        p = self._newParadigm()
+        allowDraws = self.allowsDraws()
         stored = toList(self.resumeOpt.get(self.DATA_KEY))
         output = ""
 
@@ -177,10 +173,7 @@ class XkorInterConferenceCompetition(XkorRoundRobinCompetition):
 
             if not allowDraws:
                 # if there’s a tie, deal with it
-                results = list(p.results())
-                for j in range(0, len(results) - (len(results) % 2), 2):
-                    if p.compare(results[j], results[j + 1]) == 0:
-                        p.breakTie([results[j].athlete, results[j + 1].athlete])
+                self._breakDrawnPairs(p)
 
             output += self.sectionName(section) + "\n" + p.output() + "\n"
 
@@ -276,8 +269,6 @@ class XkorInterConferenceCompetition(XkorRoundRobinCompetition):
 
     def revertToMatchday(self, matchday):
         # “matchday” is the first that will be erased
-        for k in list(self.resultsBuf.keys()):
-            if k >= matchday:
-                self.resultsBuf[k] = ""
+        self._clearResultsFrom(matchday)
         self.resumeOpt[self.DATA_KEY] = self._storedResults(matchday)
         return dict(self.resumeOpt)
