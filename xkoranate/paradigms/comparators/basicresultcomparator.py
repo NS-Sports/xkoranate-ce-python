@@ -11,9 +11,14 @@ class XkorBasicResultComparator(XkorAbstractResultComparator):
 
     def __call__(self, a, b):
         if self.isAscending:
-            return a.score() < b.score()
+            return self.sortAscending(a, b)
         else:
-            return b.score() < a.score()
+            return self.sortAscending(b, a)
+
+    def sortAscending(self, a, b):
+        """Does a come before b when the sort runs ascending? Subclasses
+        add their tiebreaks here; __call__ flips it for descending sorts."""
+        return a.score() < b.score()
 
     # every comparator sorts through sortKey(), which dispatches back into
     # this instance's __call__ — the C++ original had to redeclare sort() in

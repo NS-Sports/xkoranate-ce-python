@@ -20,12 +20,6 @@ class XkorTimedResultComparator(XkorBasicResultComparator):
             self.useRounding = False
             self.roundingValue = 0.0
 
-    def __call__(self, a, b):
-        if self.isAscending:
-            return self.sortAscending(a, b)
-        else:
-            return self.sortAscending(b, a)
-
     @staticmethod
     def compareVariant(a, b):
         return toDouble(a) < toDouble(b)
