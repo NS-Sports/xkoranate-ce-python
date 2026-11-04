@@ -4,6 +4,10 @@ from .tablematch import XkorTableMatch
 from .tablerow import XkorTableRow
 from .tablesorter import XkorTableSorter
 
+# columns showing the XkorTableRow count of the same name
+_COUNT_COLUMNS = frozenset(("played", "wins", "draws", "losses", "otWins", "soWins",
+                            "otLosses", "soLosses", "goalsFor", "goalsAgainst"))
+
 
 class XkorTable(XkorPointsAccessors):
     def __init__(self):
@@ -194,26 +198,8 @@ class XkorTable(XkorPointsAccessors):
                             rval += " " * k.width
                     elif k.columnType == "name":
                         rval += j.name().ljust(k.width)
-                    elif k.columnType == "played":
-                        rval += qNumber(j.played()).rjust(k.width)
-                    elif k.columnType == "wins":
-                        rval += qNumber(j.wins()).rjust(k.width)
-                    elif k.columnType == "draws":
-                        rval += qNumber(j.draws()).rjust(k.width)
-                    elif k.columnType == "losses":
-                        rval += qNumber(j.losses()).rjust(k.width)
-                    elif k.columnType == "otWins":
-                        rval += qNumber(j.otWins()).rjust(k.width)
-                    elif k.columnType == "soWins":
-                        rval += qNumber(j.soWins()).rjust(k.width)
-                    elif k.columnType == "otLosses":
-                        rval += qNumber(j.otLosses()).rjust(k.width)
-                    elif k.columnType == "soLosses":
-                        rval += qNumber(j.soLosses()).rjust(k.width)
-                    elif k.columnType == "goalsFor":
-                        rval += qNumber(j.goalsFor()).rjust(k.width)
-                    elif k.columnType == "goalsAgainst":
-                        rval += qNumber(j.goalsAgainst()).rjust(k.width)
+                    elif k.columnType in _COUNT_COLUMNS:
+                        rval += qNumber(getattr(j, k.columnType)()).rjust(k.width)
                     elif k.columnType == "goalDifference":
                         rval += (("+" if j.goalDifference() > 0
                                   else ("−" if j.goalDifference() < 0 else ""))

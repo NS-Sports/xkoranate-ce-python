@@ -39,54 +39,35 @@ class XkorTableRow:
     def goalsFor(self):
         return self.scores.get("_goalsFor", 0.0)
 
-    def h2hAwayGoals(self, teams):
+    def _h2hSum(self, teams, value):
+        """value(match) summed over this team's games against `teams`."""
         rval = 0
         for i in teams:
-            teamResults = self.h2hResults.get(i, [])
-            for j in teamResults:
-                if j.team2 == self.n:  # if this team was away
-                    rval += j.goalsFor(self.n)
+            for j in self.h2hResults.get(i, []):
+                rval += value(j)
         return rval
+
+    def h2hAwayGoals(self, teams):
+        # only the games this team played away
+        return self._h2hSum(teams, lambda j: j.goalsFor(self.n) if j.team2 == self.n else 0)
 
     def h2hGoalDifference(self, teams):
-        rval = 0
-        for i in teams:
-            teamResults = self.h2hResults.get(i, [])
-            for j in teamResults:
-                rval += j.goalDifference(self.n)
-        return rval
+        return self._h2hSum(teams, lambda j: j.goalDifference(self.n))
 
     def h2hGoalsAgainst(self, teams):
-        rval = 0
-        for i in teams:
-            teamResults = self.h2hResults.get(i, [])
-            for j in teamResults:
-                rval += j.goalsAgainst(self.n)
-        return rval
+        return self._h2hSum(teams, lambda j: j.goalsAgainst(self.n))
 
     def h2hGoalsFor(self, teams):
-        rval = 0
-        for i in teams:
-            teamResults = self.h2hResults.get(i, [])
-            for j in teamResults:
-                rval += j.goalsFor(self.n)
-        return rval
+        return self._h2hSum(teams, lambda j: j.goalsFor(self.n))
 
     def h2hPoints(self, teams):
-        rval = 0
-        for i in teams:
-            teamResults = self.h2hResults.get(i, [])
-            for j in teamResults:
-                rval += j.points(self.n)
-        return rval
+        return self._h2hSum(teams, lambda j: j.points(self.n))
 
     def h2hWins(self, teams):
-        rval = 0
-        for i in teams:
-            teamResults = self.h2hResults.get(i, [])
-            for j in teamResults:
-                rval += 1 if j.points(self.n) == 3 else 0
-        return rval
+        return self._h2hSum(teams, lambda j: 1 if j.points(self.n) == 3 else 0)
+
+    def _bump(self, key, n=1):
+        self.scores[key] = self.scores.get(key, 0.0) + n
 
     def insertMatch(self, t2name, t1score, t2score, home, decider=None, cross=False):
         if home:
@@ -95,26 +76,26 @@ class XkorTableRow:
         else:
             self.h2hResults.setdefault(t2name, []).insert(
                 0, XkorTableMatch(t2name, self.n, t2score, t1score, decider))
-            self.scores["_awayGoals"] = self.scores.get("_awayGoals", 0.0) + t1score
-        self.scores["_played"] = self.scores.get("_played", 0.0) + 1
+            self._bump("_awayGoals", t1score)
+        self._bump("_played")
         if t1score > t2score:
-            self.scores["_wins"] = self.scores.get("_wins", 0.0) + 1
+            self._bump("_wins")
             if not home:
-                self.scores["_awayWins"] = self.scores.get("_awayWins", 0.0) + 1
+                self._bump("_awayWins")
             if decider == "OT":
-                self.scores["_otWins"] = self.scores.get("_otWins", 0.0) + 1
+                self._bump("_otWins")
             elif decider == "SO":
-                self.scores["_soWins"] = self.scores.get("_soWins", 0.0) + 1
+                self._bump("_soWins")
         elif t1score == t2score:
-            self.scores["_draws"] = self.scores.get("_draws", 0.0) + 1
+            self._bump("_draws")
         else:
-            self.scores["_losses"] = self.scores.get("_losses", 0.0) + 1
+            self._bump("_losses")
             if home:
-                self.scores["_homeLosses"] = self.scores.get("_homeLosses", 0.0) + 1
+                self._bump("_homeLosses")
             if decider == "OT":
-                self.scores["_otLosses"] = self.scores.get("_otLosses", 0.0) + 1
+                self._bump("_otLosses")
             elif decider == "SO":
-                self.scores["_soLosses"] = self.scores.get("_soLosses", 0.0) + 1
+                self._bump("_soLosses")
         if cross:
             # a game against another conference; the table may score these
             # differently (see XkorTable.setCrossPoints)
@@ -122,11 +103,11 @@ class XkorTableRow:
                 key = "_crossDraws"
             else:
                 key = "_cross" + (decider or "") + ("Wins" if t1score > t2score else "Losses")
-            self.scores[key] = self.scores.get(key, 0.0) + 1
-        self.scores["_goalsFor"] = self.scores.get("_goalsFor", 0.0) + t1score
-        self.scores["_goalsAgainst"] = self.scores.get("_goalsAgainst", 0.0) + t2score
+            self._bump(key)
+        self._bump("_goalsFor", t1score)
+        self._bump("_goalsAgainst", t2score)
         if home:
-            self.scores["_homeGoalsAgainst"] = self.scores.get("_homeGoalsAgainst", 0.0) + t2score
+            self._bump("_homeGoalsAgainst", t2score)
         self.scores["_goalDifference"] = self.scores.get("_goalDifference", 0.0) + t1score - t2score
 
     def losses(self):
