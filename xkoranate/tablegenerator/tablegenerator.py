@@ -11,7 +11,7 @@ from ..variant import toString
 from .decider import parseMatchLine
 from .sortcriteriawidget import XkorSortCriteriaWidget
 from .table import XkorTable
-from .tablecolumn import XkorTableColumn
+from .tablecolumn import standingsColumns
 from .tablematch import XkorTableMatch
 
 
@@ -200,65 +200,26 @@ class XkorTableGenerator(QWidget):
         self.matchesModified = False
 
     def generateTableColumns(self):
-        columns = []
-
         nameWidth = 20
         for i in self.teamsList:
             if len(i) > nameWidth:
                 nameWidth = len(i)
-        matchdayWidth = self.columnWidth.value()
         teams = len(self.teamsList)
         # C++: int positionWidth = log10(teams) + 1; log10(0) is undefined
         # behaviour there — guard against it here
         positionWidth = int(math.log10(teams) + 1) if teams > 0 else 1
-        chosenGoalName = toString(
-            self.goalName.itemData(self.goalName.currentIndex()))
+        goal = toString(self.goalName.itemData(self.goalName.currentIndex()))
+        headings = {"played": "Pld", "wins": "W", "draws": "D", "losses": "L",
+                    "otWins": "OTW", "soWins": "SOW", "otLosses": "OTL", "soLosses": "SOL",
+                    "goalsFor": goal + "F", "goalsAgainst": goal + "A", "goalAverage": "Avg",
+                    "goalDifference": goal + "D", "winPercent": "Win %", "winPercentPure": "Win %",
+                    "winPercentNFL": "Win %", "points": "Pts"}
 
-        sortCriteria = self.scw.sortCriteria()
-        usesGoalAverage = "goalAverage" in sortCriteria
-        usesGoalDifference = "goalDifference" in sortCriteria
-        usesGoalsAgainst = "goalsAgainst" in sortCriteria
-        usesGoalsFor = "goalsFor" in sortCriteria
-        usesWinPercent = "winPercent" in sortCriteria
-        usesWinPercentPure = "winPercentPure" in sortCriteria
-        usesWinPercentNFL = "winPercentNFL" in sortCriteria
-        usesPoints = "points" in sortCriteria
-
-        columns.append(XkorTableColumn("position", "", positionWidth))
-        columns.append(XkorTableColumn("name", "", nameWidth))
-        columns.append(XkorTableColumn("played", "Pld", matchdayWidth + 2))
-        columns.append(XkorTableColumn("wins", "W", matchdayWidth + 2))
-        if self.showDraws.checkState() == Qt.Checked:
-            columns.append(XkorTableColumn("draws", "D", matchdayWidth + 1))
-        columns.append(XkorTableColumn("losses", "L", matchdayWidth + 1))
-        if self.showOvertime.checkState() == Qt.Checked:
-            columns.append(XkorTableColumn("otWins", "OTW", matchdayWidth + 2))
-            columns.append(XkorTableColumn("soWins", "SOW", matchdayWidth + 2))
-            columns.append(XkorTableColumn("otLosses", "OTL", matchdayWidth + 2))
-            columns.append(XkorTableColumn("soLosses", "SOL", matchdayWidth + 2))
-        if usesGoalAverage or usesGoalDifference or usesGoalsAgainst or usesGoalsFor:
-            columns.append(XkorTableColumn("goalsFor", chosenGoalName + "F",
-                                           matchdayWidth + 3))
-            columns.append(XkorTableColumn("goalsAgainst", chosenGoalName + "A",
-                                           matchdayWidth + 2))
-        if usesGoalAverage:
-            columns.append(XkorTableColumn("goalAverage", "Avg", 7))
-        if usesGoalDifference:
-            columns.append(XkorTableColumn("goalDifference",
-                                           chosenGoalName + "D",
-                                           matchdayWidth + 2))
-        if usesWinPercent:
-            columns.append(XkorTableColumn("winPercent", "Win %", 8))
-        if usesWinPercentPure:
-            columns.append(XkorTableColumn("winPercentPure", "Win %", 8))
-        if usesWinPercentNFL:
-            columns.append(XkorTableColumn("winPercentNFL", "Win %", 8))
-        if usesPoints:
-            columns.append(XkorTableColumn("points", "Pts", matchdayWidth + 3))
-        if self.showResultsGrid.checkState() == Qt.Checked:
-            columns.append(XkorTableColumn("resultsGrid", "", teams * 5))
-
-        return columns
+        return standingsColumns(
+            self.scw.sortCriteria(), headings.get, "", nameWidth, positionWidth,
+            self.columnWidth.value(), draws=self.showDraws.checkState() == Qt.Checked,
+            overtime=self.showOvertime.checkState() == Qt.Checked,
+            gridWidth=teams * 5 if self.showResultsGrid.checkState() == Qt.Checked else None)
 
     def importResults(self, filename=None):
         if filename is None:

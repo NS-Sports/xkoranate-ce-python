@@ -10,6 +10,23 @@ from xkoranate.variant import qNumber, toDouble, toInt, toList, toString, toUInt
 _STORED_MATCH = re.compile("([0-9]+): (.+) (-?[0-9.]+)–(-?[0-9.]+)(?: (OT|SO))? (.+)")
 
 
+# column type -> (sport option naming its heading, default heading)
+_TABLE_HEADINGS = {
+    "played": ("tableHeaderPlayed", "Pld"),
+    "wins": ("tableHeaderWins", "W"),
+    "draws": ("tableHeaderDraws", "D"),
+    "losses": ("tableHeaderLosses", "L"),
+    "goalsFor": ("tableHeaderGoalsFor", "PF"),
+    "goalsAgainst": ("tableHeaderGoalsAgainst", "PA"),
+    "goalAverage": ("tableHeaderGoalAverage", "Avg"),
+    "goalDifference": ("tableHeaderGoalDifference", "PD"),
+    "winPercent": ("tableHeaderWinPercent", "Win %"),
+    "winPercentPure": ("tableHeaderWinPercent", "Win %"),
+    "winPercentNFL": ("tableHeaderWinPercent", "Win %"),
+    "points": ("tableHeaderPoints", "Pts"),
+}
+
+
 def parseStoredMatch(line):
     """(matchday, XkorTableMatch) from a saved result line, or None."""
     from xkoranate.tablegenerator.tablematch import XkorTableMatch
@@ -153,9 +170,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
             t.setPointsForSOLoss(toInt(self.userOpt.get("pointsForSOLoss")))
 
     def generateTableColumns(self, groupName, teamCount=None):
-        from xkoranate.tablegenerator.tablecolumn import XkorTableColumn
-
-        columns = []
+        from xkoranate.tablegenerator.tablecolumn import standingsColumns
 
         nameWidth = self.nameWidth()
         if len(groupName) > nameWidth:
@@ -164,42 +179,16 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         positionWidth = int(math.log10(teamCount or self.largestGroupSize(self.startList))) + 1
         opt = self.sport.paradigmOptions()
 
-        sortCriteria = self.tableSortCriteria()
-        usesGoalAverage = "goalAverage" in sortCriteria
-        usesGoalDifference = "goalDifference" in sortCriteria
-        usesGoalsAgainst = "goalsAgainst" in sortCriteria
-        usesGoalsFor = "goalsFor" in sortCriteria
-        usesWinPercent = "winPercent" in sortCriteria
-        usesWinPercentPure = "winPercentPure" in sortCriteria
-        usesWinPercentNFL = "winPercentNFL" in sortCriteria
-        usesPoints = "points" in sortCriteria
+        def heading(columnType):
+            key, default = _TABLE_HEADINGS[columnType]
+            return toString(opt.get(key, default))
 
-        columns.append(XkorTableColumn("position", "", positionWidth))
-        columns.append(XkorTableColumn("name", groupName, nameWidth))
-        columns.append(XkorTableColumn("played", toString(opt.get("tableHeaderPlayed", "Pld")), matchdayWidth + 2))
-        columns.append(XkorTableColumn("wins", toString(opt.get("tableHeaderWins", "W")), matchdayWidth + 2))
-        if toString(opt.get("forceTieBreak")) != "1" and toString(self.userOpt.get("allowDraws")) != "false":
-            columns.append(XkorTableColumn("draws", toString(opt.get("tableHeaderDraws", "D")), matchdayWidth + 1))
-        columns.append(XkorTableColumn("losses", toString(opt.get("tableHeaderLosses", "L")), matchdayWidth + 1))
-        if usesGoalAverage or usesGoalDifference or usesGoalsAgainst or usesGoalsFor:
-            columns.append(XkorTableColumn("goalsFor", toString(opt.get("tableHeaderGoalsFor", "PF")), matchdayWidth + 3))
-            columns.append(XkorTableColumn("goalsAgainst", toString(opt.get("tableHeaderGoalsAgainst", "PA")), matchdayWidth + 2))
-        if usesGoalAverage:
-            columns.append(XkorTableColumn("goalAverage", toString(opt.get("tableHeaderGoalAverage", "Avg")), 7))
-        if usesGoalDifference:
-            columns.append(XkorTableColumn("goalDifference", toString(opt.get("tableHeaderGoalDifference", "PD")), matchdayWidth + 2))
-        if usesWinPercent:
-            columns.append(XkorTableColumn("winPercent", toString(opt.get("tableHeaderWinPercent", "Win %")), 8))
-        if usesWinPercentPure:
-            columns.append(XkorTableColumn("winPercentPure", toString(opt.get("tableHeaderWinPercent", "Win %")), 8))
-        if usesWinPercentNFL:
-            columns.append(XkorTableColumn("winPercentNFL", toString(opt.get("tableHeaderWinPercent", "Win %")), 8))
-        if usesPoints:
-            columns.append(XkorTableColumn("points", toString(opt.get("tableHeaderPoints", "Pts")), matchdayWidth + 3))
-        if toString(self.userOpt.get("showResultsGrid")) == "true":
-            columns.append(XkorTableColumn("resultsGrid", "", self.largestGroupSize(self.startList) * 5))
-
-        return columns
+        return standingsColumns(
+            self.tableSortCriteria(), heading, groupName, nameWidth, positionWidth, matchdayWidth,
+            draws=(toString(opt.get("forceTieBreak")) != "1"
+                   and toString(self.userOpt.get("allowDraws")) != "false"),
+            gridWidth=(self.largestGroupSize(self.startList) * 5
+                       if toString(self.userOpt.get("showResultsGrid")) == "true" else None))
 
     def largestGroupSize(self, sl):
         rval = 0
