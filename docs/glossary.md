@@ -12,6 +12,11 @@
 :   An empty place in a knockout bracket. The team drawn against a bye
     goes through to the next round without playing.
 
+**Conference**
+:   A group of teams within a league split into conferences or divisions.
+    In an inter-conference round robin, each group is one conference: teams
+    play their own conference and every other conference too.
+
 **Event**
 :   One competition you generate results for, such as a group, a cup or a
     final. A file can hold many events.

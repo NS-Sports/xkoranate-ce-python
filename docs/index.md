@@ -28,6 +28,7 @@ results **scorinating**, and you'll see that word throughout the app.
   skiing, cycling, gymnastics, shooting and archery.
 - **Every common competition format.** You can run:
     - a league where everyone plays everyone
+    - a league split into conferences, which also play each other
     - a knockout cup
     - one-off matches
     - a race where everyone starts together
