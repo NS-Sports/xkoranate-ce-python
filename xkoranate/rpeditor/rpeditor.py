@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (QButtonGroup, QComboBox, QDoubleSpinBox,
                                QRadioButton, QVBoxLayout, QWidget)
 
 from ..ui.dialogs import confirm
+from ..ui.widgets import discard
 from ..variant import toString
 from .rpbonuswidgets.olympicrpbonuswidget import XkorOlympicRPBonusWidget
 from .rpbonuswidgets.wc36rpbonuswidget import XkorWC36RPBonusWidget
@@ -123,9 +124,7 @@ class XkorRPEditor(QWidget):
                     self.m_rpCalcType.setCurrentIndex(self.m_rpCalcType.findData(self.m_currentRPCalcType))
                     return
 
-            self.m_bonusLayout.removeWidget(self.m_rpBonus)
-            self.m_rpBonus.setParent(None)  # delete m_rpBonus
-            self.m_rpBonus.deleteLater()
+            discard(self.m_bonusLayout, self.m_rpBonus)
             if newRPCalcType == "wc36":
                 self.m_rpBonus = XkorWC36RPBonusWidget()
             else:

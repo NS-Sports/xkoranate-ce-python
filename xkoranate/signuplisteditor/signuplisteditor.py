@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (QCheckBox, QDoubleSpinBox, QFormLayout, QVBoxLayo
 from ..signuplist import XkorSignupList
 from ..ui.tooltips import wrapped_tooltip
 from ..ui.typography import heading_label
+from ..ui.widgets import discard
 
 # per-athlete skill-entry ceiling used whenever "Maximum skill" isn't a
 # manually-set bound (pinned to participants, or fixed for raw-rank
@@ -215,11 +216,8 @@ class XkorSignupListEditor(QWidget):
     def _setSport(self, sport, paradigmOptions):
         self.updateData()
 
-        if self.athletes:
-            self.layout.removeWidget(self.athletes)
         if self.athletes is not None:  # delete athletes
-            self.athletes.setParent(None)
-            self.athletes.deleteLater()
+            discard(self.layout, self.athletes)
 
         from ..paradigms.paradigmfactory import XkorParadigmFactory
 

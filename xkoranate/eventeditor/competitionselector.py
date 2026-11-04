@@ -3,6 +3,7 @@ from PySide6.QtWidgets import QComboBox, QGridLayout, QWidget
 
 from ..ui.fonts import widen_combo_popup
 from ..ui.typography import heading_label
+from ..ui.widgets import discard
 from ..variant import toString
 
 
@@ -60,11 +61,7 @@ class XkorCompetitionSelector(QWidget):
         # update the competition types list
         currentCompetitionType = toString(self.comboBox.itemData(self.comboBox.currentIndex(), Qt.UserRole))
 
-        if self.optionsWidget:
-            self.layout.removeWidget(self.optionsWidget)
-            self.optionsWidget.setParent(None)
-            self.optionsWidget.deleteLater()
-        self.optionsWidget = None
+        self._discardOptionsWidget()
 
         # repopulating the box fires currentIndexChanged for every item that
         # lands on the current index, and each of those writes a competition
@@ -106,16 +103,17 @@ class XkorCompetitionSelector(QWidget):
             # complete this branch is unreachable
             return
 
-        if self.optionsWidget:
-            self.layout.removeWidget(self.optionsWidget)
-            self.optionsWidget.setParent(None)
-            self.optionsWidget.deleteLater()
-        self.optionsWidget = None
+        self._discardOptionsWidget()
 
         if c.hasOptionsWidget():
             self.optionsWidget = c.newOptionsWidget(self.currentOptions)
             self.layout.addWidget(self.optionsWidget, 2, 0, Qt.AlignTop)
             self.optionsWidget.optionsChanged.connect(self.updateCompetitionOptions)
+
+    def _discardOptionsWidget(self):
+        if self.optionsWidget:
+            discard(self.layout, self.optionsWidget)
+        self.optionsWidget = None
 
     def updateCompetitionOptions(self, newOptions):
         self.currentOptions = newOptions
