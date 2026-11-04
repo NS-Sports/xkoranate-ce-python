@@ -140,7 +140,6 @@ class XkorTableSorter(XkorPointsAccessors):
     def __init__(self, points=None):
         # a table passes its own scheme, so the two always agree
         self.points = points if points is not None else XkorPointsScheme()
-        self.h2hTeams = []
         # team name -> coin-flip value; a team's flip sticks once made, so
         # regenerating the table (or reloading it after a save) doesn't
         # re-roll it — see XkorTable.getCoinFlips()/setCoinFlips()
@@ -154,9 +153,6 @@ class XkorTableSorter(XkorPointsAccessors):
 
     def setCoinFlips(self, flips):
         self.coinFlips = flips
-
-    def setH2HTeams(self, teams):
-        self.h2hTeams = teams
 
     def sort(self, rows, sortType):
         if sortType == "alphabetical":

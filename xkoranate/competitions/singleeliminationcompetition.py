@@ -7,8 +7,7 @@ from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
 from xkoranate.competitions.bracketresults import (THIRD_PLACE_ROUND, BracketRows,
                                                    MatchdaySchedule)
 from xkoranate.rng import Mt19937
-from xkoranate.tablegenerator.decider import nudgeForShootout
-from xkoranate.variant import qNumber, toDouble, toInt, toList, toString
+from xkoranate.variant import toInt, toList, toString
 
 BYE_MARKER = "— BYE —"
 BYE_ADVANCES = "BYE — advances"

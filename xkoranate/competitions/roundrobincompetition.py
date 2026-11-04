@@ -2,7 +2,7 @@ import math
 import re
 
 from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
-from xkoranate.variant import qNumber, toDouble, toInt, toList, toString, toUInt
+from xkoranate.variant import qNumber, toDouble, toInt, toList, toString
 
 # a saved result: “3: Aquilla 3–1 Busby”, with an optional “OT”/“SO” decider
 # marker before the away team, e.g. “3: Aquilla 3–1 OT Busby”. A score can be
@@ -83,10 +83,6 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
 
             # initialize the results in the resume file options
             self.resumeOpt["tableData"] = self.userOpt.get("tableData")
-
-            numberOfLegs = 1
-            if "numberOfLegs" in self.userOpt:
-                numberOfLegs = toUInt(self.userOpt.get("numberOfLegs"))  # noqa: F841 (unused in the C++ too)
 
             self.scorinateMatchday(matchday)
             self.resultsBuf[matchday] = self.resultsBuf.get(matchday, "") + "\n"

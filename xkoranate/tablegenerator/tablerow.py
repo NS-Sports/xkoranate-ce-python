@@ -160,11 +160,5 @@ class XkorTableRow:
                 rval = (i.score1, i.score2)
         return rval
 
-    def setValue(self, columnName, value):
-        self.scores[columnName] = value
-
-    def value(self, columnName):
-        return self.scores.get(columnName, 0.0)
-
     def wins(self):
         return self.scores.get("_wins", 0.0)

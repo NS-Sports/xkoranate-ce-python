@@ -28,14 +28,6 @@ class XkorTableMatch:
         s = self._scores(team)
         return 0 if s is None else s[0]
 
-    def opponent(self, team):
-        rval = ""
-        if team == self.team1:
-            rval = self.team2
-        elif team == self.team2:
-            rval = self.team1
-        return rval
-
     def points(self, team):
         s = self._scores(team)
         if s is None:
