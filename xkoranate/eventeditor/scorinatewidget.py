@@ -1,4 +1,6 @@
+import sys
 import time
+import traceback
 
 from PySide6.QtCore import QDir, QSize, Qt, Signal
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox,
@@ -414,7 +416,13 @@ class XkorScorinateWidget(QWidget):
 
     def updateResults(self, matchday):
         text = self.c.results(matchday)
-        text = self.c.formatQualifications(text, matchday, self.qualificationSettings())
+        try:
+            text = self.c.formatQualifications(text, matchday, self.qualificationSettings())
+        except Exception:
+            # the markers are decoration: an event saved by an older version
+            # (or edited by hand) that they can't make sense of still has to
+            # show its results, so log the problem and show them plain
+            traceback.print_exc(file=sys.stderr)
         self.textedit.setPlainText(self._formatResults(text))
 
     def viewOdds(self):

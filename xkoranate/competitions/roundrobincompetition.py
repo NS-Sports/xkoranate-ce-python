@@ -334,6 +334,11 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         tables = []
         for groupNo, g in enumerate(groups):
             t = self._newTable(g.name, self.retrieveMatches(groupNo, upTo=matchday))
+            if "coinFlip" in t.getSortCriteria():
+                # league tables don't save their coin flips, so rebuilding
+                # one re-rolls any tie a flip decided; take the flips from
+                # the order the stored table shows instead
+                t.setCoinFlips(self._storedFlips(text, t))
             t.generate()
             tables.append(t)
 
@@ -354,6 +359,31 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
                 rval = rval.replace(plain, t.toText(), 1)
         self._qualificationCache[key] = rval
         return rval
+
+    @staticmethod
+    def _storedFlips(text, table):
+        """Coin-flip values that reproduce the row order of `table` as it
+        appears in the stored results text: earlier rows flip higher. Empty
+        if the table can't be found there."""
+        columns = table.getColumns()
+        if len(columns) < 2 or columns[0].columnType != "position":
+            return {}
+        header = table.toText().split("\n")[0]  # doesn't depend on the order
+        lines = text.split("\n")
+        if header not in lines:
+            return {}
+        start = columns[0].width + 1  # where the name column begins
+        names = sorted(table.unsortedData.keys(), key=len, reverse=True)
+        flips = {}
+        rows = lines[lines.index(header) + 1:]
+        for i, row in enumerate(rows):
+            if not row.strip():
+                break
+            for name in names:
+                if name not in flips and row[start:start + len(name)] == name:
+                    flips[name] = len(rows) - i
+                    break
+        return flips
 
     def _qualificationGroup(self, group, table, matchday):
         from xkoranate.competitions.qualification import QualificationGroup

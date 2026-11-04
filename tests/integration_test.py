@@ -1057,3 +1057,111 @@ def test_scorinate_step_box_loads_quietly_and_saves_changes(qt_app, sport_index,
     w.qualificationBox.setChecked(False)
     assert saved[-1]["qualificationMode"] == "off"
     assert w.textedit.toPlainText() == c.results(c.matchdays() - 1)
+
+
+# --- events saved before qualification markers existed -----------------------
+# Written by the code on main before this feature: no qualification options,
+# no heat ranks, coin flips not saved. Clicking the box on them must not crash.
+
+PRE_QUALIFICATION = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "fixtures", "pre-qualification")
+PRE_QUALIFICATION_FILES = sorted(f for f in os.listdir(PRE_QUALIFICATION) if f.endswith(".xml"))
+
+
+def clickEveryQualificationSetting(w):
+    """Every mode, on every matchday, with and without BBCode."""
+    for checked, best, places, bestOf in [(True, False, 1, 1), (True, True, 2, 1),
+                                          (True, True, 1, 3), (True, False, 99, 1),
+                                          (False, False, 2, 1)]:
+        w.qualificationPlaces.setValue(places)
+        w.qualificationBestOf.setValue(bestOf)
+        w.qualificationBest.setChecked(best)
+        w.qualificationBox.setChecked(checked)
+        for md in range(max(1, w.matchday.count())):
+            w.matchday.setCurrentIndex(md)
+            w.updateResults(md)
+        w.bbcodeCheckBox.toggle()
+
+
+def openInEditor(editor, path, damage=None):
+    r = XkorXmlReader(path)
+    ev = r.events()[0][1]
+    if damage is not None:
+        damage(ev.m_competitionOptions)
+    editor.ee.setData(ev, r.rpList())
+    return editor.ee.scorinateWidget
+
+
+@pytest.mark.parametrize("name", PRE_QUALIFICATION_FILES)
+def test_old_files_take_every_qualification_setting(editor, name, capfd):
+    w = openInEditor(editor, os.path.join(PRE_QUALIFICATION, name))
+    clickEveryQualificationSetting(w)
+    assert "Traceback" not in capfd.readouterr().err
+
+    # and where there are finished standings, they get marked
+    if name.startswith("rr-") and "not-started" not in name and "halfway" not in name:
+        w.qualificationPlaces.setValue(2)
+        w.qualificationBest.setChecked(False)
+        w.qualificationBox.setChecked(True)
+        w.matchday.setCurrentIndex(w.matchday.count() - 1)
+        rows = w.textedit.toPlainText().split("\n")
+        # a Q in the marker column: at the end, or before a results grid
+        assert any(line.endswith(" Q") or " Q  " in line for line in rows)
+
+
+def damagedOptions():
+    def junkSettings(o):
+        o.update(qualificationMode="banana", qualificationPlaces="abc", qualificationBestOf="-7")
+
+    def hugeSettings(o):
+        o.update(qualificationMode="topPlusBest", qualificationPlaces="99999", qualificationBestOf="0")
+
+    def junkTableData(o):
+        td = list(o.get("tableData") or [[]])
+        td[0] = list(td[0]) + ["garbage", "99: Nobody 1–0 Ghost", "x: A 1–1 B"]
+        o["tableData"] = td + [["0: Extra 1–0 Group"]]
+
+    def tableDataNotAList(o):
+        o["tableData"] = "not a list"
+
+    def junkHeatRanks(o):
+        o["heatRanks"] = [["x", "", "3"], "nonsense", [], ["1"] * 99]
+
+    def heatRanksNotAList(o):
+        o["heatRanks"] = "7"
+
+    return [junkSettings, hugeSettings, junkTableData, tableDataNotAList,
+            junkHeatRanks, heatRanksNotAList]
+
+
+@pytest.mark.parametrize("damage", damagedOptions(), ids=lambda f: f.__name__)
+@pytest.mark.parametrize("name", ["rr-groups-halfway.xml", "rr-coinflip-wins.xml", "ms-heats.xml"])
+def test_hand_damaged_options_dont_crash_the_box(editor, name, damage, capfd):
+    w = openInEditor(editor, os.path.join(PRE_QUALIFICATION, name), damage)
+    clickEveryQualificationSetting(w)
+    assert "Traceback" not in capfd.readouterr().err
+
+
+def test_coin_flip_ties_in_an_old_league_still_get_marked(editor):
+    # league tables never saved their flips; the markers take them from the
+    # order the stored table shows rather than re-rolling (and missing it)
+    for _ in range(5):
+        w = openInEditor(editor, os.path.join(PRE_QUALIFICATION, "rr-coinflip-wins.xml"))
+        w.qualificationPlaces.setValue(2)
+        w.qualificationBest.setChecked(False)
+        w.qualificationBox.setChecked(True)
+        w.matchday.setCurrentIndex(w.matchday.count() - 1)
+        assert markerCounts(w.textedit.toPlainText()) == (4, 4)
+
+
+def test_a_formatting_failure_shows_the_results_plain(editor, capfd):
+    w = openInEditor(editor, os.path.join(PRE_QUALIFICATION, "rr-one-group-done.xml"))
+
+    def broken(*args):
+        raise RuntimeError("something an old file confused")
+
+    w.c.formatQualifications = broken
+    w.qualificationBox.setChecked(True)
+    md = w.matchday.currentIndex()
+    assert w.textedit.toPlainText() == w.c.results(md)
+    assert "something an old file confused" in capfd.readouterr().err

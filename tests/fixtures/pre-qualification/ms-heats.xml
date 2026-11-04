@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scorinationFile version="0.3">
+	<rpList>
+		<useTeams>true</useTeams>
+		<competitionName></competitionName>
+		<rpEffect>15</rpEffect>
+		<rpCalculationType>olympic</rpCalculationType>
+		<minBonus>0</minBonus>
+		<maxBonus>1</maxBonus>
+		<rpOptions/>
+	</rpList>
+	<event id="{bd381dbc-82fd-4ccb-98f4-ff375c2e9518}" name="ms-heats">
+		<sport>Athletics—Men’s 00100 m—Round 1</sport>
+		<competition>standard</competition>
+		<paradigmOptions/>
+		<competitionOptions>
+			<string type="overallRanking">true</string>
+		</competitionOptions>
+		<results>
+			<result matchday="0">  Group A
+1 Team 05 (N04)           10.24
+2 Team 06 (N05)           10.32
+3 Team 01 (N00)           10.45
+4 Team 04 (N03)           10.61
+5 Team 03 (N02)           10.63
+6 Team 02 (N01)           11.43
+
+  Group B
+1 Team 07 (N06)           10.22
+2 Team 12 (N11)           10.56
+3 Team 08 (N07)           10.61
+4 Team 11 (N10)           10.94
+5 Team 10 (N09)           10.97
+6 Team 09 (N08)           12.60
+
+  Group C
+1 Team 14 (N13)           10.25
+2 Team 15 (N14)           10.37
+3 Team 16 (N15)           10.56
+4 Team 13 (N12)           10.63
+5 Team 17 (N16)           10.66
+
+   Overall ranking
+ 1 Team 07 (N06)           10.22
+ 2 Team 05 (N04)           10.24
+ 3 Team 14 (N13)           10.25
+ 4 Team 06 (N05)           10.32
+ 5 Team 15 (N14)           10.37
+ 6 Team 01 (N00)           10.45
+ 7 Team 16 (N15)           10.56
+ 8 Team 12 (N11)           10.56
+ 9 Team 04 (N03)           10.61
+10 Team 08 (N07)           10.61
+11 Team 13 (N12)           10.63
+12 Team 03 (N02)           10.63
+13 Team 17 (N16)           10.66
+14 Team 11 (N10)           10.94
+15 Team 10 (N09)           10.97
+16 Team 02 (N01)           11.43
+17 Team 09 (N08)           12.60
+
+</result>
+		</results>
+		<signupList>
+			<minRank>0</minRank>
+			<maxRank>1</maxRank>
+			<signup id="{4a35b6bb-83f6-4cdc-d0fe-4bf48f76ad21}" name="Team 01" nation="N00" skill="0.125"/>
+			<signup id="{2930cb49-9534-769a-f7ad-655211b3eb99}" name="Team 02" nation="N01" skill="0.25"/>
+			<signup id="{c540d347-4469-408a-a5bb-0161beca189f}" name="Team 03" nation="N02" skill="0.375"/>
+			<signup id="{a194396c-0cf5-d6bf-c299-08731abe6ff9}" name="Team 04" nation="N03" skill="0.5"/>
+			<signup id="{85a1b790-432d-515e-f21c-c78e3c5e36ea}" name="Team 05" nation="N04" skill="0.625"/>
+			<signup id="{dea28fb0-98cb-3e36-080f-b45c9bd87846}" name="Team 06" nation="N05" skill="0.75"/>
+			<signup id="{d6627601-5f79-30c3-beda-18991cff956a}" name="Team 07" nation="N06" skill="0.875"/>
+			<signup id="{9832299d-c8d2-277c-69cb-a8db17c50ca8}" name="Team 08" nation="N07" skill="0.125"/>
+			<signup id="{c72b79f7-cb0f-719f-5a77-0988eaed3719}" name="Team 09" nation="N08" skill="0.25"/>
+			<signup id="{7e295477-a3ea-ce19-9574-33a9c6d444d2}" name="Team 10" nation="N09" skill="0.375"/>
+			<signup id="{386be7e0-8304-1cc0-ee61-9cf01cc5f7c0}" name="Team 11" nation="N10" skill="0.5"/>
+			<signup id="{4cdab560-b29d-8e6a-bcc9-3bfbf42a3514}" name="Team 12" nation="N11" skill="0.625"/>
+			<signup id="{7c3a38c1-575e-3fb5-2733-3bfe11d09b2d}" name="Team 13" nation="N12" skill="0.75"/>
+			<signup id="{ec15c94f-427a-ab63-6170-72f6c1532a08}" name="Team 14" nation="N13" skill="0.875"/>
+			<signup id="{3eee6f15-cd1f-90c8-a1e9-013519dcada5}" name="Team 15" nation="N14" skill="0.125"/>
+			<signup id="{473de5b6-b6ef-9e8c-3903-d277a0d15fd9}" name="Team 16" nation="N15" skill="0.25"/>
+			<signup id="{6684cdfa-a046-8ffd-08d8-8267e157c5bf}" name="Team 17" nation="N16" skill="0.375"/>
+		</signupList>
+		<group name="Group A">
+			<signup>{4a35b6bb-83f6-4cdc-d0fe-4bf48f76ad21}</signup>
+			<signup>{2930cb49-9534-769a-f7ad-655211b3eb99}</signup>
+			<signup>{c540d347-4469-408a-a5bb-0161beca189f}</signup>
+			<signup>{a194396c-0cf5-d6bf-c299-08731abe6ff9}</signup>
+			<signup>{85a1b790-432d-515e-f21c-c78e3c5e36ea}</signup>
+			<signup>{dea28fb0-98cb-3e36-080f-b45c9bd87846}</signup>
+		</group>
+		<group name="Group B">
+			<signup>{d6627601-5f79-30c3-beda-18991cff956a}</signup>
+			<signup>{9832299d-c8d2-277c-69cb-a8db17c50ca8}</signup>
+			<signup>{c72b79f7-cb0f-719f-5a77-0988eaed3719}</signup>
+			<signup>{7e295477-a3ea-ce19-9574-33a9c6d444d2}</signup>
+			<signup>{386be7e0-8304-1cc0-ee61-9cf01cc5f7c0}</signup>
+			<signup>{4cdab560-b29d-8e6a-bcc9-3bfbf42a3514}</signup>
+		</group>
+		<group name="Group C">
+			<signup>{7c3a38c1-575e-3fb5-2733-3bfe11d09b2d}</signup>
+			<signup>{ec15c94f-427a-ab63-6170-72f6c1532a08}</signup>
+			<signup>{3eee6f15-cd1f-90c8-a1e9-013519dcada5}</signup>
+			<signup>{473de5b6-b6ef-9e8c-3903-d277a0d15fd9}</signup>
+			<signup>{6684cdfa-a046-8ffd-08d8-8267e157c5bf}</signup>
+		</group>
+	</event>
+</scorinationFile>
