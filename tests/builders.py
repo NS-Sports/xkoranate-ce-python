@@ -1,4 +1,4 @@
-"""Shared construction helpers for paradigm unit tests.
+"""Shared construction helpers for the test suite.
 
 Plain functions, not fixtures -- import what you need, or just construct
 inline if that reads more clearly for a given test.
@@ -9,6 +9,8 @@ from xkoranate.rng import Mt19937
 from xkoranate.sport import XkorSport
 
 
+# --- paradigms -----------------------------------------------------------------
+
 def make_sport(seed=None, paradigm_options=None, data_points=None):
     sport = XkorSport()
     sport.r = Mt19937(seed)
@@ -17,14 +19,15 @@ def make_sport(seed=None, paradigm_options=None, data_points=None):
     return sport
 
 
-def make_athlete(name="A", nation="", skill=0.5, rp_skill=None, style=None, athlete_id=None):
+def make_athlete(name="A", nation="", skill=0.5, rp_skill=None, athlete_id=None, **properties):
+    """One athlete; any other keyword becomes a property, e.g. style=3."""
     athlete = XkorAthlete(athlete_id)
     athlete.name = name
     athlete.nation = nation
     athlete.skill = skill
     athlete.rpSkill = skill if rp_skill is None else rp_skill
-    if style is not None:
-        athlete.setProperty("style", style)
+    for key, value in properties.items():
+        athlete.setProperty(key, value)
     return athlete
 
 
