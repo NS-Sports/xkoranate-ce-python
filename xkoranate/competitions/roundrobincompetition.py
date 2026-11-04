@@ -4,6 +4,28 @@ import re
 from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
 from xkoranate.variant import qNumber, toDouble, toInt, toList, toString, toUInt
 
+# a saved result: “3: Aquilla 3–1 Busby”, with an optional “OT”/“SO” decider
+# marker before the away team, e.g. “3: Aquilla 3–1 OT Busby”. A score can be
+# negative (taekwondo deducts penalty points), e.g. “3: Aquilla 6–-1 Busby”
+_STORED_MATCH = re.compile("([0-9]+): (.+) (-?[0-9.]+)–(-?[0-9.]+)(?: (OT|SO))? (.+)")
+
+
+def parseStoredMatch(line):
+    """(matchday, XkorTableMatch) from a saved result line, or None."""
+    from xkoranate.tablegenerator.tablematch import XkorTableMatch
+
+    rx = _STORED_MATCH.search(toString(line))
+    if rx is None:
+        return None
+    return (int(rx.group(1)),
+            XkorTableMatch(rx.group(2), rx.group(6), toDouble(rx.group(3)), toDouble(rx.group(4)), rx.group(5)))
+
+
+def formatStoredMatch(matchday, home, away, score1, score2, decider=None):
+    """The saved form of a result, as parseStoredMatch reads it back."""
+    deciderSuffix = (" " + decider) if decider else ""
+    return str(matchday) + ": " + home + " " + qNumber(score1) + "–" + qNumber(score2) + deciderSuffix + " " + away
+
 
 class XkorRoundRobinCompetition(XkorAbstractCompetition):
     def __init__(self, *args, **kwargs):
@@ -31,19 +53,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
                 t.setColumns(self.generateTableColumns(i.name))
                 t.setMatches(self.retrieveMatches(groupNo))
                 t.setSortCriteria(sortCriteria)
-                t.setPointsForWin(toInt(self.userOpt.get("pointsForWin")) if "pointsForWin" in self.userOpt else 3)
-                t.setPointsForDraw(toInt(self.userOpt.get("pointsForDraw")) if "pointsForDraw" in self.userOpt else 1)
-                t.setPointsForLoss(toInt(self.userOpt.get("pointsForLoss")) if "pointsForLoss" in self.userOpt else 0)
-                # OT/SO points are left unset (falling back to win/loss) unless the
-                # competition explicitly overrides them, so existing events score unchanged
-                if "pointsForOTWin" in self.userOpt:
-                    t.setPointsForOTWin(toInt(self.userOpt.get("pointsForOTWin")))
-                if "pointsForSOWin" in self.userOpt:
-                    t.setPointsForSOWin(toInt(self.userOpt.get("pointsForSOWin")))
-                if "pointsForOTLoss" in self.userOpt:
-                    t.setPointsForOTLoss(toInt(self.userOpt.get("pointsForOTLoss")))
-                if "pointsForSOLoss" in self.userOpt:
-                    t.setPointsForSOLoss(toInt(self.userOpt.get("pointsForSOLoss")))
+                self.setTablePoints(t)
                 self.tables.append(t)
                 groupNo += 1
 
@@ -57,7 +67,10 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
             self.scorinateMatchday(matchday)
             self.resultsBuf[matchday] = self.resultsBuf.get(matchday, "") + "\n"
 
-    def generateFixtures(self, matchday, groupSize):
+    @staticmethod
+    def generateFixtures(matchday, groupSize):
+        """(home, away) index pairs for one matchday of a round robin of
+        groupSize (even) teams, circle method; later legs swap home and away."""
         # account for possibility of more than two legs
         reverseFixtures = (matchday % (2 * (groupSize - 1)) >= groupSize - 1)  # if we’re in the 2nd, 4th, … leg, reverse home/away
         matchday %= (groupSize - 1)
@@ -131,7 +144,22 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
                 lines.append(self._formatOdds(p, i.athletes[home], i.athletes[away], trials))
         return "\n".join(lines) + ("\n" if lines else "")
 
-    def generateTableColumns(self, groupName):
+    def setTablePoints(self, t):
+        t.setPointsForWin(toInt(self.userOpt.get("pointsForWin")) if "pointsForWin" in self.userOpt else 3)
+        t.setPointsForDraw(toInt(self.userOpt.get("pointsForDraw")) if "pointsForDraw" in self.userOpt else 1)
+        t.setPointsForLoss(toInt(self.userOpt.get("pointsForLoss")) if "pointsForLoss" in self.userOpt else 0)
+        # OT/SO points are left unset (falling back to win/loss) unless the
+        # competition explicitly overrides them, so existing events score unchanged
+        if "pointsForOTWin" in self.userOpt:
+            t.setPointsForOTWin(toInt(self.userOpt.get("pointsForOTWin")))
+        if "pointsForSOWin" in self.userOpt:
+            t.setPointsForSOWin(toInt(self.userOpt.get("pointsForSOWin")))
+        if "pointsForOTLoss" in self.userOpt:
+            t.setPointsForOTLoss(toInt(self.userOpt.get("pointsForOTLoss")))
+        if "pointsForSOLoss" in self.userOpt:
+            t.setPointsForSOLoss(toInt(self.userOpt.get("pointsForSOLoss")))
+
+    def generateTableColumns(self, groupName, teamCount=None):
         from xkoranate.tablegenerator.tablecolumn import XkorTableColumn
 
         columns = []
@@ -140,7 +168,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         if len(groupName) > nameWidth:
             nameWidth = len(groupName)
         matchdayWidth = int(math.log10(self.matchdays())) + 1
-        positionWidth = int(math.log10(self.largestGroupSize(self.startList))) + 1
+        positionWidth = int(math.log10(teamCount or self.largestGroupSize(self.startList))) + 1
         opt = self.sport.paradigmOptions()
 
         sortCriteria = self.tableSortCriteria()
@@ -202,8 +230,6 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         return rval
 
     def retrieveMatches(self, groupNo):
-        from xkoranate.tablegenerator.tablematch import XkorTableMatch
-
         rval = []
 
         if "tableData" in self.userOpt:
@@ -211,12 +237,9 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
             if len(tableData) > groupNo:
                 results = toList(tableData[groupNo])
                 for i in results:
-                    # match scores of form “1: Aquilla 3–1 Busby”, with an optional
-                    # “OT”/“SO” decider marker before the away team, e.g. “1: Aquilla 3–1 OT Busby”.
-                    # A score can be negative (taekwondo deducts penalty points), “1: Aquilla 6–-1 Busby”
-                    rx = re.search("[0-9]+: (.+) (-?[0-9.]+)–(-?[0-9.]+)(?: (OT|SO))? (.+)", toString(i))
-                    if rx is not None:  # if we matched
-                        rval.append(XkorTableMatch(rx.group(1), rx.group(5), toDouble(rx.group(2)), toDouble(rx.group(3)), rx.group(4)))
+                    parsed = parseStoredMatch(i)
+                    if parsed is not None:  # if we matched
+                        rval.append(parsed[1])
         return rval
 
     def revertToMatchday(self, matchday):
@@ -292,8 +315,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
                     self.tables[groupNo].insertMatch(i.athletes[j[0]].name, i.athletes[j[1]].name, scoreValue1, scoreValue2, decider)
 
                     # insert into the resume options
-                    deciderSuffix = (" " + decider) if decider else ""
-                    groupData.append(str(matchday) + ": " + i.athletes[j[0]].name + " " + qNumber(scoreValue1) + "–" + qNumber(scoreValue2) + deciderSuffix + " " + i.athletes[j[1]].name)
+                    groupData.append(formatStoredMatch(matchday, i.athletes[j[0]].name, i.athletes[j[1]].name, scoreValue1, scoreValue2, decider))
 
             self.tables[groupNo].generate()
             tableData[groupNo] = groupData

@@ -42,6 +42,13 @@ Make one file for the tournament, with two events in it:
 2. **Knockout**: **Single elimination**. Once the group stage is over,
    add the teams that went through to this event's sign-ups.
 
+**How do I run a league split into conferences?**
+
+Choose **Inter-conference round robin** in step 3, then make one group per
+conference in step 4, named after it. Set how often teams meet inside their
+conference and how often they meet the other conferences. See
+[Conferences](building-an-event.md#conferences).
+
 **How do I run heats and a final?**
 
 Make one event per round. For the heats, put each heat in its own group in

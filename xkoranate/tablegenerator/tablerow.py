@@ -88,7 +88,7 @@ class XkorTableRow:
                 rval += 1 if j.points(self.n) == 3 else 0
         return rval
 
-    def insertMatch(self, t2name, t1score, t2score, home, decider=None):
+    def insertMatch(self, t2name, t1score, t2score, home, decider=None, cross=False):
         if home:
             self.h2hResults.setdefault(t2name, []).insert(
                 0, XkorTableMatch(self.n, t2name, t1score, t2score, decider))
@@ -115,6 +115,14 @@ class XkorTableRow:
                 self.scores["_otLosses"] = self.scores.get("_otLosses", 0.0) + 1
             elif decider == "SO":
                 self.scores["_soLosses"] = self.scores.get("_soLosses", 0.0) + 1
+        if cross:
+            # a game against another conference; the table may score these
+            # differently (see XkorTable.setCrossPoints)
+            if t1score == t2score:
+                key = "_crossDraws"
+            else:
+                key = "_cross" + (decider or "") + ("Wins" if t1score > t2score else "Losses")
+            self.scores[key] = self.scores.get(key, 0.0) + 1
         self.scores["_goalsFor"] = self.scores.get("_goalsFor", 0.0) + t1score
         self.scores["_goalsAgainst"] = self.scores.get("_goalsAgainst", 0.0) + t2score
         if home:
@@ -123,6 +131,21 @@ class XkorTableRow:
 
     def losses(self):
         return self.scores.get("_losses", 0.0)
+
+    def crossWins(self):
+        """Regulation wins against another conference."""
+        return self.scores.get("_crossWins", 0.0)
+
+    def crossDraws(self):
+        return self.scores.get("_crossDraws", 0.0)
+
+    def crossLosses(self):
+        """Regulation losses against another conference."""
+        return self.scores.get("_crossLosses", 0.0)
+
+    def crossDecided(self, decider, won):
+        """OT or SO wins/losses against another conference."""
+        return self.scores.get("_cross" + decider + ("Wins" if won else "Losses"), 0.0)
 
     def name(self):
         return self.n

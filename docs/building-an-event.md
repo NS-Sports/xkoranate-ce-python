@@ -155,6 +155,7 @@ offered.
 | Format | What it means | Good for |
 |---|---|---|
 | **Round robin** | Everyone in a group plays everyone else in that group | League tables, group stages |
+| **Inter-conference round robin** | A league split into conferences: teams play their own conference and the other conferences too | Leagues with conferences or divisions |
 | **Single elimination** | A knockout cup: lose and you're out | Cups, play-offs |
 | **Individual matches** | One-off matches: 1st v 2nd, 3rd v 4th, and so on, in each group | Friendlies, finals, set fixtures |
 | **Mass start** | Everyone competes at once and is ranked | Races, field events |
@@ -172,6 +173,18 @@ Most formats have settings below the drop-down:
       Drag to reorder, **+** to add a rule, **−** to remove one.
     - **Show results grid:** a grid of every result. Only available with
       2 legs.
+- **Inter-conference round robin** has the same settings, apart from the
+  results grid, plus:
+    - **Legs in conference:** how many times teams in the same conference
+      meet. 2 means home and away.
+    - **Legs v others:** how many times each team meets every team in
+      each other conference. 0 keeps the conferences apart.
+    - **Overall table:** adds one table of every team after the
+      conference tables.
+    - **Win v others:** points for a win, draw or loss against another
+      conference. It matches the in-conference points until you change it.
+
+    See [Conferences](#conferences) for how to set up the groups.
 - **Single elimination:** **Third-place playoff** adds a match between
   the two beaten semi-finalists.
 - **Mass start:** **Sort results** lists finishers in order. **Show
@@ -210,6 +223,22 @@ place, double-click their name and choose someone else.
     For **Individual matches**, the 1st and 2nd names in a group play each
     other, then the 3rd and 4th, and so on. The first name in each pair is
     the home side.
+
+### Conferences
+
+For an **Inter-conference round robin**, each group is one conference, and
+this step is called **Conferences**. Name the groups after your
+conferences, for example "Pacific" and "Atlantic". Those names head the
+fixtures and the tables.
+
+- Conferences can be different sizes. A team in a smaller conference sits
+  out the odd matchday.
+- Matchdays against other conferences are spread evenly through the
+  season. The same teams always give the same schedule.
+- Each conference's table counts all of its teams' games, including the
+  ones against other conferences.
+
+Click **View full schedule** to check the fixtures before you scorinate.
 
 ### Knockout brackets
 

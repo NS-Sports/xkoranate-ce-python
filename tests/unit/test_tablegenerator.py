@@ -631,3 +631,127 @@ def test_the_match_results_box_parses_through_the_shared_parser(qapp):
         ("Charlie", "OTtawa", 1.0, 0.0, None),
     ]
     assert "OTtawa" in w.teamsList
+
+
+def _conferenceTable(teams=None):
+    """A and B share a conference; X is from another one. A and B are level
+    on points, but A won the head-to-head."""
+    t = XkorTable()
+    t.setPointsForWin(3)
+    t.setPointsForDraw(1)
+    t.setPointsForLoss(0)
+    t.setSortCriteria(["points", "h2hPoints", "goalDifference"])
+    t.setMatches([
+        XkorTableMatch("A", "X", 0, 3),
+        XkorTableMatch("B", "X", 3, 0),
+        XkorTableMatch("A", "B", 1, 0),
+        XkorTableMatch("B", "X", 0, 5),
+    ])
+    t.setTeams(teams)
+    t.generate()
+    return [row.name() for tier in t.data for row in tier]
+
+
+def test_a_team_filter_keeps_only_those_teams_in_the_table():
+    assert _conferenceTable(["A", "B"]) == ["A", "B"]
+
+
+def test_a_team_filter_still_counts_games_against_teams_outside_it():
+    t = XkorTable()
+    t.setMatches([XkorTableMatch("A", "X", 2, 0), XkorTableMatch("A", "B", 1, 1)])
+    t.setTeams(["A", "B"])
+    t.generate()
+    rows = {row.name(): row for tier in t.data for row in tier}
+    assert set(rows) == {"A", "B"}
+    assert rows["A"].played() == 2
+    assert rows["B"].played() == 1
+
+
+def test_head_to_head_breaks_a_tie_inside_a_filtered_table():
+    # level on points and goal difference; A won the meeting
+    t = XkorTable()
+    t.setPointsForWin(3)
+    t.setSortCriteria(["points", "h2hPoints"])
+    t.setMatches([
+        XkorTableMatch("A", "X", 0, 1),
+        XkorTableMatch("B", "X", 1, 0),
+        XkorTableMatch("B", "A", 0, 1),
+    ])
+    t.setTeams(["B", "A"])
+    t.generate()
+    assert [row.name() for tier in t.data for row in tier] == ["A", "B"]
+
+
+def test_an_unfiltered_table_shows_every_team():
+    assert sorted(_conferenceTable()) == ["A", "B", "X"]
+    assert sorted(_conferenceTable(None)) == ["A", "B", "X"]
+
+
+def _crossTable(crossPoints, conferences=None):
+    """A (East) beats B (East) and loses to X (West); B beats X; C (East)
+    draws with X."""
+    t = XkorTable()
+    t.setPointsForWin(3)
+    t.setPointsForDraw(1)
+    t.setPointsForLoss(0)
+    t.setSortCriteria(["points"])
+    t.setConferences(conferences or {"A": 0, "B": 0, "C": 0, "X": 1})
+    t.setCrossPoints(crossPoints)
+    t.setMatches([
+        XkorTableMatch("A", "B", 2, 0),
+        XkorTableMatch("A", "X", 0, 1),
+        XkorTableMatch("B", "X", 1, 0),
+        XkorTableMatch("C", "X", 1, 1),
+    ])
+    t.generate()
+    return t, {row.name(): t.getPoints(row) for tier in t.data for row in tier}
+
+
+def test_cross_conference_games_score_their_own_points():
+    t, points = _crossTable((2, 0, 1))
+    # A: in-conference win 3, cross loss 1
+    assert points == {"A": 4, "B": 2, "C": 0, "X": 2 + 1 + 0}
+
+
+def test_without_cross_points_every_game_scores_alike():
+    t, points = _crossTable(None)
+    assert points == {"A": 3, "B": 3, "C": 1, "X": 3 + 0 + 1}
+
+
+def test_the_points_sort_uses_cross_points():
+    # with cross wins worth 5, B (cross win) passes A (conference win)
+    t, points = _crossTable((5, 1, 0))
+    order = [row.name() for tier in t.data for row in tier]
+    assert order.index("B") < order.index("A")
+
+
+def test_teams_without_a_conference_never_count_as_cross():
+    t, points = _crossTable((2, 0, 1), conferences={"A": 0})
+    assert points == {"A": 3, "B": 3, "C": 1, "X": 3 + 0 + 1}
+
+
+def test_an_overtime_cross_game_keeps_its_overtime_points():
+    t = XkorTable()
+    t.setPointsForWin(3)
+    t.setPointsForLoss(0)
+    t.setPointsForOTWin(2)
+    t.setPointsForOTLoss(1)
+    t.setConferences({"A": 0, "X": 1})
+    t.setCrossPoints((1, 0, 0))
+    t.setMatches([XkorTableMatch("A", "X", 2, 1, "OT")])
+    t.generate()
+    points = {row.name(): t.getPoints(row) for tier in t.data for row in tier}
+    assert points == {"A": 2, "X": 1}
+
+
+def test_a_shootout_cross_game_follows_cross_points_when_so_points_are_unset():
+    t = XkorTable()
+    t.setPointsForWin(3)
+    t.setPointsForLoss(0)
+    t.setSortCriteria(["points"])
+    t.setConferences({"A": 0, "X": 1})
+    t.setCrossPoints((1, 0, 0))
+    t.setMatches([XkorTableMatch("A", "X", 1.01, 1, "SO")])
+    t.generate()
+    points = {row.name(): t.getPoints(row) for tier in t.data for row in tier}
+    assert points == {"A": 1, "X": 0}
