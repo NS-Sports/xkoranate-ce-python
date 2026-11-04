@@ -1,5 +1,5 @@
 site_name: xkoranate-CE
-site_description: User guide for xkoranate-ce-python, the sports scorinator for NS Sports
+site_description: How to use xkoranate, the sports results generator for NS Sports roleplay
 site_url: https://ns-sports.github.io/xkoranate-ce-python/
 repo_url: https://github.com/NS-Sports/xkoranate-ce-python
 repo_name: NS-Sports/xkoranate-ce-python
@@ -7,37 +7,62 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
+  # light / dark / true dark, the same three modes as the app's View menu
+  # (docs/stylesheets/extra.css holds the colours)
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: teal
+      primary: custom
+      accent: custom
       toggle:
-        icon: material/brightness-7
+        icon: material/weather-sunny
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: teal
+      primary: custom
+      accent: custom
       toggle:
-        icon: material/brightness-4
+        icon: material/weather-night
+        name: Switch to true dark (OLED) mode
+    - scheme: slate
+      primary: black
+      accent: custom
+      toggle:
+        icon: material/moon-new
         name: Switch to light mode
   features:
     - navigation.tabs
     - navigation.top
+    - navigation.footer
     - content.action.edit
     - content.code.copy
 
 nav:
   - Home: index.md
-  - Getting started: getting-started.md
-  - Building an event: building-an-event.md
-  - Table generator: table-generator.md
-  - RP bonuses: rp-bonuses.md
-  - Settings & file locations: settings.md
-  - FAQ: faq.md
+  - Getting started:
+      - Installing xkoranate: getting-started.md
+      - Your first event: first-event.md
+      - Your first race: first-race.md
+  - Using xkoranate:
+      - Setting up an event: building-an-event.md
+      - Table generator: table-generator.md
+  - Help:
+      - Troubleshooting: troubleshooting.md
+      - Questions and answers: faq.md
+      - Glossary: glossary.md
+      - Files and settings: settings.md
+
+extra_css:
+  - stylesheets/extra.css
 
 markdown_extensions:
   - admonition
+  - attr_list
+  - def_list
   - tables
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
   - toc:
       permalink: true
 

@@ -74,6 +74,8 @@ class XkorEventEditor(QWidget):
         names = list(_STEP_NAMES)
         if self.m_data.competition() == "singleElimination":
             names[_GROUPS_STEP] = "Bracket"  # match the page's own heading
+        elif self.m_data.competition() == "interConference":
+            names[_GROUPS_STEP] = "Conferences"
         return names
 
     def updateStepIndicator(self):

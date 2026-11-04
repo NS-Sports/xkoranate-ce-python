@@ -430,7 +430,7 @@ def selectedCompetition(cw):
     return box.itemData(box.currentIndex(), Qt.UserRole)
 
 
-@pytest.mark.parametrize("competition", ["singleElimination", "matches", "roundRobin"])
+@pytest.mark.parametrize("competition", ["singleElimination", "matches", "roundRobin", "interConference"])
 def test_opening_an_event_keeps_its_competition_type(editor, sport_index, rng, competition):
     """Rebuilding the selectors used to report a type back over the loaded one.
 
@@ -557,6 +557,7 @@ def test_head_to_head_paradigms_all_offer_a_knockout(sport_index, rng, sportName
     paradigm = XkorParadigmFactory.newParadigmForSport(sport, {})
     assert paradigm.supportsCompetition("roundRobin")
     assert paradigm.supportsCompetition("singleElimination")
+    assert paradigm.supportsCompetition("interConference")
 
 
 def test_every_paradigm_that_runs_matches_offers_a_knockout(sport_index):
@@ -1165,3 +1166,164 @@ def test_a_formatting_failure_shows_the_results_plain(editor, capfd):
     md = w.matchday.currentIndex()
     assert w.textedit.toPlainText() == w.c.results(md)
     assert "something an old file confused" in capfd.readouterr().err
+
+
+# ------------------------------------------------------ inter-conference play
+
+
+def buildConferences(index, rng, sizes, sportName="Association football—LISA formula"):
+    """An event with one group per conference, named Conf 1, Conf 2, …"""
+    ev, sport = build_event(index, rng, sportName, nAthletes=sum(sizes))
+    ids = list(ev.groups()[0].athletes)
+    groups = []
+    start = 0
+    for n, size in enumerate(sizes):
+        groups.append(XkorGroup("Conf %d" % (n + 1), ids[start:start + size]))
+        start += size
+    ev.setGroups(groups)
+    ev.setCompetition("interConference")
+    return ev, sport
+
+
+def playConferences(ev, sport, options=None, upTo=None):
+    """Play matchdays the way the scorinate page does: a fresh competition
+    each time, built from the options the last one saved."""
+    sl = ev.makeStartList(XkorRPList())
+    opts = dict(options or {})
+    results = {}
+
+    def build():
+        return XkorCompetitionFactory.newCompetitionFull(
+            "interConference", sl, sport, ev.paradigmOptions(), opts, results)
+
+    c = build()
+    for md in range(c.matchdays() if upTo is None else upTo):
+        c.scorinate(md)
+        results[md] = c.results(md)
+        opts.update(c.resumeFileOptions())
+        c = build()
+    return c, opts, results
+
+
+def tableRows(text, heading):
+    """{team: games played} from the table headed by the given name."""
+    lines = text.splitlines()
+    start = next(i for i, l in enumerate(lines) if l.strip().startswith(heading) and "Pld" in l)
+    rows = {}
+    for line in lines[start + 1:]:
+        if not line.strip():
+            break
+        parts = line.split()
+        rows[" ".join(parts[1:3])] = int(parts[3])
+    return rows
+
+
+@pytest.mark.parametrize("sizes,own,other", [([4, 4], 2, 1), ([3, 3, 3], 1, 1)])
+def test_a_conference_season_plays_everyone_the_right_number_of_times(sport_index, rng, sizes, own, other):
+    ev, sport = buildConferences(sport_index, rng, sizes)
+    options = {"numberOfLegs": str(own), "interConferenceLegs": str(other)}
+    c, opts, results = playConferences(ev, sport, options)
+
+    final = results[c.matchdays() - 1]
+    total = sum(sizes)
+    for n, size in enumerate(sizes):
+        rows = tableRows(final, "Conf %d" % (n + 1))
+        assert len(rows) == size
+        expected = own * (size - 1) + other * (total - size)
+        assert set(rows.values()) == {expected}
+    assert len(tableRows(final, "Overall")) == total
+    assert all(results[md].strip() for md in range(c.matchdays()))
+
+
+def test_the_overall_table_can_be_turned_off(sport_index, rng):
+    ev, sport = buildConferences(sport_index, rng, [2, 2])
+    c, opts, results = playConferences(ev, sport, {"showOverallTable": "false"}, upTo=1)
+    assert "Overall" not in results[0]
+
+
+def test_reverting_drops_later_conference_results(sport_index, rng):
+    ev, sport = buildConferences(sport_index, rng, [4, 4])
+    c, opts, results = playConferences(ev, sport, upTo=5)
+    resume = c.revertToMatchday(3)
+    days = {int(line.split(":")[0]) for line in resume["conferenceTableData"]}
+    assert days == {0, 1, 2}
+
+
+def test_the_conference_schedule_is_headed_by_the_groups_own_names(sport_index, rng):
+    ev, sport = buildConferences(sport_index, rng, [2, 2])
+    sl = ev.makeStartList(XkorRPList())
+    c = XkorCompetitionFactory.newCompetitionFull(
+        "interConference", sl, sport, ev.paradigmOptions(), {}, {})
+    text = c.schedule()
+    assert "Conf 1 v Conf 2" in text
+    assert "\nConf 1\n" in text
+
+
+def test_cross_conference_points_change_only_cross_games(sport_index, rng):
+    """Cross wins worth 0 leave each conference table showing exactly the
+    points its teams took off each other."""
+    ev, sport = buildConferences(sport_index, rng, [3, 3])
+    options = {"numberOfLegs": "1", "interConferenceLegs": "1", "allowDraws": "false",
+               "crossPointsForWin": "0", "crossPointsForDraw": "0", "crossPointsForLoss": "0"}
+    c, opts, results = playConferences(ev, sport, options)
+    final = results[c.matchdays() - 1]
+
+    for conf in ("Conf 1", "Conf 2"):
+        lines = final.splitlines()
+        start = next(i for i, l in enumerate(lines) if l.strip().startswith(conf) and "Pld" in l)
+        points = []
+        for line in lines[start + 1:]:
+            if not line.strip():
+                break
+            points.append(int(line.split()[-1]))
+        # three games within the conference, each worth 3 to its winner
+        assert sum(points) == 3 * 3
+
+
+def test_round_robin_is_still_the_default_for_a_new_head_to_head_event(editor, sport_index, rng):
+    """New types go into the factory list ahead of round robin: the selector
+    falls back to whichever supported type it lists first."""
+    ev, sport = build_event(sport_index, rng, "Association football—LISA formula")
+    editor.showEventEditor(ev)
+    assert selectedCompetition(editor) == "roundRobin"
+    assert ev.competition() == "roundRobin" or editor.ee.m_data.competition() == "roundRobin"
+
+
+@pytest.mark.parametrize("sportName", ["Boxing—xkoranate formula", "Taekwondo—xkoranate formula"])
+def test_conference_tables_count_stoppages_and_negative_scores(sport_index, sportName):
+    """Stoppages (KO, DSQ, …) and taekwondo's below-zero scores both used to
+    break conference tables, as they did round robin's: a stoppage
+    overflowed the table, and a negative score dropped out of it."""
+    sizes = [4, 4, 3]
+    total = sum(sizes)
+    stoppages = negatives = 0
+    for seed in range(4):
+        ev, sport = buildConferences(sport_index, Mt19937(seed), sizes, sportName=sportName)
+        c, opts, results = playConferences(ev, sport)
+        final = results[c.matchdays() - 1]
+        played = tableRows(final, "Overall")
+        for n, size in enumerate(sizes):
+            for team, games in tableRows(final, "Conf %d" % (n + 1)).items():
+                assert games == 2 * (size - 1) + (total - size) == played[team], team
+        text = "\n".join(results.values())
+        stoppages += text.count(" def. ")
+        negatives += sum("–-" in line for line in opts["conferenceTableData"])
+    assert stoppages > 0
+    if sportName.startswith("Taekwondo"):
+        assert negatives > 0
+
+
+def test_inter_conference_events_have_no_qualification_box(editor, sport_index, rng):
+    """Conference tables count cross-conference games the markers don't model
+    yet: the box stays hidden, even with a setting saved from round robin."""
+    from xkoranate.competitions.qualification import QualificationSettings
+
+    ev, sport, c = playGroups(sport_index, rng, "Association football—SQIS formula",
+                              "interConference", 2, 4)
+    ev.replaceCompetitionOptions(QualificationSettings("topPlusBest", 2, 1).toOptions())
+    editor.ee.setData(ev, XkorRPList())
+    w = editor.ee.scorinateWidget
+    assert w.qualificationBox.isHidden()
+    for md in range(w.matchday.count()):
+        w.matchday.setCurrentIndex(md)
+        assert w.textedit.toPlainText() == w.c.results(md)

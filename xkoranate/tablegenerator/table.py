@@ -1,4 +1,5 @@
 from ..variant import qNumber
+from .sortrules.sortpoints import crossAdjustment
 from .tablematch import XkorTableMatch
 from .tablerow import XkorTableRow
 from .tablesorter import XkorTableSorter
@@ -27,15 +28,29 @@ class XkorTable:
         self.showResultsGrid = False
         self.showOvertime = False
         self.goalName = ""
+        # None shows every team that has played; a list limits the table to
+        # those teams, e.g. one conference's standings built from matches
+        # that include its games against other conferences
+        self.teams = None
+        # team name -> conference; with crossPoints set, games between teams
+        # of different conferences score (win, draw, loss) = crossPoints
+        self.conferences = {}
+        self.crossPoints = None
         # team name -> "Q"/"E", shown in a "qualification" column if the
         # columns include one (see XkorRoundRobinCompetition.formatQualifications)
         self.markers = {}
 
+    def isCross(self, team1, team2):
+        c1 = self.conferences.get(team1)
+        c2 = self.conferences.get(team2)
+        return c1 is not None and c2 is not None and c1 != c2
+
     def addMatchToData(self, m):
+        cross = self.isCross(m.team1, m.team2)
         i = self.findTeam(m.team1)
-        i.insertMatch(m.team2, m.score1, m.score2, True, m.decider)
+        i.insertMatch(m.team2, m.score1, m.score2, True, m.decider, cross)
         i = self.findTeam(m.team2)
-        i.insertMatch(m.team1, m.score2, m.score1, False, m.decider)
+        i.insertMatch(m.team1, m.score2, m.score1, False, m.decider, cross)
 
     def collapse(self, target, source):
         for i in source:
@@ -51,14 +66,16 @@ class XkorTable:
     def generate(self):
         self.data = []
 
+        shown = [name for name in self.unsortedData
+                 if self.teams is None or name in self.teams]
         oldData = []
-        for i in self.unsortedData.values():
-            oldData.append(i.clone())
+        for name in shown:
+            oldData.append(self.unsortedData[name].clone())
 
-        if self.unsortedData:
+        if shown:
             # guarded: generating an empty table (no results entered yet)
             # shouldn't throw away the flips of a table that has them
-            self.sorter.pruneCoinFlips(self.unsortedData.keys())
+            self.sorter.pruneCoinFlips(shown)
 
         self.collapse(self.data, self.sortTable(oldData))
 
@@ -69,7 +86,11 @@ class XkorTable:
                 + a.otWins() * self.getPointsForOTWin()
                 + a.soWins() * self.getPointsForSOWin()
                 + a.otLosses() * self.getPointsForOTLoss()
-                + a.soLosses() * self.getPointsForSOLoss())
+                + a.soLosses() * self.getPointsForSOLoss()
+                + crossAdjustment(a, self.pointsForWin, self.pointsForDraw,
+                                  self.pointsForLoss, self.crossPoints,
+                                  self.pointsForOTWin, self.pointsForSOWin,
+                                  self.pointsForOTLoss, self.pointsForSOLoss))
 
     def getColumns(self):
         return list(self.columns)
@@ -162,6 +183,17 @@ class XkorTable:
         self.matches = list(m)
         self.updateMatches()
 
+    def setConferences(self, conferences):
+        """Which conference each team is in; set before adding matches."""
+        self.conferences = dict(conferences)
+        self.updateMatches()
+
+    def setCrossPoints(self, points):
+        """(win, draw, loss) for games between conferences, or None to
+        score them like any other game."""
+        self.crossPoints = None if points is None else tuple(points)
+        self.sorter.setCrossPoints(self.crossPoints)
+
     def setPointsForWin(self, pts):
         self.pointsForWin = pts
         self.sorter.setPointsForWin(pts)
@@ -191,6 +223,10 @@ class XkorTable:
     def setPointsForSOLoss(self, pts):
         self.pointsForSOLoss = pts
         self.sorter.setPointsForSOLoss(pts)
+
+    def setTeams(self, names):
+        """Limit the table to these teams; None shows everyone."""
+        self.teams = None if names is None else set(names)
 
     def setShowDraws(self, value):
         self.showDraws = value

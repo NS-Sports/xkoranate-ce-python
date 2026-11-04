@@ -1,0 +1,115 @@
+/* xkoranate's own colours, so the guide looks like the app it describes.
+ *
+ * Three schemes, matching the app's View menu:
+ *   Light            scheme "default" + primary "custom"
+ *   Dark             scheme "slate"   + primary "custom"
+ *   True Dark (OLED) scheme "slate"   + primary "black", repainted pure black
+ *
+ * The values mirror xkoranate/theme.py: slate ink (#37474f) for chrome, the
+ * app's green (#8EC23A) as the accent, and the darker same-hue green
+ * (#4E6B20) wherever green is used as text on a light page, since the
+ * bright green is too faint to read as text on white.
+ */
+
+/* ---------- shared: the accent ---------- */
+
+[data-md-color-accent="custom"] {
+  --md-accent-fg-color: #8ec23a;
+  --md-accent-fg-color--transparent: #8ec23a1a;
+  --md-accent-bg-color: #ffffff;
+  --md-accent-bg-color--light: #ffffffb3;
+}
+
+/* ---------- Light ---------- */
+
+[data-md-color-scheme="default"][data-md-color-primary="custom"] {
+  --md-primary-fg-color: #37474f;
+  --md-primary-fg-color--light: #546e7a;
+  --md-primary-fg-color--dark: #263238;
+  --md-primary-bg-color: #ffffff;
+  --md-primary-bg-color--light: #ffffffb3;
+
+  --md-default-bg-color: #f8f9fa;
+  --md-default-fg-color: #263238de;
+  --md-typeset-a-color: #4e6b20;
+  --md-accent-fg-color: #3d5419; /* link hover: a step darker, still green */
+
+  --md-code-bg-color: #eceff1;
+  --md-footer-bg-color: #263238;
+  --md-footer-bg-color--dark: #1c262b;
+}
+
+/* ---------- Dark ---------- */
+
+[data-md-color-scheme="slate"][data-md-color-primary="custom"] {
+  --md-hue: 200; /* blue-grey, the same family as the app's slate ink */
+
+  --md-primary-fg-color: #263238;
+  --md-primary-fg-color--light: #37474f;
+  --md-primary-fg-color--dark: #1c262b;
+  --md-primary-bg-color: #eceff1;
+  --md-primary-bg-color--light: #eceff1b3;
+
+  --md-typeset-a-color: #8ec23a;
+  --md-accent-fg-color: #a8d65e;
+}
+
+/* ---------- True Dark (OLED) ---------- */
+
+[data-md-color-scheme="slate"][data-md-color-primary="black"] {
+  --md-hue: 200;
+
+  --md-primary-fg-color: #000000;
+  --md-primary-fg-color--light: #000000;
+  --md-primary-fg-color--dark: #000000;
+  --md-primary-bg-color: #eceff1;
+  --md-primary-bg-color--light: #eceff1b3;
+
+  --md-default-bg-color: #000000;
+  --md-default-bg-color--light: #000000b3;
+  --md-default-bg-color--lighter: #00000066;
+  --md-default-bg-color--lightest: #0000001f;
+
+  --md-code-bg-color: #0f1214;
+  --md-code-bg-color--light: #0f1214e6;
+  --md-code-bg-color--lighter: #0f12148a;
+  --md-typeset-kbd-border-color: #000000;
+
+  --md-footer-bg-color: #000000;
+  --md-footer-bg-color--dark: #000000;
+
+  --md-typeset-a-color: #8ec23a;
+  --md-accent-fg-color: #a8d65e;
+}
+
+/* on pure black the header and tabs would melt into the page, so give
+   them a hairline edge instead of a shadow */
+[data-md-color-primary="black"] .md-header,
+[data-md-color-primary="black"] .md-tabs {
+  background-color: #000000;
+}
+[data-md-color-primary="black"] .md-header {
+  box-shadow: none;
+  border-bottom: 1px solid #1c2226;
+}
+[data-md-color-primary="black"] .md-tabs {
+  border-bottom: 1px solid #1c2226;
+}
+[data-md-color-primary="black"] .md-footer {
+  border-top: 1px solid #1c2226;
+}
+
+/* ---------- small touches in every scheme ---------- */
+
+/* screenshots: a soft frame so a light window doesn't bleed into a light
+   page, or a dark one into a dark page */
+.md-typeset img {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 6px;
+}
+
+/* the active section in the sidebar picks up the green */
+.md-nav__link--active,
+.md-nav__item .md-nav__link--active {
+  color: var(--md-typeset-a-color);
+}

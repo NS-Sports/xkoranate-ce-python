@@ -417,7 +417,10 @@ class XkorScorinateWidget(QWidget):
     def updateResults(self, matchday):
         text = self.c.results(matchday)
         try:
-            text = self.c.formatQualifications(text, matchday, self.qualificationSettings())
+            # a setting saved while the event was another competition type
+            # stays put, but only a type that supports it is formatted
+            if self.c.supportsQualifications():
+                text = self.c.formatQualifications(text, matchday, self.qualificationSettings())
         except Exception:
             # the markers are decoration: an event saved by an older version
             # (or edited by hand) that they can't make sense of still has to
