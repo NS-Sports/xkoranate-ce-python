@@ -10,6 +10,11 @@ INT_MAX = 2147483647  # numeric_limits<int>::max()
 
 
 class XkorAbstractH2HParadigm(XkorAbstractParadigm):
+    # the home advantage magnitude when the sport file sets none
+    _homeAdvantageMagnitudeDefault = 4.0 / 3.0
+    # whether NSFS3 style modifiers apply when the event doesn't say
+    _nsfsStyleModsDefault = None
+
     def __init__(self, sport=None, userOptions=None):
         super().__init__(sport, userOptions)
         self.supportedCompetitions["matches"] = True
@@ -145,7 +150,32 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
                 # tiebreakers are required for this sport
                 self.breakTie([home, away])
 
+    def _defaultHomeAdvantageMagnitude(self):
+        return toDouble(self.opt.get("homeAdvantage", self._homeAdvantageMagnitudeDefault))
+
+    def homeAdvantageMagnitude(self):
+        # the sport file provides a default magnitude; the options widget
+        # lets the user override it per-event
+        return toDouble(self.userOpt.get("homeAdvantageMagnitude", self._defaultHomeAdvantageMagnitude()))
+
     # protected:
+
+    def _binomialDraw(self, n, p, trace=False):
+        """How many of `n` attempts succeed at `p` each, drawn with one
+        uniform number; -1 if rounding leaves that number past the last
+        cumulative probability. `trace` echoes a hit to stderr."""
+        rand = self.s.randUniform()
+        acc = 0.0
+        pI = math.pow(1 - p, n)  # probability of 0 successes
+        for i in range(n + 1):
+            acc += pI
+            if rand < acc:
+                if trace:
+                    print(i, rand, acc, file=sys.stderr)
+                return i
+            # calculate probability of i + 1 successes
+            pI *= (n - i) * p / ((i + 1) * (1 - p))
+        return -1
 
     def formatGaelicScore(self, subScores, totalScore):
         # collapses the C++ overloads formatGaelicScore(QList<QVariant>, int)
@@ -543,7 +573,7 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
         raise NotImplementedError
 
     def generateStyleModification(self, homeScore, awayScore, homeStyle, awayStyle):
-        if toString(self.userOpt.get("NSFSStyleMods")) == "true":
+        if toString(self.userOpt.get("NSFSStyleMods", self._nsfsStyleModsDefault)) == "true":
             styleCoeffA = toDouble(self.opt.get("NSFSStyleCoeffA", 2.0991677816057))
             styleCoeffB = toDouble(self.opt.get("NSFSStyleCoeffB", 1.2442581729602))
             styleExponent = toDouble(self.opt.get("NSFSStyleExponent", -0.42705203296846))

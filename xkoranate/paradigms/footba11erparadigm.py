@@ -5,6 +5,8 @@ from .abstracth2hparadigm import XkorAbstractH2HParadigm
 
 
 class XkorFootba11erParadigm(XkorAbstractH2HParadigm):
+    _homeAdvantageMagnitudeDefault = 0.065
+
     def usesMaxSkill(self):
         # generateFTScore/GGScore below only ever compare
         # home.rpSkill / (home.rpSkill + away.rpSkill) between the two
@@ -21,14 +23,6 @@ class XkorFootba11erParadigm(XkorAbstractH2HParadigm):
         return XkorFootba11erParadigmOptions(paradigmOptions, self._defaultHomeAdvantageMagnitude())
 
     # protected:
-
-    def _defaultHomeAdvantageMagnitude(self):
-        return toDouble(self.opt.get("homeAdvantage", 0.065))
-
-    def homeAdvantageMagnitude(self):
-        # the sport file provides a default magnitude; the options widget
-        # lets the user override it per-event
-        return toDouble(self.userOpt.get("homeAdvantageMagnitude", self._defaultHomeAdvantageMagnitude()))
 
     def generateFTScore(self, home, away):
         # get the parameters

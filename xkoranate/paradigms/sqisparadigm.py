@@ -1,5 +1,3 @@
-import math
-
 from ..variant import toDouble
 from .abstracth2hparadigm import XkorAbstractH2HParadigm
 
@@ -21,9 +19,6 @@ class XkorSQISParadigm(XkorAbstractH2HParadigm):
             self._defaultAttacks(),
         )
 
-    def _defaultHomeAdvantageMagnitude(self):
-        return toDouble(self.opt.get("homeAdvantage", 4.0 / 3.0))
-
     def _defaultConstantA(self):
         return toDouble(self.opt.get("constantA", 0.1))
 
@@ -32,11 +27,6 @@ class XkorSQISParadigm(XkorAbstractH2HParadigm):
 
     def _defaultAttacks(self):
         return toDouble(self.opt.get("attacks", 12))
-
-    def homeAdvantageMagnitude(self):
-        # the sport file provides a default magnitude; the options widget
-        # lets the user override it per-event
-        return toDouble(self.userOpt.get("homeAdvantageMagnitude", self._defaultHomeAdvantageMagnitude()))
 
     def constantA(self):
         return toDouble(self.userOpt.get("constantA", self._defaultConstantA()))
@@ -63,13 +53,4 @@ class XkorSQISParadigm(XkorAbstractH2HParadigm):
                  * (1 if skill > oppSkill else -1)) * homeAdvValue
 
         # score
-        rand = self.s.randUniform()
-        acc = 0.0
-        pIGoals = math.pow(1 - pGoal, attacks)  # probability of 0 goals
-        for i in range(attacks + 1):
-            acc += pIGoals
-            if rand < acc:
-                return i
-            # calculate probability of i + 1 goals
-            pIGoals *= (attacks - i) * pGoal / ((i + 1) * (1 - pGoal))
-        return -1
+        return self._binomialDraw(attacks, pGoal)
