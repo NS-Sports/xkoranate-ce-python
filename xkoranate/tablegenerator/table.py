@@ -1,11 +1,11 @@
 from ..variant import qNumber
-from .sortrules.sortpoints import crossAdjustment
+from .pointsscheme import XkorPointsAccessors, XkorPointsScheme
 from .tablematch import XkorTableMatch
 from .tablerow import XkorTableRow
 from .tablesorter import XkorTableSorter
 
 
-class XkorTable:
+class XkorTable(XkorPointsAccessors):
     def __init__(self):
         self.tableName = ""
         self.columns = []
@@ -13,16 +13,8 @@ class XkorTable:
         self.unsortedData = {}  # QHash<QString, XkorTableRow>
         self.data = []
         self.sortCriteria = []
-        self.sorter = XkorTableSorter()
-        self.pointsForWin = 0.0
-        self.pointsForDraw = 0.0
-        self.pointsForLoss = 0.0
-        # None means "not overridden": fall back to pointsForWin/pointsForLoss
-        # so tables that never use OT/SO deciders score exactly as before
-        self.pointsForOTWin = None
-        self.pointsForSOWin = None
-        self.pointsForOTLoss = None
-        self.pointsForSOLoss = None
+        self.points = XkorPointsScheme()
+        self.sorter = XkorTableSorter(self.points)
         self.columnWidth = 0
         self.showDraws = False
         self.showResultsGrid = False
@@ -35,7 +27,6 @@ class XkorTable:
         # team name -> conference; with crossPoints set, games between teams
         # of different conferences score (win, draw, loss) = crossPoints
         self.conferences = {}
-        self.crossPoints = None
         # team name -> "Q"/"E", shown in a "qualification" column if the
         # columns include one (see XkorRoundRobinCompetition.formatQualifications)
         self.markers = {}
@@ -79,18 +70,12 @@ class XkorTable:
 
         self.collapse(self.data, self.sortTable(oldData))
 
+    @property
+    def crossPoints(self):
+        return self.points.cross
+
     def getPoints(self, a):
-        return (a.regulationWins() * self.pointsForWin
-                + a.draws() * self.pointsForDraw
-                + a.regulationLosses() * self.pointsForLoss
-                + a.otWins() * self.getPointsForOTWin()
-                + a.soWins() * self.getPointsForSOWin()
-                + a.otLosses() * self.getPointsForOTLoss()
-                + a.soLosses() * self.getPointsForSOLoss()
-                + crossAdjustment(a, self.pointsForWin, self.pointsForDraw,
-                                  self.pointsForLoss, self.crossPoints,
-                                  self.pointsForOTWin, self.pointsForSOWin,
-                                  self.pointsForOTLoss, self.pointsForSOLoss))
+        return self.points.pointsFor(a)
 
     def getColumns(self):
         return list(self.columns)
@@ -106,45 +91,6 @@ class XkorTable:
 
     def getGoalName(self):
         return self.goalName
-
-    def getPointsForWin(self):
-        return self.pointsForWin
-
-    def getPointsForDraw(self):
-        return self.pointsForDraw
-
-    def getPointsForLoss(self):
-        return self.pointsForLoss
-
-    def getPointsForOTWin(self):
-        return self.pointsForOTWin if self.pointsForOTWin is not None else self.pointsForWin
-
-    def getPointsForSOWin(self):
-        return self.pointsForSOWin if self.pointsForSOWin is not None else self.pointsForWin
-
-    def getPointsForOTLoss(self):
-        return self.pointsForOTLoss if self.pointsForOTLoss is not None else self.pointsForLoss
-
-    def getPointsForSOLoss(self):
-        return self.pointsForSOLoss if self.pointsForSOLoss is not None else self.pointsForLoss
-
-    # the raw getters return None where the getPointsFor*() ones above resolve
-    # the fallback, so a caller that needs to tell "not overridden" apart from
-    # "overridden to the same number" — the XML writer, and the widget deciding
-    # whether its spin box still mirrors the win/loss one — can do so. Writing
-    # a resolved value out would pin it, silently breaking the fallback the
-    # next time the file is opened.
-    def getRawPointsForOTWin(self):
-        return self.pointsForOTWin
-
-    def getRawPointsForSOWin(self):
-        return self.pointsForSOWin
-
-    def getRawPointsForOTLoss(self):
-        return self.pointsForOTLoss
-
-    def getRawPointsForSOLoss(self):
-        return self.pointsForSOLoss
 
     def getShowDraws(self):
         return self.showDraws
@@ -187,42 +133,6 @@ class XkorTable:
         """Which conference each team is in; set before adding matches."""
         self.conferences = dict(conferences)
         self.updateMatches()
-
-    def setCrossPoints(self, points):
-        """(win, draw, loss) for games between conferences, or None to
-        score them like any other game."""
-        self.crossPoints = None if points is None else tuple(points)
-        self.sorter.setCrossPoints(self.crossPoints)
-
-    def setPointsForWin(self, pts):
-        self.pointsForWin = pts
-        self.sorter.setPointsForWin(pts)
-
-    def setPointsForDraw(self, pts):
-        self.pointsForDraw = pts
-        self.sorter.setPointsForDraw(pts)
-
-    def setPointsForLoss(self, pts):
-        self.pointsForLoss = pts
-        self.sorter.setPointsForLoss(pts)
-
-    # pass None to clear an override and go back to following pointsForWin /
-    # pointsForLoss
-    def setPointsForOTWin(self, pts):
-        self.pointsForOTWin = pts
-        self.sorter.setPointsForOTWin(pts)
-
-    def setPointsForSOWin(self, pts):
-        self.pointsForSOWin = pts
-        self.sorter.setPointsForSOWin(pts)
-
-    def setPointsForOTLoss(self, pts):
-        self.pointsForOTLoss = pts
-        self.sorter.setPointsForOTLoss(pts)
-
-    def setPointsForSOLoss(self, pts):
-        self.pointsForSOLoss = pts
-        self.sorter.setPointsForSOLoss(pts)
 
     def setTeams(self, names):
         """Limit the table to these teams; None shows everyone."""

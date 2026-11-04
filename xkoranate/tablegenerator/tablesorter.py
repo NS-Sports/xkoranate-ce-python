@@ -1,5 +1,6 @@
 import functools
 
+from .pointsscheme import XkorPointsAccessors, XkorPointsScheme
 from .sortrules.sortalpha import XkorSortAlphaEq, XkorSortAlphaGr
 from .sortrules.sortawaygoals import XkorSortAwayGoalsEq, XkorSortAwayGoalsGr
 from .sortrules.sortawaywins import XkorSortAwayWinsEq, XkorSortAwayWinsGr
@@ -28,7 +29,6 @@ from .sortrules.sorthomelosses import (XkorSortHomeLossesEq,
                                        XkorSortHomeLossesGr)
 from .sortrules.sortlosses import XkorSortLossesEq, XkorSortLossesGr
 from .sortrules.sortotwins import XkorSortOTWinsEq, XkorSortOTWinsGr
-from .sortrules.sortpoints import XkorSortPointsEq, XkorSortPointsGr
 from .sortrules.sortregulationwins import (XkorSortRegulationWinsEq,
                                            XkorSortRegulationWinsGr)
 from .sortrules.sortwinpercent import (XkorSortWinPercentEq,
@@ -40,16 +40,10 @@ from .sortrules.sortwinpercentpure import (XkorSortWinPercentPureEq,
 from .sortrules.sortwins import XkorSortWinsEq, XkorSortWinsGr
 
 
-class XkorTableSorter:
-    def __init__(self):
-        self.pointsForWin = 0.0
-        self.pointsForDraw = 0.0
-        self.pointsForLoss = 0.0
-        self.pointsForOTWin = None
-        self.pointsForSOWin = None
-        self.pointsForOTLoss = None
-        self.pointsForSOLoss = None
-        self.crossPoints = None  # (win, draw, loss) v other conferences
+class XkorTableSorter(XkorPointsAccessors):
+    def __init__(self, points=None):
+        # a table passes its own scheme, so the two always agree
+        self.points = points if points is not None else XkorPointsScheme()
         self.h2hTeams = []
         # team name -> coin-flip value; a team's flip sticks once made, so
         # regenerating the table (or reloading it after a save) doesn't
@@ -65,47 +59,8 @@ class XkorTableSorter:
     def setCoinFlips(self, flips):
         self.coinFlips = flips
 
-    def _rawOverrides(self):
-        return (self.pointsForOTWin, self.pointsForSOWin, self.pointsForOTLoss, self.pointsForSOLoss)
-
-    def setCrossPoints(self, points):
-        self.crossPoints = points
-
     def setH2HTeams(self, teams):
         self.h2hTeams = teams
-
-    def setPointsForWin(self, pts):
-        self.pointsForWin = pts
-
-    def setPointsForDraw(self, pts):
-        self.pointsForDraw = pts
-
-    def setPointsForLoss(self, pts):
-        self.pointsForLoss = pts
-
-    def setPointsForOTWin(self, pts):
-        self.pointsForOTWin = pts
-
-    def setPointsForSOWin(self, pts):
-        self.pointsForSOWin = pts
-
-    def setPointsForOTLoss(self, pts):
-        self.pointsForOTLoss = pts
-
-    def setPointsForSOLoss(self, pts):
-        self.pointsForSOLoss = pts
-
-    def getPointsForOTWin(self):
-        return self.pointsForOTWin if self.pointsForOTWin is not None else self.pointsForWin
-
-    def getPointsForSOWin(self):
-        return self.pointsForSOWin if self.pointsForSOWin is not None else self.pointsForWin
-
-    def getPointsForOTLoss(self):
-        return self.pointsForOTLoss if self.pointsForOTLoss is not None else self.pointsForLoss
-
-    def getPointsForSOLoss(self):
-        return self.pointsForSOLoss if self.pointsForSOLoss is not None else self.pointsForLoss
 
     def sort(self, rows, sortType):
         # h2h team list
@@ -152,15 +107,9 @@ class XkorTableSorter:
         elif sortType == "otWins":
             rval = self.privateSort(rows, XkorSortOTWinsGr(), XkorSortOTWinsEq())
         elif sortType == "points":
-            gr = XkorSortPointsGr(self.pointsForWin, self.pointsForDraw, self.pointsForLoss,
-                                  self.getPointsForOTWin(), self.getPointsForSOWin(),
-                                  self.getPointsForOTLoss(), self.getPointsForSOLoss(),
-                                  self.crossPoints, self._rawOverrides())
-            eq = XkorSortPointsEq(self.pointsForWin, self.pointsForDraw, self.pointsForLoss,
-                                  self.getPointsForOTWin(), self.getPointsForSOWin(),
-                                  self.getPointsForOTLoss(), self.getPointsForSOLoss(),
-                                  self.crossPoints, self._rawOverrides())
-            rval = self.privateSort(rows, gr, eq)
+            pointsFor = self.points.pointsFor
+            rval = self.privateSort(rows, lambda a, b: pointsFor(a) > pointsFor(b),
+                                    lambda a, b: pointsFor(a) == pointsFor(b))
         elif sortType == "regulationWins":
             rval = self.privateSort(rows, XkorSortRegulationWinsGr(), XkorSortRegulationWinsEq())
         elif sortType == "winPercent":
