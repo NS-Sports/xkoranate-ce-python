@@ -1,4 +1,5 @@
 from ..variant import qNumber
+from .sortrules.sortpoints import crossAdjustment
 from .tablematch import XkorTableMatch
 from .tablerow import XkorTableRow
 from .tablesorter import XkorTableSorter
@@ -31,12 +32,22 @@ class XkorTable:
         # those teams, e.g. one conference's standings built from matches
         # that include its games against other conferences
         self.teams = None
+        # team name -> conference; with crossPoints set, games between teams
+        # of different conferences score (win, draw, loss) = crossPoints
+        self.conferences = {}
+        self.crossPoints = None
+
+    def isCross(self, team1, team2):
+        c1 = self.conferences.get(team1)
+        c2 = self.conferences.get(team2)
+        return c1 is not None and c2 is not None and c1 != c2
 
     def addMatchToData(self, m):
+        cross = self.isCross(m.team1, m.team2)
         i = self.findTeam(m.team1)
-        i.insertMatch(m.team2, m.score1, m.score2, True, m.decider)
+        i.insertMatch(m.team2, m.score1, m.score2, True, m.decider, cross)
         i = self.findTeam(m.team2)
-        i.insertMatch(m.team1, m.score2, m.score1, False, m.decider)
+        i.insertMatch(m.team1, m.score2, m.score1, False, m.decider, cross)
 
     def collapse(self, target, source):
         for i in source:
@@ -72,7 +83,11 @@ class XkorTable:
                 + a.otWins() * self.getPointsForOTWin()
                 + a.soWins() * self.getPointsForSOWin()
                 + a.otLosses() * self.getPointsForOTLoss()
-                + a.soLosses() * self.getPointsForSOLoss())
+                + a.soLosses() * self.getPointsForSOLoss()
+                + crossAdjustment(a, self.pointsForWin, self.pointsForDraw,
+                                  self.pointsForLoss, self.crossPoints,
+                                  self.pointsForOTWin, self.pointsForSOWin,
+                                  self.pointsForOTLoss, self.pointsForSOLoss))
 
     def getColumns(self):
         return list(self.columns)
@@ -161,6 +176,17 @@ class XkorTable:
     def setMatches(self, m):
         self.matches = list(m)
         self.updateMatches()
+
+    def setConferences(self, conferences):
+        """Which conference each team is in; set before adding matches."""
+        self.conferences = dict(conferences)
+        self.updateMatches()
+
+    def setCrossPoints(self, points):
+        """(win, draw, loss) for games between conferences, or None to
+        score them like any other game."""
+        self.crossPoints = None if points is None else tuple(points)
+        self.sorter.setCrossPoints(self.crossPoints)
 
     def setPointsForWin(self, pts):
         self.pointsForWin = pts

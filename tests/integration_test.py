@@ -897,3 +897,24 @@ def test_the_conference_schedule_is_headed_by_the_groups_own_names(sport_index, 
     text = c.schedule()
     assert "Conf 1 v Conf 2" in text
     assert "\nConf 1\n" in text
+
+
+def test_cross_conference_points_change_only_cross_games(sport_index, rng):
+    """Cross wins worth 0 leave each conference table showing exactly the
+    points its teams took off each other."""
+    ev, sport = buildConferences(sport_index, rng, [3, 3])
+    options = {"numberOfLegs": "1", "interConferenceLegs": "1", "allowDraws": "false",
+               "crossPointsForWin": "0", "crossPointsForDraw": "0", "crossPointsForLoss": "0"}
+    c, opts, results = playConferences(ev, sport, options)
+    final = results[c.matchdays() - 1]
+
+    for conf in ("Conf 1", "Conf 2"):
+        lines = final.splitlines()
+        start = next(i for i, l in enumerate(lines) if l.strip().startswith(conf) and "Pld" in l)
+        points = []
+        for line in lines[start + 1:]:
+            if not line.strip():
+                break
+            points.append(int(line.split()[-1]))
+        # three games within the conference, each worth 3 to its winner
+        assert sum(points) == 3 * 3

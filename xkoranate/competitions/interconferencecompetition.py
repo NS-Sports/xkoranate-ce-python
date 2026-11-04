@@ -44,6 +44,18 @@ class XkorInterConferenceCompetition(XkorRoundRobinCompetition):
     def otherLegs(self):
         return toInt(self.userOpt.get("interConferenceLegs")) if "interConferenceLegs" in self.userOpt else 1
 
+    def crossPoints(self):
+        """(win, draw, loss) for games between conferences, or None when
+        they score the same as games within one."""
+        keys = ("crossPointsForWin", "crossPointsForDraw", "crossPointsForLoss")
+        if not any(k in self.userOpt for k in keys):
+            return None
+        defaults = (toInt(self.userOpt.get("pointsForWin")) if "pointsForWin" in self.userOpt else 3,
+                    toInt(self.userOpt.get("pointsForDraw")) if "pointsForDraw" in self.userOpt else 1,
+                    toInt(self.userOpt.get("pointsForLoss")) if "pointsForLoss" in self.userOpt else 0)
+        return tuple(toInt(self.userOpt.get(k)) if k in self.userOpt else d
+                     for k, d in zip(keys, defaults))
+
     def showOverallTable(self):
         return toString(self.userOpt.get("showOverallTable")) != "false"
 
@@ -114,6 +126,8 @@ class XkorInterConferenceCompetition(XkorRoundRobinCompetition):
         t.setColumns(self.generateTableColumns(heading, len(teams)))
         t.setSortCriteria(self.tableSortCriteria())
         self.setTablePoints(t)
+        t.setConferences({a.name: n for n, g in enumerate(self.startList.groups) for a in g.athletes})
+        t.setCrossPoints(self.crossPoints())
         t.setMatches(matches)
         t.setTeams(teams)
         # list every team from the start, even one yet to play

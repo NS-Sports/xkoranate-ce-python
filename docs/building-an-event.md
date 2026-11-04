@@ -47,7 +47,10 @@ the sport's paradigm, and include:
   others"). Cross-conference matchdays are spread evenly through the season,
   and conferences of different sizes are fine: teams sit out the odd matchday.
   Each conference's table counts all of its teams' games, and an optional
-  overall table ranks everyone together.
+  overall table ranks everyone together. "Win v others" can give games
+  against other conferences their own points for a win, draw or loss
+  (overtime and shootout results follow them too, unless you've set separate
+  OT/SO points); until you change it, it matches the in-conference points.
 - **Individual matches** — a fixed set of head-to-head matchups.
 - **Single elimination** — a knockout bracket: losers go out, and each round's
   fixtures come from the winners of the round before it. Offered for any sport

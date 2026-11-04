@@ -49,6 +49,7 @@ class XkorTableSorter:
         self.pointsForSOWin = None
         self.pointsForOTLoss = None
         self.pointsForSOLoss = None
+        self.crossPoints = None  # (win, draw, loss) v other conferences
         self.h2hTeams = []
         # team name -> coin-flip value; a team's flip sticks once made, so
         # regenerating the table (or reloading it after a save) doesn't
@@ -63,6 +64,12 @@ class XkorTableSorter:
 
     def setCoinFlips(self, flips):
         self.coinFlips = flips
+
+    def _rawOverrides(self):
+        return (self.pointsForOTWin, self.pointsForSOWin, self.pointsForOTLoss, self.pointsForSOLoss)
+
+    def setCrossPoints(self, points):
+        self.crossPoints = points
 
     def setH2HTeams(self, teams):
         self.h2hTeams = teams
@@ -147,10 +154,12 @@ class XkorTableSorter:
         elif sortType == "points":
             gr = XkorSortPointsGr(self.pointsForWin, self.pointsForDraw, self.pointsForLoss,
                                   self.getPointsForOTWin(), self.getPointsForSOWin(),
-                                  self.getPointsForOTLoss(), self.getPointsForSOLoss())
+                                  self.getPointsForOTLoss(), self.getPointsForSOLoss(),
+                                  self.crossPoints, self._rawOverrides())
             eq = XkorSortPointsEq(self.pointsForWin, self.pointsForDraw, self.pointsForLoss,
                                   self.getPointsForOTWin(), self.getPointsForSOWin(),
-                                  self.getPointsForOTLoss(), self.getPointsForSOLoss())
+                                  self.getPointsForOTLoss(), self.getPointsForSOLoss(),
+                                  self.crossPoints, self._rawOverrides())
             rval = self.privateSort(rows, gr, eq)
         elif sortType == "regulationWins":
             rval = self.privateSort(rows, XkorSortRegulationWinsGr(), XkorSortRegulationWinsEq())
