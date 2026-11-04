@@ -8,9 +8,6 @@ from .abstracth2hparadigm import XkorAbstractH2HParadigm
 
 
 class XkorNSFSGridironParadigm(XkorAbstractH2HParadigm):
-    def hasOptionsWidget(self):
-        return True
-
     def newAthleteWidget(self):
         # deliberately reaches past XkorAbstractH2HParadigm's style-aware
         # override to the plain name/nation/skill widget — not super()

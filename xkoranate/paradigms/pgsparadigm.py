@@ -42,68 +42,62 @@ class XkorPGSParadigm(XkorTimedParadigm):
         self.out = []
         self.res = []
 
-        acc = 0
-        for awayIdx in range(len(athletes)):
-            if acc & 1:
-                away = athletes[awayIdx]
-                home = athletes[awayIdx - 1]  # home = away - 1
+        for home, away in self._pairs(athletes):
+            homeResult = XkorResult()
+            awayResult = XkorResult()
+            homeResult.athlete = home.clone()
+            awayResult.athlete = away.clone()
 
-                homeResult = XkorResult()
-                awayResult = XkorResult()
-                homeResult.athlete = home.clone()
-                awayResult.athlete = away.clone()
+            for i in range(toInt(self.opt.get("attempts", 1))):
+                # scorinate the home result
+                result = self.individualResult(home, "score")
+                self._appendAttempt(homeResult, result.score(), result.scoreString())
 
-                for i in range(toInt(self.opt.get("attempts", 1))):
-                    # scorinate the home result
-                    result = self.individualResult(home, "score")
-                    self._appendAttempt(homeResult, result.score(), result.scoreString())
+                # scorinate the away result
+                result = self.individualResult(away, "score")
+                self._appendAttempt(awayResult, result.score(), result.scoreString())
 
-                    # scorinate the away result
-                    result = self.individualResult(away, "score")
-                    self._appendAttempt(awayResult, result.score(), result.scoreString())
-
-                # sort out PGS stuff
-                totalHomeScore = 0.0
-                totalAwayScore = 0.0
-                thisScore = 0.0
-                maxScore = toDouble(self.userOpt.get("maxScore", 1.5))
-                for i in range(toInt(self.opt.get("attempts", 1))):
-                    if toList(homeResult.value("attempts"))[i] == sys.float_info.max:
-                        totalHomeScore = maxScore
+            # sort out PGS stuff
+            totalHomeScore = 0.0
+            totalAwayScore = 0.0
+            thisScore = 0.0
+            maxScore = toDouble(self.userOpt.get("maxScore", 1.5))
+            for i in range(toInt(self.opt.get("attempts", 1))):
+                if toList(homeResult.value("attempts"))[i] == sys.float_info.max:
+                    totalHomeScore = maxScore
+                    totalAwayScore = 0
+                    self._setAttempt(awayResult, i, 0, "")
+                elif toList(awayResult.value("attempts"))[i] == sys.float_info.max:
+                    totalAwayScore = maxScore
+                    totalHomeScore = 0
+                    self._setAttempt(homeResult, i, 0, "")
+                else:
+                    totalHomeScore += toDouble(toList(homeResult.value("attempts"))[i])
+                    totalAwayScore += toDouble(toList(awayResult.value("attempts"))[i])
+                    if totalHomeScore > totalAwayScore:
+                        totalHomeScore -= totalAwayScore
+                        thisScore = totalHomeScore
+                        if totalHomeScore > maxScore:
+                            totalHomeScore = maxScore
                         totalAwayScore = 0
+
+                        self._setAttempt(homeResult, i, thisScore, self.formatScore(thisScore))
                         self._setAttempt(awayResult, i, 0, "")
-                    elif toList(awayResult.value("attempts"))[i] == sys.float_info.max:
-                        totalAwayScore = maxScore
-                        totalHomeScore = 0
-                        self._setAttempt(homeResult, i, 0, "")
                     else:
-                        totalHomeScore += toDouble(toList(homeResult.value("attempts"))[i])
-                        totalAwayScore += toDouble(toList(awayResult.value("attempts"))[i])
-                        if totalHomeScore > totalAwayScore:
-                            totalHomeScore -= totalAwayScore
-                            thisScore = totalHomeScore
-                            if totalHomeScore > maxScore:
-                                totalHomeScore = maxScore
-                            totalAwayScore = 0
+                        totalAwayScore -= totalHomeScore
+                        thisScore = totalAwayScore
+                        if totalAwayScore > maxScore:
+                            totalAwayScore = maxScore
+                        totalHomeScore = 0
 
-                            self._setAttempt(homeResult, i, thisScore, self.formatScore(thisScore))
-                            self._setAttempt(awayResult, i, 0, "")
-                        else:
-                            totalAwayScore -= totalHomeScore
-                            thisScore = totalAwayScore
-                            if totalAwayScore > maxScore:
-                                totalAwayScore = maxScore
-                            totalHomeScore = 0
+                        self._setAttempt(homeResult, i, 0, "")
+                        self._setAttempt(awayResult, i, thisScore, self.formatScore(thisScore))
+                print(totalHomeScore, totalAwayScore, file=sys.stderr)
 
-                            self._setAttempt(homeResult, i, 0, "")
-                            self._setAttempt(awayResult, i, thisScore, self.formatScore(thisScore))
-                    print(totalHomeScore, totalAwayScore, file=sys.stderr)
+            homeResult.setOutput(self.outputLine(homeResult))
+            awayResult.setOutput(self.outputLine(awayResult) + "\n")
 
-                homeResult.setOutput(self.outputLine(homeResult))
-                awayResult.setOutput(self.outputLine(awayResult) + "\n")
-
-                self.res.append(homeResult)
-                self.res.append(awayResult)
-            acc += 1
+            self.res.append(homeResult)
+            self.res.append(awayResult)
 
         self.generateOutput()

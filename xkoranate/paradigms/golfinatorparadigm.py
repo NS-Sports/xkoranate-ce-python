@@ -8,9 +8,6 @@ class XkorGolfinatorParadigm(XkorAbstractParadigm):
         super().__init__(sport, userOptions)
         self.supportedCompetitions["standard"] = True
 
-    def hasOptionsWidget(self):
-        return True
-
     def newAthleteWidget(self):
         from ..signuplisteditor.athletewidget import XkorAthleteWidget
         return XkorAthleteWidget(["name", "nation", "skill", "style"],

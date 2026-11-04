@@ -1,5 +1,3 @@
-import sys
-
 from ..result import XkorResult
 from ..variant import toDouble, toInt, toList, toString
 from .comparators.shootingresultcomparator import XkorShootingResultComparator
@@ -43,13 +41,8 @@ class XkorShootingParadigm(XkorScoredParadigm):
         if previousResults is None:
             previousResults = []
 
-        for i in self.requiredValues:
-            if not self.s.hasValue(i):
-                print("missing parameter", i,
-                      "in XkorShootingParadigm::output(XkorResults *)",
-                      file=sys.stderr)
-                self.out.append(("", "Sport does not support this paradigm"))
-                return
+        if not self._checkRequiredValues("XkorShootingParadigm::output(XkorResults *)"):
+            return
 
         # load options
         isQualifying = (toString(self.userOpt.get("qualifying")) == "true")

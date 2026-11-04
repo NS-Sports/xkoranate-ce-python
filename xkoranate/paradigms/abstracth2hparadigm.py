@@ -16,72 +16,65 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
         self.supportedCompetitions["roundRobin"] = True
 
     def breakTie(self, athletes, type=""):
-        acc = 0
-
         tiebreakers = self.readOptionList("tiebreakers")
         tiebreakerNames = self.readOptionList("tiebreakerNames")
 
-        for awayIdx in range(len(athletes)):
-            if acc & 1:
-                away = athletes[awayIdx]
-                home = athletes[awayIdx - 1]  # home = away - 1
+        for home, away in self._pairs(athletes):
+            score1 = self.findResult(home.id)
+            score2 = self.findResult(away.id)
 
-                score1 = self.findResult(home.id)
-                score2 = self.findResult(away.id)
+            ni = 0  # parallel iterator over tiebreakerNames
+            ti = 0
+            while ti < len(tiebreakers):
+                tbType = toString(tiebreakers[ti])
+                name = toString(tiebreakerNames[ni])
+                if tbType == "decision":
+                    score = self.generateDecisionScore(score1, score2, name)
+                elif tbType == "extratime":
+                    score = self.generateETScore(score1, score2, name)
+                elif tbType == "goldengoal":
+                    score = self.generateGGScore(score1, score2, name)
+                elif tbType == "ifaf":
+                    score = self.generateIFAFScore(score1, score2, name,
+                                                   toInt(score1.result.get("OTs")) + 1)
+                elif tbType == "shootout":
+                    score = self.generateSOScore(score1, score2, name)
+                else:
+                    print("bad tiebreaker", tbType, file=sys.stderr)
+                    # C++ leaves the QPair default-constructed (two empty
+                    # results) in this case
+                    score = (XkorResult(), XkorResult())
 
-                ni = 0  # parallel iterator over tiebreakerNames
-                ti = 0
-                while ti < len(tiebreakers):
-                    tbType = toString(tiebreakers[ti])
-                    name = toString(tiebreakerNames[ni])
-                    if tbType == "decision":
-                        score = self.generateDecisionScore(score1, score2, name)
-                    elif tbType == "extratime":
-                        score = self.generateETScore(score1, score2, name)
-                    elif tbType == "goldengoal":
-                        score = self.generateGGScore(score1, score2, name)
-                    elif tbType == "ifaf":
-                        score = self.generateIFAFScore(score1, score2, name,
-                                                       toInt(score1.result.get("OTs")) + 1)
-                    elif tbType == "shootout":
-                        score = self.generateSOScore(score1, score2, name)
-                    else:
-                        print("bad tiebreaker", tbType, file=sys.stderr)
-                        # C++ leaves the QPair default-constructed (two empty
-                        # results) in this case
-                        score = (XkorResult(), XkorResult())
+                # output the score
+                for j in range(len(self.out)):
+                    if self.out[j][0] == home.name:
+                        self.out[j] = (self.out[j][0],
+                                       self.outputLine(score[0], score[1]))
 
-                    # output the score
-                    for j in range(len(self.out)):
-                        if self.out[j][0] == home.name:
-                            self.out[j] = (self.out[j][0],
-                                           self.outputLine(score[0], score[1]))
+                # let the competition know the result
+                # (C++: *score1 = score.first; *score2 = score.second —
+                # overwrite the stored results in place)
+                score1.athlete = score[0].athlete
+                score1.result = score[0].result
+                score2.athlete = score[1].athlete
+                score2.result = score[1].result
 
-                    # let the competition know the result
-                    # (C++: *score1 = score.first; *score2 = score.second —
-                    # overwrite the stored results in place)
-                    score1.athlete = score[0].athlete
-                    score1.result = score[0].result
-                    score2.athlete = score[1].athlete
-                    score2.result = score[1].result
+                # keep track of the number of overtimes under IFAF rules
+                if tbType == "ifaf":
+                    score1.result["OTs"] = toInt(score1.result.get("OTs")) + 1
+                    score2.result["OTs"] = toInt(score2.result.get("OTs")) + 1
 
-                    # keep track of the number of overtimes under IFAF rules
-                    if tbType == "ifaf":
-                        score1.result["OTs"] = toInt(score1.result.get("OTs")) + 1
-                        score2.result["OTs"] = toInt(score2.result.get("OTs")) + 1
+                # are we done?
+                if self.compare(score[0], score[1]) != 0:
+                    break
 
-                    # are we done?
-                    if self.compare(score[0], score[1]) != 0:
-                        break
+                # are we on the last tiebreaker? if so, let’s do it again
+                if ti + 1 == len(tiebreakers):
+                    ti -= 1
+                    ni -= 1
 
-                    # are we on the last tiebreaker? if so, let’s do it again
-                    if ti + 1 == len(tiebreakers):
-                        ti -= 1
-                        ni -= 1
-
-                    ni += 1
-                    ti += 1
-            acc += 1
+                ni += 1
+                ti += 1
 
     def comparisonFunction(self, type=""):
         return XkorH2HResultComparator(type, self.opt)
@@ -123,45 +116,34 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
             return super().newAthleteWidget()
 
     def scorinate(self, athletes, previousResults=None):
-        for i in self.requiredValues:
-            if not self.s.hasValue(i):
-                print("missing parameter", i,
-                      "in XkorAbstractH2HParadigm::output(XkorResults *)",
-                      file=sys.stderr)
-                self.out.append(("", "Sport does not support this paradigm"))
-                return
+        if not self._checkRequiredValues("XkorAbstractH2HParadigm::output(XkorResults *)"):
+            return
 
         # initialize results
         self.out = []
         self.res = []
 
-        acc = 0
-        for awayIdx in range(len(athletes)):
-            if acc & 1:  # if we’re on the second team in a match
-                away = athletes[awayIdx]
-                home = athletes[awayIdx - 1]  # home = away - 1
+        for home, away in self._pairs(athletes):
+            score = self.generateFTScore(home, away)
 
-                score = self.generateFTScore(home, away)
+            status = ""
+            if self.compare(score[0], score[1]) == 0:
+                status = self.generateStatus()
 
-                status = ""
-                if self.compare(score[0], score[1]) == 0:
-                    status = self.generateStatus()
+            if status != "" and self.compare(score[0], score[1]) == -1:
+                score[1].result["status"] = status
+            elif status != "":
+                score[0].result["status"] = status
 
-                if status != "" and self.compare(score[0], score[1]) == -1:
-                    score[1].result["status"] = status
-                elif status != "":
-                    score[0].result["status"] = status
+            # output the FT score
+            self.out.append((home.name, self.outputLine(score[0], score[1])))
+            self.res.append(score[0])
+            self.res.append(score[1])
 
-                # output the FT score
-                self.out.append((home.name, self.outputLine(score[0], score[1])))
-                self.res.append(score[0])
-                self.res.append(score[1])
-
-                if (self.compare(score[0], score[1]) == 0
-                        and toInt(self.opt.get("forceTieBreak")) == 1):
-                    # tiebreakers are required for this sport
-                    self.breakTie([home, away])
-            acc += 1
+            if (self.compare(score[0], score[1]) == 0
+                    and toInt(self.opt.get("forceTieBreak")) == 1):
+                # tiebreakers are required for this sport
+                self.breakTie([home, away])
 
     # protected:
 
@@ -595,19 +577,6 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
             homeScore += max(-homeScore, styleEffect)  # don’t drop the score below 0
             awayScore += max(-awayScore, styleEffect)  # don’t drop the score below 0
             return (homeScore, awayScore)
-
-    def generateStatus(self):
-        statuses = self.readOptionList("statuses")
-        statusProbs = self.readOptionList("statusProbs")
-
-        rand = self.s.randUniform()
-
-        acc = 0.0
-        for i in range(len(statuses)):
-            acc += toDouble(statusProbs[i])
-            if rand < acc:
-                return toString(statuses[i])
-        return ""
 
     def outputLine(self, home, away=None):
         # collapses the C++ overloads outputLine(XkorResult) (inherited) and

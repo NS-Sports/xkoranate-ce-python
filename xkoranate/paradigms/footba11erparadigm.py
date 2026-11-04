@@ -5,9 +5,6 @@ from .abstracth2hparadigm import XkorAbstractH2HParadigm
 
 
 class XkorFootba11erParadigm(XkorAbstractH2HParadigm):
-    def hasOptionsWidget(self):
-        return True
-
     def usesMaxSkill(self):
         # generateFTScore/GGScore below only ever compare
         # home.rpSkill / (home.rpSkill + away.rpSkill) between the two

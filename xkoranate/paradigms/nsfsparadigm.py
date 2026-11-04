@@ -5,9 +5,6 @@ from .abstracth2hparadigm import XkorAbstractH2HParadigm
 
 
 class XkorNSFSParadigm(XkorAbstractH2HParadigm):
-    def hasOptionsWidget(self):
-        return True
-
     def newOptionsWidget(self, paradigmOptions):
         from .options.nsfsparadigmoptions import XkorNSFSParadigmOptions
         return XkorNSFSParadigmOptions(

@@ -4,9 +4,6 @@ from .abstracth2hparadigm import XkorAbstractH2HParadigm
 
 
 class XkorHowzzatParadigm(XkorAbstractH2HParadigm):
-    def hasOptionsWidget(self):
-        return True
-
     def usesMaxSkill(self):
         # generateFTScore below only ever compares
         # home.rpSkill / (home.rpSkill + away.rpSkill) between the two

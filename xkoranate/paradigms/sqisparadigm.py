@@ -5,9 +5,6 @@ from .abstracth2hparadigm import XkorAbstractH2HParadigm
 
 
 class XkorSQISParadigm(XkorAbstractH2HParadigm):
-    def hasOptionsWidget(self):
-        return True
-
     def usesMaxSkill(self):
         # generateScore() below only ever compares min(skill,oppSkill) /
         # max(skill,oppSkill) between the two specific competitors, which is

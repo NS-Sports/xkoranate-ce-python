@@ -19,21 +19,9 @@ class XkorOrdinalParadigm(XkorAbstractParadigm):
         comparisonOpt["sortOrder"] = "descending"
         return XkorBasicResultComparator(type, comparisonOpt)
 
-    def hasOptionsWidget(self):
-        return True
-
-    def newOptionsWidget(self, paradigmOptions):
-        from .options.timedparadigmoptions import XkorTimedParadigmOptions
-        return XkorTimedParadigmOptions(paradigmOptions)
-
     def scorinate(self, athletes, previousResults=None):
-        for i in self.requiredValues:
-            if not self.s.hasValue(i):
-                print("missing parameter", i,
-                      "in XkorOrdinalParadigm::output(XkorResults *)",
-                      file=sys.stderr)
-                self.out.append(("", "Sport does not support this paradigm"))
-                return
+        if not self._checkRequiredValues("XkorOrdinalParadigm::output(XkorResults *)"):
+            return
 
         # initialize results
         self.out = []
@@ -82,16 +70,3 @@ class XkorOrdinalParadigm(XkorAbstractParadigm):
         attackModifier = toDouble(self.opt.get("attackModifier"))
         return ((self.s.randWeighted(skill) + attackModifier * self.s.randUniform())
                 / (1 + attackModifier))
-
-    def generateStatus(self):
-        statuses = self.readOptionList("statuses")
-        statusProbs = self.readOptionList("statusProbs")
-
-        rand = self.s.randUniform()
-
-        acc = 0.0
-        for i in range(len(statuses)):
-            acc += toDouble(statusProbs[i])
-            if rand < acc:
-                return toString(statuses[i])
-        return ""

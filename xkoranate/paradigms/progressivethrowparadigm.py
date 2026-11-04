@@ -13,13 +13,8 @@ class XkorProgressiveThrowParadigm(XkorScoredParadigm):
             previousResults = []
 
         # check that we can use the sport
-        for i in self.requiredValues:
-            if not self.s.hasValue(i):
-                print("missing parameter", i,
-                      "in XkorProgressiveThrowParadigm::scorinate(QList<XkorAthlete>)",
-                      file=sys.stderr)
-                self.out.append(("", "Sport does not support this paradigm"))
-                return
+        if not self._checkRequiredValues("XkorProgressiveThrowParadigm::scorinate(QList<XkorAthlete>)"):
+            return
 
         # initialize results
         self.out = []

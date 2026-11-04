@@ -58,13 +58,6 @@ class XkorTimedParadigm(XkorAbstractParadigm):
         r.result["attempts"] = attempts
         r.result["attemptStrings"] = attemptStrings
 
-    def hasOptionsWidget(self):
-        return True
-
-    def newOptionsWidget(self, paradigmOptions):
-        from .options.timedparadigmoptions import XkorTimedParadigmOptions
-        return XkorTimedParadigmOptions(paradigmOptions)
-
     def calculateTotal(self, r):
         if toString(self.opt.get("totalType")) == "best":
             attempts = toList(r.result.get("attempts"))
@@ -195,13 +188,8 @@ class XkorTimedParadigm(XkorAbstractParadigm):
             previousResults = []
 
         # check that we can use the sport
-        for i in self.requiredValues:
-            if not self.s.hasValue(i):
-                print("missing parameter", i,
-                      "in XkorAbstractParadigm::scorinate(QList<XkorAthlete>)",
-                      file=sys.stderr)
-                self.out.append(("", "Sport does not support this paradigm"))
-                return
+        if not self._checkRequiredValues("XkorAbstractParadigm::scorinate(QList<XkorAthlete>)"):
+            return
 
         # initialize results
         self.out = []
