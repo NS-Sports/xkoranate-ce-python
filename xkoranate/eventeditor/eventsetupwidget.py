@@ -1,13 +1,12 @@
 
-from PySide6.QtCore import QItemSelectionModel, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QItemSelectionModel, Qt, QTimer, Signal
 from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QGridLayout, QHBoxLayout,
-                               QLabel, QStackedLayout, QStyle, QToolBar, QTreeWidgetItem,
-                               QTreeWidgetItemIterator, QWidget)
+                               QTreeWidgetItem, QTreeWidgetItemIterator, QWidget)
 
 from ..uuids import parseAssignedUuid, uuidToString
 from ..abstracttreewidget import XkorAbstractTreeWidget
+from ..ui.toolbars import small_icon_toolbar
 from ..ui.typography import heading_label
-from .. import theme
 from ..athlete import BYE_ID, BYE_NAME, XkorAthlete
 from ..exceptions import XkorSearchFailedException
 from ..competitions import bracket
@@ -672,30 +671,8 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         # label
         self.headingLabel = heading_label(self.headingText(), level=1, center=True)
 
-        # tool bar
-        toolBar = QToolBar()
-        small = self.style().pixelMetric(QStyle.PM_SmallIconSize)
-        toolBar.setIconSize(QSize(small, small))
-        for i in actions:
-            if i is None:
-                toolBar.addSeparator()
-            else:
-                toolBar.addAction(i)
-
-        # empty-state hint, layered over the tree so a first-time user isn't
-        # left staring at a blank rectangle
-        self._emptyLabel = QLabel(self.emptyStateText())
-        self._emptyLabel.setAlignment(Qt.AlignCenter)
-        self._emptyLabel.setWordWrap(True)
-        self._emptyLabel.setAttribute(Qt.WA_TransparentForMouseEvents)
-        self._restyleEmptyLabel()
-        theme.signal.changed.connect(self._restyleEmptyLabel)
-
-        treeArea = QWidget()
-        treeStack = QStackedLayout(treeArea)
-        treeStack.setStackingMode(QStackedLayout.StackAll)
-        treeStack.addWidget(self.treeWidget)
-        treeStack.addWidget(self._emptyLabel)
+        toolBar = small_icon_toolbar(self, actions)
+        treeArea = self._buildTreeArea()
 
         # the bracket-size chooser sits with the tool bar, but is only
         # meaningful for a knockout

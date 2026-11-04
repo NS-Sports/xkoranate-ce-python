@@ -1,11 +1,12 @@
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (QAbstractItemView, QGridLayout, QLabel, QStackedLayout,
-                               QStyle, QToolBar, QTreeWidgetItem, QWidget)
+                               QTreeWidgetItem, QWidget)
 
 from . import theme
 from .icons import icon_action
 from .treewidget import XkorTreeWidget
+from .ui.toolbars import small_icon_toolbar
 
 
 class XkorAbstractTreeWidget(QWidget):
@@ -150,18 +151,21 @@ class XkorAbstractTreeWidget(QWidget):
         self.listChanged.emit()
 
     def setupLayout(self, actions, isVertical=False):
-        # tool bar
-        toolBar = QToolBar()
-        small = self.style().pixelMetric(QStyle.PM_SmallIconSize)
-        toolBar.setIconSize(QSize(small, small))
-        if isVertical:
-            toolBar.setOrientation(Qt.Vertical)
-        for i in actions:
-            if i is None:
-                toolBar.addSeparator()
-            else:
-                toolBar.addAction(i)
+        toolBar = small_icon_toolbar(self, actions, isVertical)
+        treeArea = self._buildTreeArea()
 
+        self.layout = QGridLayout(self)
+        self.layout.addWidget(treeArea, 0, 0)
+        if isVertical:
+            self.layout.addWidget(toolBar, 0, 1, Qt.AlignCenter)
+        else:
+            self.layout.addWidget(toolBar, 1, 0, Qt.AlignCenter)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+
+        self.updateEmptyState()
+
+    def _buildTreeArea(self):
+        """The tree, with the empty-state hint layered over it."""
         # empty-state hint, layered over the tree so a first-time user isn't
         # left staring at a blank rectangle
         self._emptyLabel = QLabel(self.emptyStateText())
@@ -176,16 +180,7 @@ class XkorAbstractTreeWidget(QWidget):
         treeStack.setStackingMode(QStackedLayout.StackAll)
         treeStack.addWidget(self.treeWidget)
         treeStack.addWidget(self._emptyLabel)
-
-        self.layout = QGridLayout(self)
-        self.layout.addWidget(treeArea, 0, 0)
-        if isVertical:
-            self.layout.addWidget(toolBar, 0, 1, Qt.AlignCenter)
-        else:
-            self.layout.addWidget(toolBar, 1, 0, Qt.AlignCenter)
-        self.layout.setContentsMargins(0, 0, 0, 0)
-
-        self.updateEmptyState()
+        return treeArea
 
     def updateEmptyState(self):
         if hasattr(self, "_emptyLabel"):

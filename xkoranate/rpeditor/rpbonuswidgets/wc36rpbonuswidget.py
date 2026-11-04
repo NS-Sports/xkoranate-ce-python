@@ -1,8 +1,9 @@
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QFormLayout, QGridLayout, QHeaderView, QSpinBox,
-                               QStyle, QToolBar, QTreeWidgetItemIterator)
+                               QTreeWidgetItemIterator)
 
 from ...ui.fonts import column_width_for
+from ...ui.toolbars import small_icon_toolbar
 from ...variant import qNumber, toDouble, toInt
 from ..abstractrpbonuswidget import XkorAbstractRPBonusWidget
 from .wc36rpbonusdelegate import XkorWC36RPBonusDelegate
@@ -97,12 +98,7 @@ class XkorWC36RPBonusWidget(XkorAbstractRPBonusWidget):
         self.listChanged.emit()
 
     def setupLayout(self):
-        # tool bar
-        toolBar = QToolBar()
-        small = self.style().pixelMetric(QStyle.PM_SmallIconSize)
-        toolBar.setIconSize(QSize(small, small))
-        toolBar.addAction(self.insertAction)
-        toolBar.addAction(self.deleteAction)
+        toolBar = small_icon_toolbar(self, [self.insertAction, self.deleteAction])
 
         self.layout = QGridLayout(self)
         self.layout.addLayout(self.matchdayForm, 0, 0)

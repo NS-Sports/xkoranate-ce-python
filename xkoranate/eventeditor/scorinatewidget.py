@@ -2,11 +2,11 @@ import sys
 import time
 import traceback
 
-from PySide6.QtCore import QDir, QSize, Qt, Signal
+from PySide6.QtCore import QDir, Qt, Signal
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox,
                                QFileDialog, QGroupBox, QHBoxLayout, QLabel,
-                               QMessageBox, QPlainTextEdit, QSpinBox, QStyle,
-                               QToolBar, QVBoxLayout, QWidget)
+                               QMessageBox, QPlainTextEdit, QSpinBox,
+                               QVBoxLayout, QWidget)
 
 from ..bbcode import boldWinners
 from ..competitions.qualification import (MODE_OFF, MODE_TOP,
@@ -20,6 +20,7 @@ from ..sport import XkorSport
 from ..startlist import XkorStartList
 from ..ui.dialogs import message_box, resolved_search_path
 from ..ui.fonts import monospace_font, widen_combo_popup
+from ..ui.toolbars import small_icon_toolbar
 from ..ui.tooltips import wrapped_tooltip
 from ..ui.typography import heading_label
 
@@ -60,13 +61,8 @@ class XkorScorinateWidget(QWidget):
         self.oddsAction.setEnabled(False)
         self.oddsAction.triggered.connect(self.viewOdds)
 
-        # toolbar
-        toolBar = QToolBar()
-        small = self.style().pixelMetric(QStyle.PM_SmallIconSize)
-        toolBar.setIconSize(QSize(small, small))
-        toolBar.addAction(self.scorinateAction)
-        toolBar.addAction(self.oddsAction)
-        toolBar.addAction(self.exportResultsAction)
+        toolBar = small_icon_toolbar(
+            self, [self.scorinateAction, self.oddsAction, self.exportResultsAction])
 
         self.matchday = QComboBox()
         # repopulated whenever the competition changes, so AdjustToContents
