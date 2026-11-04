@@ -1,39 +1,58 @@
-# xkoranate-CE
+# xkoranate user guide
 
-xkoranate-CE is the sports "scorinator" used by **NS Sports**, the sports
-roleplay forum for [NationStates](https://www.nationstates.net/). You describe
-who's competing and how, and xkoranate simulates a result — a match score, a
-race time, a placement — that you can post to the forum.
+xkoranate makes up sports results for roleplay. You tell it who is
+competing, how good each of them is, and what kind of competition it is.
+It then plays the matches or races for you and gives you results you can
+paste straight into a forum post.
 
-This is a Python/PySide6 rewrite of the original Qt4/C++ xkoranate-CE by
-Commerce Heights (ThirdGeek), rebuilt to keep the same scorination math and
-file formats while running on current macOS, Windows, and Linux.
+It is the results tool used by **NS Sports**, the sports roleplay community
+on [NationStates](https://www.nationstates.net/). xkoranate calls making
+results **scorinating**, and you'll see that word throughout the app.
 
-- **[Getting started](getting-started.md)** — install xkoranate and take the tour
-- **[Building an event](building-an-event.md)** — the 5-step event wizard, from picking a sport to posting results
-- **[Table generator](table-generator.md)** — build league standings from match results
-- **[RP bonuses](rp-bonuses.md)** — configure per-nation roleplay bonuses
+![The scorinate screen, showing a matchday of football results and two group tables](screenshots/guide-09-step-scorinate-results.png)
 
-## What xkoranate simulates
+## Start here
 
-Over a hundred disciplines across sixty-plus sports are supported out of the
-box: head-to-head matches (football codes, racket sports, combat sports),
-mass-start races (athletics, cycling, skiing), multi-run events (gymnastics,
-diving), and precision sports (shooting, archery). Each sport comes with its
-own scoring engine under the hood — you just pick the sport, xkoranate takes
-care of the rest.
+1. **[Install xkoranate](getting-started.md).** Download it, open it, and
+   get past your computer's "unknown app" warning. About 5 minutes.
+2. **[Run your first event](first-event.md).** A guided walk-through: a
+   football group stage with two groups of four, from an empty window to
+   results ready to post. About 10 minutes.
+3. **Keep this guide handy.** Press <kbd>F1</kbd> in xkoranate at any time
+   to open it, or choose **Help › xkoranate manual**.
 
-## Screenshots
+## What can it do?
 
-| Light mode | Dark mode |
+- **Over a hundred events in more than sixty sports.** These include
+  football, rugby, basketball, cricket, tennis, athletics, swimming,
+  skiing, cycling, gymnastics, shooting and archery.
+- **Every common competition format.** You can run:
+    - a league where everyone plays everyone
+    - a knockout cup
+    - one-off matches
+    - a race where everyone starts together
+    - events with several runs or attempts
+- **League tables** from any set of match results, including results that
+  didn't come from xkoranate.
+
+## Find what you need
+
+| I want to… | Go to |
 |---|---|
-| ![Light mode](screenshots/01-light-mode.png) | ![Dark mode](screenshots/02-dark-mode.png) |
-
-xkoranate warns before discarding unsaved changes, same as the original:
-
-![Save changes dialog](screenshots/03-destructive-dialog.png)
+| Understand each screen of an event | [Setting up an event](building-an-event.md) |
+| Load a sign-up list from a file | [Importing sign-ups](building-an-event.md#importing-sign-ups-from-a-file) |
+| Run a knockout cup | [Knockout brackets](building-an-event.md#knockout-brackets) |
+| Post results on the forum | [Posting your results](building-an-event.md#posting-your-results) |
+| Build a league table | [Table generator](table-generator.md) |
+| Fix a problem | [Troubleshooting](troubleshooting.md) |
+| Look up a word | [Glossary](glossary.md) |
 
 ## Getting help
 
-- Something not working? [File a bug report](https://github.com/NS-Sports/xkoranate-ce-python/issues/new?template=bug_report.yml).
-- Missing a feature? [Request it](https://github.com/NS-Sports/xkoranate-ce-python/issues/new?template=feature_request.yml) or check the [roadmap](https://github.com/NS-Sports/xkoranate-ce-python/blob/main/ROADMAP.md) for what's already planned.
+- **Something not working?** First check
+  [Troubleshooting](troubleshooting.md). If that doesn't help,
+  [report a bug](https://github.com/NS-Sports/xkoranate-ce-python/issues/new?template=bug_report.yml).
+- **Want something new?**
+  [Request a feature](https://github.com/NS-Sports/xkoranate-ce-python/issues/new?template=feature_request.yml).
+
+You need a free GitHub account to report a bug or request a feature.
