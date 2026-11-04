@@ -5,6 +5,7 @@ from xkoranate.result import XkorResult
 from xkoranate.sport import XkorSport
 from xkoranate.startlist import XkorStartList, XkorStartListGroup
 from xkoranate.tablegenerator.decider import nudgeForShootout
+from xkoranate.uuids import parseUuid
 from xkoranate.variant import toDouble, toList, toString
 
 
@@ -91,6 +92,16 @@ class XkorAbstractCompetition:
         plain, so changing the rule never needs a re-roll. Returns `text`
         unchanged when there's nothing it can mark."""
         return text
+
+    @staticmethod
+    def _savedAthlete(athletes, savedId):
+        """A copy of the athlete in `athletes` with the saved id string
+        `savedId` (the last, if several have it), or a blank athlete."""
+        rval = XkorAthlete()
+        for a in athletes:
+            if parseUuid(toString(savedId)) == a.id:
+                rval = a.clone()
+        return rval
 
     def _newParadigm(self, **extra):
         """The sport's paradigm for scorinating, with the `extra` options and
