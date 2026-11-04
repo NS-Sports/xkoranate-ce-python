@@ -1,11 +1,10 @@
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QButtonGroup, QFormLayout, QLabel, QRadioButton, QWidget
 
-from xkoranate.abstractoptionswidget import XkorAbstractOptionsWidget
 from xkoranate.ui.tooltips import wrapped_tooltip
 from xkoranate.variant import toString
 
 from .collapsiblesection import XkorCollapsibleSection
+from .h2hparadigmoptions import XkorH2HParadigmOptions
 
 _DEFAULT_HOME_ADVANTAGE_EAR = 100.0
 _DEFAULT_POWER_SCALAR = 1.984
@@ -14,7 +13,7 @@ _DEFAULT_REAR = 300.0
 _DEFAULT_MARGIN_DIVISOR = 750.0
 
 
-class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
+class XkorLISAParadigmOptions(XkorH2HParadigmOptions):
     """Per-event overrides for LISA. Every constant the algorithm's author
     calls out as adjustable (power scalar, reference rank, REAR, margin
     divisor) gets its own spinbox here, same as home-advantage magnitude
@@ -34,8 +33,7 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         self.homeAdvantageEAR = self._constantSpinBox(
             "homeAdvantageEAR", defaultHomeAdvantageEAR, decimals=1, minimum=0, maximum=500, step=5)
 
-        self._updateHomeAdvantageEAREnabled(self.homeAdvantage.checkState())
-        self.homeAdvantage.stateChanged.connect(self._updateHomeAdvantageEAREnabled)
+        self._enableWith(self.homeAdvantage, self.homeAdvantageEARLabel, self.homeAdvantageEAR)
 
         # home advantage mode: "Fixed" is the EAR magnitude above, used
         # directly for every match (today's only behaviour). The other two
@@ -83,8 +81,9 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         self.homeAdvantageModeLabel = QLabel("Home advantage mode:")
         self.homeAdvantageModeLabel.setContentsMargins(0, -4, 0, 0)
 
-        self._updateHomeAdvantageModeEnabled(self.homeAdvantage.checkState())
-        self.homeAdvantage.stateChanged.connect(self._updateHomeAdvantageModeEnabled)
+        self._enableWith(self.homeAdvantage, self.homeAdvantageModeLabel,
+                         self.homeAdvantageModeFixed, self.homeAdvantageModeAdversarial,
+                         self.homeAdvantageModeIndividual)
 
         # LISA formula constants: rank/EAR conversion (power scalar, reference
         # rank, REAR) and margin shaping (margin divisor). These are always
@@ -120,11 +119,6 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         self.form.addRow("", self.showTLAs)
         self.form.addRow(self.advancedSection)
 
-    def _updateHomeAdvantageEAREnabled(self, x):
-        enabled = Qt.CheckState(x) == Qt.Checked
-        self.homeAdvantageEARLabel.setEnabled(enabled)
-        self.homeAdvantageEAR.setEnabled(enabled)
-
     def setHomeAdvantageMode(self, *_args):
         checkedButton = self.homeAdvantageModeGroup.checkedButton()
         if checkedButton is self.homeAdvantageModeAdversarial:
@@ -134,10 +128,3 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         else:
             self.options["homeAdvantageMode"] = "fixed"
         self.optionsChanged.emit(self.options)
-
-    def _updateHomeAdvantageModeEnabled(self, x):
-        enabled = Qt.CheckState(x) == Qt.Checked
-        self.homeAdvantageModeLabel.setEnabled(enabled)
-        self.homeAdvantageModeFixed.setEnabled(enabled)
-        self.homeAdvantageModeAdversarial.setEnabled(enabled)
-        self.homeAdvantageModeIndividual.setEnabled(enabled)

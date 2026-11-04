@@ -1,10 +1,9 @@
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QButtonGroup, QFormLayout, QLabel, QRadioButton, QWidget
 
-from xkoranate.abstractoptionswidget import XkorAbstractOptionsWidget
 from xkoranate.variant import toString
 
 from .collapsiblesection import XkorCollapsibleSection
+from .h2hparadigmoptions import XkorH2HParadigmOptions
 
 _DEFAULT_HOME_ADVANTAGE_MAGNITUDE = 4.0 / 3.0
 _DEFAULT_BASE_ATTACK_COEFF = 667.5
@@ -18,7 +17,7 @@ _DEFAULT_ATTACK_COEFF_SUPERIOR = 10.0
 _DEFAULT_ATTACK_COEFF_INFERIOR = 0.0
 
 
-class XkorNSFSParadigmOptions(XkorAbstractOptionsWidget):
+class XkorNSFSParadigmOptions(XkorH2HParadigmOptions):
     def __init__(self, opts, defaultHomeAdvantageMagnitude=_DEFAULT_HOME_ADVANTAGE_MAGNITUDE,
                  defaultBaseAttackCoeff=_DEFAULT_BASE_ATTACK_COEFF,
                  defaultRankDiffModifier=_DEFAULT_RANK_DIFF_MODIFIER,
@@ -39,8 +38,8 @@ class XkorNSFSParadigmOptions(XkorAbstractOptionsWidget):
             "homeAdvantageMagnitude", defaultHomeAdvantageMagnitude,
             decimals=3, minimum=0, maximum=5, step=0.05)
 
-        self._updateHomeAdvantageMagnitudeEnabled(self.homeAdvantage.checkState())
-        self.homeAdvantage.stateChanged.connect(self._updateHomeAdvantageMagnitudeEnabled)
+        self._enableWith(self.homeAdvantage, self.homeAdvantageMagnitudeLabel,
+                         self.homeAdvantageMagnitude)
 
         # NSFS formula constants (the sport file's own "NSFS parameters"
         # group): always active, no enable/disable toggle.
@@ -122,11 +121,6 @@ class XkorNSFSParadigmOptions(XkorAbstractOptionsWidget):
         form.addRow(self.homeAdvantageMagnitudeLabel, self.homeAdvantageMagnitude)
         form.addRow("", self.showTLAs)
         form.addRow(self.advancedSection)
-
-    def _updateHomeAdvantageMagnitudeEnabled(self, x):
-        enabled = Qt.CheckState(x) == Qt.Checked
-        self.homeAdvantageMagnitudeLabel.setEnabled(enabled)
-        self.homeAdvantageMagnitude.setEnabled(enabled)
 
     def setStyleMods(self):
         checkedButton = self.styleMods.checkedButton()

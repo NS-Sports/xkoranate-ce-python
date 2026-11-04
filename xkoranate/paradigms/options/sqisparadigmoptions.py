@@ -1,10 +1,9 @@
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QButtonGroup, QFormLayout, QLabel, QRadioButton, QWidget
 
-from xkoranate.abstractoptionswidget import XkorAbstractOptionsWidget
 from xkoranate.variant import toString
 
 from .collapsiblesection import XkorCollapsibleSection
+from .h2hparadigmoptions import XkorH2HParadigmOptions
 
 _DEFAULT_HOME_ADVANTAGE_MAGNITUDE = 4.0 / 3.0
 _DEFAULT_CONSTANT_A = 0.1
@@ -12,7 +11,7 @@ _DEFAULT_CONSTANT_B = 0.07
 _DEFAULT_ATTACKS = 12.0
 
 
-class XkorSQISParadigmOptions(XkorAbstractOptionsWidget):
+class XkorSQISParadigmOptions(XkorH2HParadigmOptions):
     def __init__(self, opts, defaultHomeAdvantageMagnitude=_DEFAULT_HOME_ADVANTAGE_MAGNITUDE,
                  defaultConstantA=_DEFAULT_CONSTANT_A, defaultConstantB=_DEFAULT_CONSTANT_B,
                  defaultAttacks=_DEFAULT_ATTACKS, parent=None):
@@ -26,8 +25,8 @@ class XkorSQISParadigmOptions(XkorAbstractOptionsWidget):
             "homeAdvantageMagnitude", defaultHomeAdvantageMagnitude,
             decimals=3, minimum=0, maximum=5, step=0.05)
 
-        self._updateHomeAdvantageMagnitudeEnabled(self.homeAdvantage.checkState())
-        self.homeAdvantage.stateChanged.connect(self._updateHomeAdvantageMagnitudeEnabled)
+        self._enableWith(self.homeAdvantage, self.homeAdvantageMagnitudeLabel,
+                         self.homeAdvantageMagnitude)
 
         # SQIS formula constants: always active, no enable/disable toggle.
         self.constantA = self._constantSpinBox(
@@ -81,11 +80,6 @@ class XkorSQISParadigmOptions(XkorAbstractOptionsWidget):
         form.addRow(self.homeAdvantageMagnitudeLabel, self.homeAdvantageMagnitude)
         form.addRow("", self.showTLAs)
         form.addRow(self.advancedSection)
-
-    def _updateHomeAdvantageMagnitudeEnabled(self, x):
-        enabled = Qt.CheckState(x) == Qt.Checked
-        self.homeAdvantageMagnitudeLabel.setEnabled(enabled)
-        self.homeAdvantageMagnitude.setEnabled(enabled)
 
     def setStyleMods(self):
         checkedButton = self.styleMods.checkedButton()
