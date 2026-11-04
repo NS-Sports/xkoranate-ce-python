@@ -3,10 +3,9 @@ import time
 import traceback
 
 from PySide6.QtCore import QDir, Qt, Signal
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox,
-                               QFileDialog, QGroupBox, QHBoxLayout, QLabel,
-                               QMessageBox, QPlainTextEdit, QSpinBox,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QGroupBox,
+                               QHBoxLayout, QLabel, QMessageBox, QPlainTextEdit,
+                               QSpinBox, QVBoxLayout, QWidget)
 
 from ..bbcode import boldWinners
 from ..competitions.qualification import (MODE_OFF, MODE_TOP,
@@ -18,7 +17,7 @@ from ..rng import Mt19937
 from ..rplist import XkorRPList
 from ..sport import XkorSport
 from ..startlist import XkorStartList
-from ..ui.dialogs import message_box, resolved_search_path
+from ..ui.dialogs import confirm, message_box, resolved_search_path, text_preview_dialog
 from ..ui.fonts import monospace_font, widen_combo_popup
 from ..ui.toolbars import small_icon_toolbar
 from ..ui.tooltips import wrapped_tooltip
@@ -239,40 +238,29 @@ class XkorScorinateWidget(QWidget):
 
         if self.matchday.currentIndex() <= self.lastMatchday:
             if self.matchday.currentIndex() == self.lastMatchday:
-                warning = message_box(
+                ok = confirm(
                     self, "Are you sure you want to regenerate %s?" % self.matchday.currentText(),
-                    QMessageBox.Ok | QMessageBox.Cancel,
-                    informativeText="You will lose your existing results for this round if you regenerate them.",
-                    defaultButton=QMessageBox.Cancel, escapeButton=QMessageBox.Cancel)
-                result = warning.exec()
+                    "You will lose your existing results for this round if you regenerate them.")
             else:
-                warning = message_box(
+                ok = confirm(
                     self, "Are you sure you want to regenerate %s and lose all subsequent results?"
                     % self.matchday.currentText(),
-                    QMessageBox.Ok | QMessageBox.Cancel,
-                    informativeText="You will lose your current results for %s through %s."
+                    "You will lose your current results for %s through %s."
                     % (self.matchday.currentText(), self.matchday.itemText(self.lastMatchday)),
-                    icon=QMessageBox.Warning,
-                    defaultButton=QMessageBox.Cancel, escapeButton=QMessageBox.Cancel)
-                result = warning.exec()
-            if result == QMessageBox.Cancel:
+                    icon=QMessageBox.Warning)
+            if not ok:
                 return
-            else:
-                # now that we’ve got permission, back up to the matchday we’re going to resim
-                self.lastMatchday = self.matchday.currentIndex() - 1
-                resumeOpts = self.c.revertToMatchday(self.matchday.currentIndex())
-                self.updateCompetition(resumeOpts, self.lastMatchday, self.c.results(self.lastMatchday))
+            # now that we’ve got permission, back up to the matchday we’re going to resim
+            self.lastMatchday = self.matchday.currentIndex() - 1
+            resumeOpts = self.c.revertToMatchday(self.matchday.currentIndex())
+            self.updateCompetition(resumeOpts, self.lastMatchday, self.c.results(self.lastMatchday))
 
         if self.matchday.currentIndex() > 0 and self.c.results(self.matchday.currentIndex() - 1) == "":
-            warning = message_box(
-                self, "Do you want to generate results for %s through %s?"
-                % (self.matchday.itemText(self.lastMatchday + 1), self.matchday.currentText()),
-                QMessageBox.Ok | QMessageBox.Cancel,
-                informativeText="This will generate %s rounds of results."
-                % (self.matchday.currentIndex() - self.lastMatchday),
-                defaultButton=QMessageBox.Cancel, escapeButton=QMessageBox.Cancel)
-            result = warning.exec()
-            if result == QMessageBox.Cancel:
+            if not confirm(
+                    self, "Do you want to generate results for %s through %s?"
+                    % (self.matchday.itemText(self.lastMatchday + 1), self.matchday.currentText()),
+                    "This will generate %s rounds of results."
+                    % (self.matchday.currentIndex() - self.lastMatchday)):
                 return
 
         for i in range(self.lastMatchday + 1, self.matchday.currentIndex() + 1):
@@ -377,30 +365,8 @@ class XkorScorinateWidget(QWidget):
         odds = self.c.matchOdds(self.matchday.currentIndex())
         if odds is None:
             return
-        self._showTextPreview("Match odds — %s" % self.matchday.currentText(), odds)
-
-    def _showTextPreview(self, title, text):
-        # shown in its own dialog, never in self.textedit — that widget is
-        # the results view, and overwriting it left users with no way back
-        # to their actual scores short of reopening the event
-        dialog = QDialog(self)
-        dialog.setWindowTitle(title)
-        dialog.setWindowModality(Qt.WindowModal)
-        dialog.resize(560, 420)
-
-        preview = QPlainTextEdit(self._formatResults(text))
-        preview.setReadOnly(True)
-        preview.setFont(monospace_font())
-
-        buttons = QDialogButtonBox(QDialogButtonBox.Close)
-        buttons.rejected.connect(dialog.reject)
-        buttons.accepted.connect(dialog.accept)
-
-        layout = QVBoxLayout(dialog)
-        layout.addWidget(preview, 1)
-        layout.addWidget(buttons)
-
-        dialog.exec()
+        text_preview_dialog(self, "Match odds — %s" % self.matchday.currentText(),
+                            self._formatResults(odds))
 
     def _formatResults(self, text):
         if self.bbcodeCheckBox.isChecked() and text != "":

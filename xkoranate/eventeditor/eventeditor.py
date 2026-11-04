@@ -8,7 +8,7 @@ from ..signuplist import XkorSignupList
 from ..signuplisteditor.signuplisteditor import XkorSignupListEditor
 from ..sport import XkorSport
 from .. import theme
-from ..ui.dialogs import message_box, text_preview_dialog
+from ..ui.dialogs import confirm, text_preview_dialog
 from .competitionselector import XkorCompetitionSelector
 from .eventsetupwidget import XkorEventSetupWidget
 from .scorinatewidget import XkorScorinateWidget
@@ -222,14 +222,11 @@ class XkorEventEditor(QWidget):
         """
         if not any(self.m_data.results().values()):
             return True
-        warning = message_box(
+        return confirm(
             self, "Are you sure you want to change the bracket?",
-            QMessageBox.Discard | QMessageBox.Cancel,
-            informativeText="This event has already been scorinated. Changing "
-                            "the bracket discards the results played from it.",
-            defaultButton=QMessageBox.Cancel, escapeButton=QMessageBox.Cancel,
-            destructiveButton=QMessageBox.Discard)
-        return warning.exec() == QMessageBox.Discard
+            "This event has already been scorinated. Changing "
+            "the bracket discards the results played from it.",
+            accept=QMessageBox.Discard, destructive=True)
 
     def setDataChanged(self):
         if not self.isLoading:

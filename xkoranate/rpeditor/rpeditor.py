@@ -3,10 +3,9 @@ import sys
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (QButtonGroup, QComboBox, QDoubleSpinBox,
                                QFormLayout, QGridLayout, QHBoxLayout,
-                               QMessageBox, QRadioButton, QVBoxLayout,
-                               QWidget)
+                               QRadioButton, QVBoxLayout, QWidget)
 
-from ..ui.dialogs import message_box
+from ..ui.dialogs import confirm
 from ..variant import toString
 from .rpbonuswidgets.olympicrpbonuswidget import XkorOlympicRPBonusWidget
 from .rpbonuswidgets.wc36rpbonuswidget import XkorWC36RPBonusWidget
@@ -117,14 +116,10 @@ class XkorRPEditor(QWidget):
         newRPCalcType = toString(self.m_rpCalcType.itemData(self.m_rpCalcType.currentIndex()))
         if self.m_currentRPCalcType != newRPCalcType:
             if len(self.m_rpBonus.bonuses()) > 0:
-                warning = message_box(
-                    self, "Are you sure you want to reset all bonuses by changing the bonus formula?",
-                    QMessageBox.Ok | QMessageBox.Cancel,
-                    informativeText="If you change the bonus formula, all of your bonuses will be lost.",
-                    defaultButton=QMessageBox.Cancel, escapeButton=QMessageBox.Cancel,
-                    destructiveButton=QMessageBox.Ok)
-                r = warning.exec()
-                if r == QMessageBox.Cancel:
+                if not confirm(
+                        self, "Are you sure you want to reset all bonuses by changing the bonus formula?",
+                        "If you change the bonus formula, all of your bonuses will be lost.",
+                        destructive=True):
                     self.m_rpCalcType.setCurrentIndex(self.m_rpCalcType.findData(self.m_currentRPCalcType))
                     return
 

@@ -1,4 +1,4 @@
-from PySide6.QtCore import QDir, QFileInfo, Qt, Signal
+from PySide6.QtCore import QDir, Qt, Signal
 from PySide6.QtWidgets import QFileDialog, QGridLayout, QMessageBox, QStackedWidget, QWidget
 
 from .event import XkorEvent
@@ -7,7 +7,7 @@ from .navigationwidget import XkorNavigationWidget
 from .rpeditor.rpeditor import XkorRPEditor
 from .rplist import XkorRPList
 from .thinsplitter import XkorThinSplitter
-from .ui.dialogs import message_box, resolved_search_path
+from .ui.dialogs import ask_save_changes, resolved_search_path
 
 
 class XkorCentralWidget(QWidget):
@@ -200,13 +200,7 @@ class XkorCentralWidget(QWidget):
         self.editor.setCurrentWidget(self.rpe)
 
     def showUnsavedDialog(self):
-        displayFileName = "untitled" if self.currentFileName == "" else QFileInfo(self.currentFileName).fileName()
-        warning = message_box(
-            self, "Do you want to save the changes you made to “%s”?" % displayFileName,
-            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
-            informativeText="Your changes will be lost if you don’t save them.",
-            destructiveButton=QMessageBox.Discard)
-        return warning.exec()
+        return ask_save_changes(self, self.currentFileName)
 
     def updateCurrentEvent(self):
         if self.currentEvent is not None:
