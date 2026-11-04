@@ -898,3 +898,50 @@ def test_a_stoppage_counts_as_a_win_for_the_winner_in_a_league_table(sport_index
                 assert (h < a) if by else (h > a), rx.group(0)
                 stoppages += 1
     assert stoppages > 0  # the seeds actually produced some
+
+
+# ------------------------------------------------------ unbreakable shoot-offs
+
+NO_SHOOTOFF_DATA = [
+    "Shooting—Mixed team 10 m air pistol—Qualification",
+    "Shooting—Mixed team 10 m air pistol—Final (Last series)",
+    "Shooting—Mixed team 10 m air pistol—Final (First six series)",
+    "Shooting—Mixed team 10 m air rifle—Qualification",
+    "Shooting—Mixed team 10 m air rifle—Final (Last series)",
+    "Shooting—Mixed team 10 m air rifle—Final (First six series)",
+    "Shooting—Mixed team trap—Final",
+]
+
+
+@pytest.mark.parametrize("sportName", NO_SHOOTOFF_DATA)
+def test_a_tie_that_no_shoot_off_can_break_stands_instead_of_hanging(sport_index, capfd, sportName):
+    """These sports have no shoot-off data, so every shoot-off shot scored the
+    same and a tie at the cutoff or on the podium re-shot forever."""
+    import signal
+
+    def hang(signum, frame):
+        raise AssertionError("scorination never finished")
+
+    old = signal.signal(signal.SIGALRM, hang)
+    try:
+        for seed in [6450, 6510] + list(range(40)):
+            ev, sport = build_event(sport_index, Mt19937(seed), sportName)
+            athletes = list(ev.groups()[0].athletes)
+            ev.setGroups([XkorGroup("Group A", athletes[:4]), XkorGroup("Group B", athletes[4:])])
+            ev.setCompetition("shooting")
+            sl = ev.makeStartList(XkorRPList())
+            opts, results = {}, {}
+            for md in range(2):
+                c = XkorCompetitionFactory.newCompetitionFull(
+                    "shooting", sl, sport, ev.paradigmOptions(), opts, results)
+                signal.alarm(10)
+                c.scorinate(md)
+                signal.alarm(0)
+                results[md] = c.results(md)
+                opts.update(c.resumeFileOptions())
+                assert results[md].strip()
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old)
+    # the seeds did produce a tie the sport couldn't break
+    assert "can't break a tie by shoot-off" in capfd.readouterr().err

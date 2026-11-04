@@ -1,9 +1,14 @@
 
+import sys
+
 from ..uuids import parseUuid
 from xkoranate.athlete import XkorAthlete
 from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
 from xkoranate.result import XkorResult
 from xkoranate.variant import toDouble, toInt, toList, toString
+
+# real shoot-offs settle within a handful of shots
+MAX_SHOOTOFFS = 50
 
 
 class XkorShootingCompetition(XkorAbstractCompetition):
@@ -56,7 +61,13 @@ class XkorShootingCompetition(XkorAbstractCompetition):
 
         results = list(p.results())
 
-        # if there’s a tie, deal with it
+        # if there’s a tie, deal with it. A shoot-off can only separate
+        # athletes if the sport says how shoot-off shots score: without that
+        # data every shot comes out the same and this loop never ended. Then
+        # the tie stands, as it does after MAX_SHOOTOFFS rounds of shots that
+        # still can't separate them.
+        canShootOff = self.sport.hasValue("shootoffScore")
+        shootoffs = 0
         needsTiebreak = False
         while True:
             needsTiebreak = False
@@ -83,7 +94,12 @@ class XkorShootingCompetition(XkorAbstractCompetition):
                         if p.compare(i, j) == 0:
                             tiebreakAthletes.append(i.athlete)
 
+            if needsTiebreak and (not canShootOff or shootoffs >= MAX_SHOOTOFFS):
+                print("can't break a tie by shoot-off in", self.sport.name(), file=sys.stderr)
+                break
+
             p.breakTie(tiebreakAthletes)
+            shootoffs += 1
 
             if not needsTiebreak:
                 break

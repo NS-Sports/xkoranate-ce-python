@@ -212,8 +212,9 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
                 results = toList(tableData[groupNo])
                 for i in results:
                     # match scores of form “1: Aquilla 3–1 Busby”, with an optional
-                    # “OT”/“SO” decider marker before the away team, e.g. “1: Aquilla 3–1 OT Busby”
-                    rx = re.search("[0-9]+: (.+) ([0-9.]+)–([0-9.]+)(?: (OT|SO))? (.+)", toString(i))
+                    # “OT”/“SO” decider marker before the away team, e.g. “1: Aquilla 3–1 OT Busby”.
+                    # A score can be negative (taekwondo deducts penalty points), “1: Aquilla 6–-1 Busby”
+                    rx = re.search("[0-9]+: (.+) (-?[0-9.]+)–(-?[0-9.]+)(?: (OT|SO))? (.+)", toString(i))
                     if rx is not None:  # if we matched
                         rval.append(XkorTableMatch(rx.group(1), rx.group(5), toDouble(rx.group(2)), toDouble(rx.group(3)), rx.group(4)))
         return rval
@@ -230,7 +231,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         for idx in range(len(tableData)):
             groupData = toList(tableData[idx])
             for j in range(len(groupData)):
-                rx = re.search("([0-9]+): (.+ [0-9.]+–[0-9.]+ .+)", toString(groupData[j]))  # find out what matchday the score is from
+                rx = re.search("([0-9]+): (.+ -?[0-9.]+–-?[0-9.]+ .+)", toString(groupData[j]))  # find out what matchday the score is from
                 if rx is not None and toDouble(rx.group(1)) >= matchday:  # if it’s on “matchday” or later…
                     groupData[j] = ""  # …blank the value
             # actually delete the blanked values
