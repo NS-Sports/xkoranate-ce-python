@@ -1,11 +1,12 @@
 import sys
 
 from ..result import XkorResult
-from ..variant import toDouble, toInt
+from ..variant import toInt
 from .abstractparadigm import XkorAbstractParadigm
+from .pointbypoint import XkorPointByPointMixin
 
 
-class XkorBestOfParadigm(XkorAbstractParadigm):
+class XkorBestOfParadigm(XkorPointByPointMixin, XkorAbstractParadigm):
     def __init__(self, sport=None, userOptions=None):
         super().__init__(sport, userOptions)
         self.supportedCompetitions["matches"] = True
@@ -27,7 +28,8 @@ class XkorBestOfParadigm(XkorAbstractParadigm):
 
             score = [0, 0]
             while score[0] <= games // 2 and score[1] <= games // 2:
-                currentGameScore = self.generateGameScore(home.rpSkill, away.rpSkill)
+                # each game is won like a single point
+                currentGameScore = self.generatePointScore(home.rpSkill, away.rpSkill)
 
                 if currentGameScore[0] > currentGameScore[1]:
                     score[0] += 1
@@ -53,14 +55,3 @@ class XkorBestOfParadigm(XkorAbstractParadigm):
 
     def individualResult(self, a, b, c=None):
         return XkorResult()  # unused
-
-    def formatScore(self, score1, score2):
-        return str(score1) + "–" + str(score2)
-
-    def generateGameScore(self, homeSkill, awaySkill):
-        attackModifier = toDouble(self.opt.get("attackModifier"))
-
-        first = self.s.randWeightedH2H(homeSkill, awaySkill) + self.s.randUniform() * attackModifier
-        second = self.s.randWeightedH2H(awaySkill, homeSkill) + self.s.randUniform() * attackModifier
-
-        return (first, second)

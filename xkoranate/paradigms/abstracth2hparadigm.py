@@ -160,6 +160,21 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
 
     # protected:
 
+    def _homeWinShare(self, homeSkill, awaySkill):
+        """The chance that a contested play goes the home side's way, for
+        Footba11er and Howzzat."""
+        homeAdvantage = 0
+        if toString(self.userOpt.get("homeAdvantage")) == "true":
+            homeAdvantage = self.homeAdvantageMagnitude()
+        skillCoeff = toDouble(self.opt.get("skillCoeff", 0.6))
+        skillOffset = toDouble(self.opt.get("skillOffset", 0.2))
+
+        # if the home and away skill are both 0, we can’t calculate the ratio,
+        # and use 0.5 instead
+        skillRatio = (0.5 if homeSkill == awaySkill
+                      else homeSkill / (homeSkill + awaySkill))
+        return skillCoeff * skillRatio + skillOffset + homeAdvantage
+
     def _binomialDraw(self, n, p, trace=False):
         """How many of `n` attempts succeed at `p` each, drawn with one
         uniform number; -1 if rounding leaves that number past the last

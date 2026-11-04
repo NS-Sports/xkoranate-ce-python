@@ -15,7 +15,7 @@ class XkorShootingParadigm(XkorScoredParadigm):
             result = self.findResult(i.id)
 
             ath = i.clone()
-            ath.rpSkill = self.adjustSkill(ath.rpSkill, "shootoff")
+            ath.rpSkill = self._adjustSkill(ath.rpSkill, "shootoff")
             soResult = self.individualResult(ath, "shootoffScore", "shootoff")
 
             shootoffScores = toList(result.value("shootoffScores"))
@@ -74,7 +74,7 @@ class XkorShootingParadigm(XkorScoredParadigm):
             for j in range(attempts):
                 # generate the result with a modified skill
                 ath = i.clone()
-                ath.rpSkill = self.adjustSkill(ath.rpSkill, attemptType)
+                ath.rpSkill = self._adjustSkill(ath.rpSkill, attemptType)
                 if attemptTypes in self.opt:
                     result = self.individualResult(ath, toString(self.readOptionList(attemptTypes)[j]))
                 else:
@@ -87,16 +87,6 @@ class XkorShootingParadigm(XkorScoredParadigm):
         self.generateOutput()
 
     # protected:
-
-    def adjustSkill(self, realSkill, roundType):
-        rankModifier = toDouble(self.opt.get(roundType + "RankModifier", 0))
-        rankAdjustmentFactor = toDouble(self.opt.get(roundType + "RankAdjustmentFactor", 1))
-
-        # randomize the skill a bit to compensate for the fact that long
-        # sequences of arrows would otherwise be highly predictable
-        rval = (realSkill + self.s.randUniform() * rankModifier) / (1 + rankModifier)
-        rval = rval * rankAdjustmentFactor + (1 - rankAdjustmentFactor) / 2
-        return rval
 
     def formatScore(self, score):
         isQualifying = (toString(self.userOpt.get("qualifying")) == "true")

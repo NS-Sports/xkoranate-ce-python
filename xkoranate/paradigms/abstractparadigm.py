@@ -136,6 +136,18 @@ class XkorAbstractParadigm:
                 return False
         return True
 
+    def _adjustSkill(self, realSkill, prefix):
+        """Skill blurred by the sport's <prefix>RankModifier and
+        <prefix>RankAdjustmentFactor options."""
+        rankModifier = toDouble(self.opt.get(prefix + "RankModifier", 0))
+        rankAdjustmentFactor = toDouble(self.opt.get(prefix + "RankAdjustmentFactor", 1))
+
+        # randomize the skill a bit to compensate for the fact that long
+        # sequences of arrows would otherwise be highly predictable
+        rval = (realSkill + self.s.randUniform() * rankModifier) / (1 + rankModifier)
+        rval = rval * rankAdjustmentFactor + (1 - rankAdjustmentFactor) / 2
+        return rval
+
     @staticmethod
     def _pairs(athletes):
         """(home, away) for each match in a list laid out home, away,
@@ -153,6 +165,13 @@ class XkorAbstractParadigm:
             return name + " (" + nation + ")"
         else:
             return name
+
+    def _worstScore(self):
+        """The score that sorts last under the sport's sort order; its
+        negation sorts first."""
+        return (sys.float_info.max
+                if toString(self.opt.get("sortOrder", "ascending")) == "ascending"
+                else -sys.float_info.max)
 
     def generateStatus(self):
         statuses = self.readOptionList("statuses")

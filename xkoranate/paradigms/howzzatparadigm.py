@@ -20,12 +20,7 @@ class XkorHowzzatParadigm(XkorAbstractH2HParadigm):
 
     def generateFTScore(self, home, away):
         # get the parameters
-        homeAdvantage = 0
-        if toString(self.userOpt.get("homeAdvantage")) == "true":
-            homeAdvantage = self.homeAdvantageMagnitude()
         useStyleMods = toString(self.userOpt.get("useStyleMods", "true")) == "true"
-        skillCoeff = toDouble(self.opt.get("skillCoeff", 0.6))
-        skillOffset = toDouble(self.opt.get("skillOffset", 0.2))
         styleCoeff = toDouble(self.opt.get("styleCoeff", 0.04))
         maxOvers = toInt(self.opt.get("maxOvers", 50))
         maxBalls = toInt(self.opt.get("ballsPerOver", 6)) * maxOvers
@@ -39,11 +34,7 @@ class XkorHowzzatParadigm(XkorAbstractH2HParadigm):
         wicketRateSize = (len(stDevWicketRate) if len(meanWicketRate) > len(stDevWicketRate)
                           else len(meanWicketRate))
 
-        # if the home and away skill are both 0, we can’t calculate the ratio,
-        # and use 0.5 instead
-        skillRatio = (0.5 if home.rpSkill == away.rpSkill
-                      else home.rpSkill / (home.rpSkill + away.rpSkill))
-        homeSkill = skillCoeff * skillRatio + skillOffset + homeAdvantage
+        homeSkill = self._homeWinShare(home.rpSkill, away.rpSkill)
         awaySkill = 1 - homeSkill
 
         homeGetsStyleEffect = (self.s.randUniform() < homeSkill)

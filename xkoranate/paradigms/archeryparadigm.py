@@ -151,18 +151,7 @@ class XkorArcheryParadigm(XkorAbstractParadigm):
     # protected:
 
     def adjustSkill(self, realSkill, isRankingRound=False):
-        if isRankingRound:
-            rankModifier = toDouble(self.opt.get("rankingRankModifier", 0))
-            rankAdjustmentFactor = toDouble(self.opt.get("rankingRankAdjustmentFactor", 1))
-        else:
-            rankModifier = toDouble(self.opt.get("knockoutRankModifier", 0))
-            rankAdjustmentFactor = toDouble(self.opt.get("knockoutRankAdjustmentFactor", 1))
-
-        # randomize the skill a bit to compensate for the fact that long
-        # sequences of arrows would otherwise be highly predictable
-        rval = (realSkill + self.s.randUniform() * rankModifier) / (1 + rankModifier)
-        rval = rval * rankAdjustmentFactor + (1 - rankAdjustmentFactor) / 2
-        return rval
+        return self._adjustSkill(realSkill, "ranking" if isRankingRound else "knockout")
 
     def individualResult(self, a, b, c=None):
         return XkorResult()  # unused

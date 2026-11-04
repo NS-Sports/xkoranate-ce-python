@@ -3,9 +3,10 @@ import sys
 from ..result import XkorResult
 from ..variant import toDouble, toInt
 from .abstractparadigm import XkorAbstractParadigm
+from .pointbypoint import XkorPointByPointMixin
 
 
-class XkorFencingParadigm(XkorAbstractParadigm):
+class XkorFencingParadigm(XkorPointByPointMixin, XkorAbstractParadigm):
     def __init__(self, sport=None, userOptions=None):
         super().__init__(sport, userOptions)
         self.supportedCompetitions["matches"] = True
@@ -48,15 +49,3 @@ class XkorFencingParadigm(XkorAbstractParadigm):
             self.res.append(XkorResult(score[0], ath=home.clone()))
             self.res.append(XkorResult(score[1], ath=away.clone()))
 
-    # protected:
-
-    def formatScore(self, score1, score2):
-        return str(score1) + "–" + str(score2)
-
-    def generatePointScore(self, homeSkill, awaySkill):
-        attackModifier = toDouble(self.opt.get("attackModifier"))
-
-        first = self.s.randWeightedH2H(homeSkill, awaySkill) + self.s.randUniform() * attackModifier
-        second = self.s.randWeightedH2H(awaySkill, homeSkill) + self.s.randUniform() * attackModifier
-
-        return (first, second)

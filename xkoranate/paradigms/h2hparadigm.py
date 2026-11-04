@@ -1,5 +1,3 @@
-import sys
-
 from ..result import XkorResult
 from ..variant import toDouble, toString
 from .abstractparadigm import XkorAbstractParadigm
@@ -47,22 +45,14 @@ class XkorH2HParadigm(XkorSQISParadigm):
 
         for i in range(len(statuses)):
             if self.s.randUniform() < toDouble(statusProbs[i]):  # HOMETEAMISTRY FAIL
-                hRes.setScore(sys.float_info.max
-                              if toString(self.opt.get("sortOrder", "ascending")) == "ascending"
-                              else -sys.float_info.max)
+                hRes.setScore(self._worstScore())
                 hRes.result["status"] = toString(statuses[i])
-                aRes.setScore(-sys.float_info.max
-                              if toString(self.opt.get("sortOrder", "ascending")) == "ascending"
-                              else sys.float_info.max)
+                aRes.setScore(-self._worstScore())
                 return (hRes, aRes)
             elif self.s.randUniform() < toDouble(statusProbs[i]):  # AWAYTEAMISTRY FAIL
-                aRes.setScore(sys.float_info.max
-                              if toString(self.opt.get("sortOrder", "ascending")) == "ascending"
-                              else -sys.float_info.max)
+                aRes.setScore(self._worstScore())
                 aRes.result["status"] = toString(statuses[i])
-                hRes.setScore(-sys.float_info.max
-                              if toString(self.opt.get("sortOrder", "ascending")) == "ascending"
-                              else sys.float_info.max)
+                hRes.setScore(-self._worstScore())
                 return (hRes, aRes)
 
         hRes.setScore(int(self.s.h2hScore("score", home.rpSkill, away.rpSkill)))

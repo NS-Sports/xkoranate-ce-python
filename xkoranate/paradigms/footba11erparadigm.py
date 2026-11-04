@@ -26,21 +26,12 @@ class XkorFootba11erParadigm(XkorAbstractH2HParadigm):
 
     def generateFTScore(self, home, away):
         # get the parameters
-        homeAdvantage = 0
-        if toString(self.userOpt.get("homeAdvantage")) == "true":
-            homeAdvantage = self.homeAdvantageMagnitude()
-        skillCoeff = toDouble(self.opt.get("skillCoeff", 0.6))
-        skillOffset = toDouble(self.opt.get("skillOffset", 0.2))
         listAttackStyle = (toString(self.opt.get("attackStyle", "list")) == "list")
         maxAttacks = toInt(self.opt.get("maxAttacks", 25))
         pointValues = toList(self.opt.get("pointValues", [1]))
         pointProbs = toList(self.opt.get("pointProbs", [1]))
 
-        # if the home and away skill are both 0, we can’t calculate the ratio,
-        # and use 0.5 instead
-        skillRatio = (0.5 if home.rpSkill == away.rpSkill
-                      else home.rpSkill / (home.rpSkill + away.rpSkill))
-        homeSkill = skillCoeff * skillRatio + skillOffset + homeAdvantage
+        homeSkill = self._homeWinShare(home.rpSkill, away.rpSkill)
 
         if listAttackStyle:
             attackProbs = toList(self.opt.get(
@@ -125,19 +116,10 @@ class XkorFootba11erParadigm(XkorAbstractH2HParadigm):
         subScoreType = ("subScores" if str_ == "" else str_ + "SubScores")
 
         # get the parameters
-        homeAdvantage = 0
-        if toString(self.userOpt.get("homeAdvantage")) == "true":
-            homeAdvantage = self.homeAdvantageMagnitude()
-        skillCoeff = toDouble(self.opt.get("skillCoeff", 0.6))
-        skillOffset = toDouble(self.opt.get("skillOffset", 0.2))
         pointValues = toList(self.opt.get("pointValues", [1]))
         pointProbs = toList(self.opt.get("pointProbs", [1]))
 
-        # if the home and away skill are both 0, we can’t calculate the ratio,
-        # and use 0.5 instead
-        skillRatio = (0.5 if home.athlete.rpSkill == away.athlete.rpSkill
-                      else home.athlete.rpSkill / (home.athlete.rpSkill + away.athlete.rpSkill))
-        homeSkill = skillCoeff * skillRatio + skillOffset + homeAdvantage
+        homeSkill = self._homeWinShare(home.athlete.rpSkill, away.athlete.rpSkill)
 
         # how many points will be scored?
         attackValue = 0

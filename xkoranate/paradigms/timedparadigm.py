@@ -96,11 +96,7 @@ class XkorTimedParadigm(XkorAbstractParadigm):
 
         for i in range(len(statuses)):
             if self.s.randUniform() < toDouble(statusProbs[i]):
-                rval = XkorResult(
-                    (sys.float_info.max
-                     if toString(self.opt.get("sortOrder", "ascending")) == "ascending"
-                     else -sys.float_info.max),
-                    toString(statuses[i]), ath)
+                rval = XkorResult(self._worstScore(), toString(statuses[i]), ath)
                 if (i < len(advancementProbs)
                         and self.s.randUniform() < toDouble(advancementProbs[i])):
                     rval.result["causesAdvancement"] = True
@@ -109,11 +105,7 @@ class XkorTimedParadigm(XkorAbstractParadigm):
         # if there was no status…
         score = self.s.individualScore(type, ath.rpSkill)
         if "lapped" in self.opt and score == toDouble(self.opt.get("lappedValue")):
-            return XkorResult(
-                (sys.float_info.max
-                 if toString(self.opt.get("sortOrder", "ascending")) == "ascending"
-                 else -sys.float_info.max),
-                toString(self.opt.get("lapped")), ath)
+            return XkorResult(self._worstScore(), toString(self.opt.get("lapped")), ath)
         else:
             return XkorResult(self.roundScore(score, roundingType),
                               self.formatScore(self.roundScore(score, roundingType)),
