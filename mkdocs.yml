@@ -42,6 +42,7 @@ nav:
   - Getting started:
       - Installing xkoranate: getting-started.md
       - Your first event: first-event.md
+      - Your first race: first-race.md
   - Using xkoranate:
       - Setting up an event: building-an-event.md
       - Table generator: table-generator.md
