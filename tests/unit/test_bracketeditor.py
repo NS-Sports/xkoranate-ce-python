@@ -56,6 +56,11 @@ def realEntrants(w):
     return [i for i in w.bracketEntrants() if i not in (None, BYE_ID)]
 
 
+def offeredSizes(w):
+    """The bracket sizes the size dropdown offers."""
+    return [w.bracketSizeCombo.itemData(i) for i in range(w.bracketSizeCombo.count())]
+
+
 def test_the_tree_holds_matches_not_groups(widget):
     loadBracket(widget)
     assert widget.treeWidget.topLevelItemCount() == 8  # 12 clubs -> 16-slot bracket
@@ -287,15 +292,6 @@ def test_the_size_dropdown_resizes_the_bracket(widget):
     assert widget.bracketSizeCombo.currentData() == 8
 
 
-def test_shrinking_the_bracket_releases_the_clubs_that_no_longer_fit(widget):
-    loadBracket(widget, 12)
-    widget.setBracketSize(4)
-
-    assert widget.treeWidget.topLevelItemCount() == 2
-    assert len(realEntrants(widget)) == 4
-    assert len(widget.availableAthletes) == 8  # the rest are back in the pool
-
-
 def test_the_size_dropdown_is_only_shown_for_a_bracket(widget):
     widget.setCompetition("singleElimination")
     assert widget.bracketSizeCombo.isVisible() or not widget.isVisible()
@@ -312,14 +308,11 @@ def test_only_playable_bracket_sizes_are_offered(widget):
     the cup that follows is the four-slot one.
     """
     loadBracket(widget, 12)
-    sizes = [widget.bracketSizeCombo.itemData(i)
-             for i in range(widget.bracketSizeCombo.count())]
-    assert sizes == [2, 4, 8, 16]  # smaller cups are allowed too
+    assert offeredSizes(widget) == [2, 4, 8, 16]  # smaller cups are allowed too
 
     onlyEntrants(widget, 4)
     loadBracket(widget, 4)
-    sizes = [widget.bracketSizeCombo.itemData(i)
-             for i in range(widget.bracketSizeCombo.count())]
+    sizes = offeredSizes(widget)
     assert sizes == [2, 4]
     assert 8 not in sizes
 
@@ -332,7 +325,7 @@ def test_a_smaller_bracket_can_be_chosen_than_the_field_needs(widget):
     assert widget.treeWidget.topLevelItemCount() == 2
     assert len(realEntrants(widget)) == 4
     assert widget.bracketEntrants().count(BYE_ID) == 0
-    assert len(widget.availableAthletes) == 8
+    assert len(widget.availableAthletes) == 8  # the rest are back in the pool
 
 
 def test_the_offered_sizes_follow_the_entrant_count(widget):
@@ -346,19 +339,16 @@ def test_the_offered_sizes_follow_the_entrant_count(widget):
     """
     loadBracket(widget, 9)
     onlyEntrants(widget, 9)
-    assert 16 in [widget.bracketSizeCombo.itemData(i)
-                  for i in range(widget.bracketSizeCombo.count())]
+    assert 16 in offeredSizes(widget)
 
     clearSlots(widget, 5)  # the five go back to the pool, so 16 is still on
     assert len(realEntrants(widget)) == 4
-    assert 16 in [widget.bracketSizeCombo.itemData(i)
-                  for i in range(widget.bracketSizeCombo.count())]
+    assert 16 in offeredSizes(widget)
 
     # a field of four, on the other hand, can only play four
     onlyEntrants(widget, 4)
     loadBracket(widget, 4)
-    assert [widget.bracketSizeCombo.itemData(i)
-            for i in range(widget.bracketSizeCombo.count())] == [2, 4]
+    assert offeredSizes(widget) == [2, 4]
 
 
 def test_shrinking_the_bracket_can_be_walked_back(widget):
@@ -367,8 +357,7 @@ def test_shrinking_the_bracket_can_be_walked_back(widget):
     loadBracket(widget, 4)
     widget.setBracketSize(2)
     assert len(realEntrants(widget)) == 2
-    assert [widget.bracketSizeCombo.itemData(i)
-            for i in range(widget.bracketSizeCombo.count())] == [2, 4]
+    assert offeredSizes(widget) == [2, 4]
 
     widget.setBracketSize(4)
     assert widget.bracketSlotCount == 4

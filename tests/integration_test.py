@@ -104,18 +104,6 @@ def test_single_elimination_round_names(tournament):
     assert c.matchdayNames() == ["Round of 16", "Quarter-finals", "Semi-finals", "Final"]
 
 
-def test_single_elimination_leaves_one_entrant_standing(tournament):
-    ev, sport = tournament("cup of 12")
-    c = play(ev, sport)
-
-    # the last round is a single match, so exactly one entrant comes out of it
-    winners = c._winnersOfRound(c._rounds() - 1)
-    assert winners is not None
-    assert len(winners) == 1
-    assert winners[0] is not None
-    assert winners[0].name in ev.results()[c.matchdays() - 1]
-
-
 def test_single_elimination_byes_appear_in_the_first_round_only(tournament):
     ev, sport = tournament("cup of 12")
     c = play(ev, sport)
@@ -126,11 +114,17 @@ def test_single_elimination_byes_appear_in_the_first_round_only(tournament):
         assert "BYE" not in ev.results()[md]
 
 
-@pytest.mark.parametrize("nAthletes", [2, 3, 5, 8, 11, 16])
+@pytest.mark.parametrize("nAthletes", [2, 3, 5, 8, 11, 12, 16])
 def test_single_elimination_plays_out_for_any_size(sport_index, rng, nAthletes):
     ev, sport = event_for(sport_index, rng, LISA, n=nAthletes, competition="singleElimination")
     c = play(ev, sport)
-    assert len(c._winnersOfRound(c._rounds() - 1)) == 1
+
+    # the last round is a single match, so exactly one entrant comes out of it
+    winners = c._winnersOfRound(c._rounds() - 1)
+    assert winners is not None
+    assert len(winners) == 1
+    assert winners[0] is not None
+    assert winners[0].name in ev.results()[c.matchdays() - 1]
     for md in range(c.matchdays()):
         assert ev.results()[md].strip() != ""
 

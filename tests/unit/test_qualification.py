@@ -63,18 +63,12 @@ def test_off_marks_nothing():
 # --- one group, matches still to play ---------------------------------------
 
 def test_clinch_and_elimination_with_a_round_to_go():
-    # A can't be caught by two teams; D can't reach second
+    # A can't be caught by two teams; D can't reach second. A possible tie on
+    # points counts against the team: B can only be caught by C winning,
+    # which leaves them level on 4, and the tiebreakers aren't known yet, so
+    # no Q for B -- and C, who can draw level with B, isn't out either
     g = group({"A": 6, "B": 4, "C": 1, "D": 0}, [("A", "D"), ("B", "C")])
     assert leagueMarkers([g], top(2)) == [{"A": "Q", "D": "E"}]
-
-
-def test_a_possible_tie_on_points_counts_against_the_team():
-    # B can only be caught by C winning, which leaves them level on 4:
-    # the tiebreakers aren't known yet, so no Q for B
-    g = group({"A": 6, "B": 4, "C": 1, "D": 0}, [("A", "D"), ("B", "C")])
-    assert "B" not in leagueMarkers([g], top(2))[0]
-    # and C, who can draw level with B, isn't out either
-    assert "C" not in leagueMarkers([g], top(2))[0]
 
 
 def test_enumeration_sees_that_rivals_who_meet_cant_both_win(monkeypatch):
