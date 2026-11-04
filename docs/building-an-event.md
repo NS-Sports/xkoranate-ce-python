@@ -307,7 +307,8 @@ In a knockout cup, each round ends with the next round's fixtures:
 
 ![Semi-final results, followed by the final's line-up](screenshots/guide-15-knockout-results.png)
 
-A race shows everyone in finishing order:
+A race shows everyone in finishing order. [Your first race](first-race.md)
+walks through setting one up.
 
 ![A 100 m final](screenshots/guide-16-race-results.png)
 

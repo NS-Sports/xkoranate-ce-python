@@ -18,7 +18,9 @@ results **scorinating**, and you'll see that word throughout the app.
 2. **[Run your first event](first-event.md).** A guided walk-through: a
    football group stage with two groups of four, from an empty window to
    results ready to post. About 10 minutes.
-3. **Keep this guide handy.** Press <kbd>F1</kbd> in xkoranate at any time
+3. **[Run your first race](first-race.md).** A women's 100 m final, start
+   to finish. About 5 minutes.
+4. **Keep this guide handy.** Press <kbd>F1</kbd> in xkoranate at any time
    to open it, or choose **Help › xkoranate manual**.
 
 ## What can it do?

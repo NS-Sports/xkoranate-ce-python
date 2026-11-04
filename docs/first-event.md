@@ -172,10 +172,11 @@ use **File › Open** to come back to it. Your results are kept in the file.
 
 ## Where next?
 
+- [Your first race](first-race.md) sets up a 100 m final, which works a
+  little differently from matches.
 - When the groups are finished, make a **Knockout** event in the same
   file for the teams that went through. See
   [Knockout brackets](building-an-event.md#knockout-brackets).
-
 - [Setting up an event](building-an-event.md) explains everything on each
   step, including knockout cups and races.
 - The [table generator](table-generator.md) makes a league table from

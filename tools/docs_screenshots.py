@@ -160,6 +160,14 @@ class Shooter:
         nw.treeWidget.setCurrentItem(nw.m_eventsItem.child(i), 0)
         self.settle()
 
+    def centre_sport(self):
+        """Scroll the sport list so the chosen sport is in view."""
+        for view in self.app.cw.ee.sportSelector.findChildren(QAbstractItemView):
+            selected = view.selectionModel().selectedIndexes() if view.selectionModel() else []
+            if selected:
+                view.scrollTo(selected[0], QAbstractItemView.PositionAtCenter)
+        self.settle()
+
     def step(self, n):
         """Go to wizard step n (1-5) of the selected event."""
         ee = self.app.cw.ee
@@ -191,10 +199,7 @@ def run(shots, workdir):
                     (3, "05-step-competition"), (4, "06-step-groups")]:
         shots.step(n)
         if n == 1:
-            tree = ee.sportSelector
-            for view in tree.findChildren(type(cw.nw.treeWidget)):
-                if view.currentItem() is not None:
-                    view.scrollToItem(view.currentItem(), view.PositionAtCenter)
+            shots.centre_sport()
         shots.window(name)
 
     shots.modal("07-schedule", ee.viewSchedule)
@@ -233,8 +238,14 @@ def run(shots, workdir):
     with open(results_file, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
 
-    # 100 m final: a race
+    # 100 m final: a race, every step
     shots.select_event(2)
+    for n, name in [(1, "20-race-sport"), (2, "21-race-signups"),
+                    (3, "22-race-competition"), (4, "23-race-groups")]:
+        shots.step(n)
+        if n == 1:
+            shots.centre_sport()
+        shots.window(name)
     shots.step(5)
     sw.scorinateMatchday(0)
     shots.window("16-race-results")
