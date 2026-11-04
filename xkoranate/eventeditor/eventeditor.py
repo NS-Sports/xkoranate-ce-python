@@ -10,7 +10,7 @@ from ..sport import XkorSport
 from .. import theme
 from ..ui.dialogs import confirm, text_preview_dialog
 from .competitionselector import XkorCompetitionSelector
-from .eventsetupwidget import XkorEventSetupWidget
+from .eventsetupwidget import XkorEventSetupWidget, pageNames
 from .scorinatewidget import XkorScorinateWidget
 from .sportselector import XkorSportSelector
 
@@ -71,10 +71,7 @@ class XkorEventEditor(QWidget):
 
     def stepNames(self):
         names = list(_STEP_NAMES)
-        if self.m_data.competition() == "singleElimination":
-            names[_GROUPS_STEP] = "Bracket"  # match the page's own heading
-        elif self.m_data.competition() == "interConference":
-            names[_GROUPS_STEP] = "Conferences"
+        names[_GROUPS_STEP] = pageNames(self.m_data.competition())[1]  # match the page's own heading
         return names
 
     def updateStepIndicator(self):

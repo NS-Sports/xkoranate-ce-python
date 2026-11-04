@@ -16,6 +16,19 @@ from ..rng import Mt19937
 from ..signuplist import XkorSignupList
 from .eventsetupdelegate import BYE_LABEL, XkorEventSetupDelegate
 
+# a knockout is one pooled bracket rather than a set of groups, so the page
+# is named for what the user is actually arranging: (heading, wizard step)
+_PAGE_NAMES = {
+    "singleElimination": ("Set bracket", "Bracket"),
+    "interConference": ("Set up conferences", "Conferences"),
+}
+_GROUPS_PAGE_NAMES = ("Set up groups", "Groups")
+
+
+def pageNames(competition):
+    """The setup page's heading and wizard step name for a competition type."""
+    return _PAGE_NAMES.get(competition, _GROUPS_PAGE_NAMES)
+
 
 class XkorEventSetupWidget(XkorAbstractTreeWidget):
     slChanged = Signal()
@@ -276,13 +289,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.listChanged.emit()
 
     def headingText(self):
-        # a knockout is one pooled bracket rather than a set of groups, so
-        # the page is named for what the user is actually arranging
-        if self.competition == "singleElimination":
-            return "Set bracket"
-        if self.competition == "interConference":
-            return "Set up conferences"
-        return "Set up groups"
+        return pageNames(self.competition)[0]
 
     def setCompetition(self, competition):
         if competition == self.competition:
