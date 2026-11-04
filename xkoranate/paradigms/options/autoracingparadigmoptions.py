@@ -31,7 +31,8 @@ class XkorAutoRacingParadigmOptions(XkorAbstractOptionsWidget):
         self.trackAcceleration.setRange(0, 10)
         self.trackAcceleration.setValue(toDouble(self.options.get("trackAcceleration", 5)))
         self.trackAcceleration.setEnabled(False)
-        self.trackAcceleration.valueChanged.connect(lambda x: self._setOption("trackAcceleration", x))
+        self.trackAcceleration.valueChanged.connect(
+            lambda x: self._setOption("trackAcceleration", x))
 
         self.trackCornering = QDoubleSpinBox()
         self.trackCornering.setDecimals(1)

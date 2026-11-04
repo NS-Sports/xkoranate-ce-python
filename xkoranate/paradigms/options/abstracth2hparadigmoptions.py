@@ -4,7 +4,7 @@ from xkoranate.abstractoptionswidget import XkorAbstractOptionsWidget
 from xkoranate.variant import toString
 
 
-class XkorH2HParadigmOptions(XkorAbstractOptionsWidget):
+class XkorAbstractH2HParadigmOptions(XkorAbstractOptionsWidget):
     """Pieces shared by the head-to-head paradigms' options widgets."""
 
     def _enableWith(self, checkBox, *widgets):

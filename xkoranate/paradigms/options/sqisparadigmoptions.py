@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QFormLayout, QLabel, QWidget
 
 from .collapsiblesection import XkorCollapsibleSection
-from .h2hparadigmoptions import XkorH2HParadigmOptions
+from .abstracth2hparadigmoptions import XkorAbstractH2HParadigmOptions
 
 _DEFAULT_HOME_ADVANTAGE_MAGNITUDE = 4.0 / 3.0
 _DEFAULT_CONSTANT_A = 0.1
@@ -9,7 +9,7 @@ _DEFAULT_CONSTANT_B = 0.07
 _DEFAULT_ATTACKS = 12.0
 
 
-class XkorSQISParadigmOptions(XkorH2HParadigmOptions):
+class XkorSQISParadigmOptions(XkorAbstractH2HParadigmOptions):
     def __init__(self, opts, defaultHomeAdvantageMagnitude=_DEFAULT_HOME_ADVANTAGE_MAGNITUDE,
                  defaultConstantA=_DEFAULT_CONSTANT_A, defaultConstantB=_DEFAULT_CONSTANT_B,
                  defaultAttacks=_DEFAULT_ATTACKS, parent=None):

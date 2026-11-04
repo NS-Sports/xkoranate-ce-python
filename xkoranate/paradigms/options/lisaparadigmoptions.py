@@ -4,7 +4,7 @@ from xkoranate.ui.tooltips import wrapped_tooltip
 from xkoranate.variant import toString
 
 from .collapsiblesection import XkorCollapsibleSection
-from .h2hparadigmoptions import XkorH2HParadigmOptions
+from .abstracth2hparadigmoptions import XkorAbstractH2HParadigmOptions
 
 _DEFAULT_HOME_ADVANTAGE_EAR = 100.0
 _DEFAULT_POWER_SCALAR = 1.984
@@ -13,7 +13,7 @@ _DEFAULT_REAR = 300.0
 _DEFAULT_MARGIN_DIVISOR = 750.0
 
 
-class XkorLISAParadigmOptions(XkorH2HParadigmOptions):
+class XkorLISAParadigmOptions(XkorAbstractH2HParadigmOptions):
     """Per-event overrides for LISA. Every constant the algorithm's author
     calls out as adjustable (power scalar, reference rank, REAR, margin
     divisor) gets its own spinbox here, same as home-advantage magnitude

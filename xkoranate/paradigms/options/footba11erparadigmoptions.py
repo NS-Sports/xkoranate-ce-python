@@ -1,12 +1,12 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel
 
-from .h2hparadigmoptions import XkorH2HParadigmOptions
+from .abstracth2hparadigmoptions import XkorAbstractH2HParadigmOptions
 
 _DEFAULT_HOME_ADVANTAGE_MAGNITUDE = 0.065
 
 
-class XkorFootba11erParadigmOptions(XkorH2HParadigmOptions):
+class XkorFootba11erParadigmOptions(XkorAbstractH2HParadigmOptions):
     def __init__(self, opts, defaultHomeAdvantageMagnitude=_DEFAULT_HOME_ADVANTAGE_MAGNITUDE, parent=None):
         super().__init__(opts, parent)
 
