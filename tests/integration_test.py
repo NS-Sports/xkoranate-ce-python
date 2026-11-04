@@ -918,3 +918,12 @@ def test_cross_conference_points_change_only_cross_games(sport_index, rng):
             points.append(int(line.split()[-1]))
         # three games within the conference, each worth 3 to its winner
         assert sum(points) == 3 * 3
+
+
+def test_round_robin_is_still_the_default_for_a_new_head_to_head_event(editor, sport_index, rng):
+    """New types go into the factory list ahead of round robin: the selector
+    falls back to whichever supported type it lists first."""
+    ev, sport = build_event(sport_index, rng, "Association football—LISA formula")
+    editor.showEventEditor(ev)
+    assert selectedCompetition(editor) == "roundRobin"
+    assert ev.competition() == "roundRobin" or editor.ee.m_data.competition() == "roundRobin"

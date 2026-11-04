@@ -46,6 +46,9 @@ class XkorCompetitionFactory:
         rval["shooting"] = "Shooting competition"
         rval["singleElimination"] = "Single elimination"
         rval["standard"] = "Mass start"
-        rval["roundRobin"] = "Round robin"
         rval["interConference"] = "Inter-conference round robin"
+        # the selector lists these last-first and falls back to the top
+        # entry, so this one stays last: round robin is the default for
+        # head-to-head sports
+        rval["roundRobin"] = "Round robin"
         return rval
