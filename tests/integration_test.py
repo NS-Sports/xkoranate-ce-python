@@ -945,3 +945,115 @@ def test_a_tie_that_no_shoot_off_can_break_stands_instead_of_hanging(sport_index
         signal.signal(signal.SIGALRM, old)
     # the seeds did produce a tie the sport couldn't break
     assert "can't break a tie by shoot-off" in capfd.readouterr().err
+
+
+# --- qualification markers (Q / E) -------------------------------------------
+
+def playGroups(index, rng, sportName, competition, groups, perGroup):
+    """Scorinate every matchday, rebuilding the competition from the saved
+    options in between the way the Scorinate step does."""
+    ev, sport = build_event(index, rng, sportName, groups * perGroup)
+    ids = list(ev.groups()[0].athletes)
+    ev.setGroups([XkorGroup("Group %s" % chr(65 + g), ids[g * perGroup:(g + 1) * perGroup])
+                  for g in range(groups)])
+    ev.setCompetition(competition)
+    sl = ev.makeStartList(XkorRPList())
+
+    def build():
+        return XkorCompetitionFactory.newCompetitionFull(
+            competition, sl, sport, ev.paradigmOptions(), ev.competitionOptions(), ev.results())
+
+    c = build()
+    for md in range(c.matchdays()):
+        c.scorinate(md)
+        ev.replaceCompetitionOptions(c.resumeFileOptions())
+        ev.setResult(md, c.results(md))
+        c = build()
+    return ev, sport, c
+
+
+def markerCounts(text):
+    rows = [line for line in text.split("\n") if line[-2:] in (" Q", " E")]
+    return sum(1 for r in rows if r.endswith("Q")), sum(1 for r in rows if r.endswith("E"))
+
+
+def test_league_markers_on_the_final_matchday(sport_index, rng):
+    from xkoranate.competitions.qualification import QualificationSettings
+
+    ev, sport, c = playGroups(sport_index, rng, "Association football—SQIS formula",
+                              "roundRobin", 3, 4)
+    last = c.matchdays() - 1
+    text = c.results(last)
+
+    assert c.formatQualifications(text, last, QualificationSettings()) == text
+    assert markerCounts(c.formatQualifications(text, last, QualificationSettings("top", 2))) == (6, 6)
+    assert markerCounts(c.formatQualifications(
+        text, last, QualificationSettings("topPlusBest", 2, 1))) == (7, 5)
+    # after one game nobody is through or out yet
+    assert c.formatQualifications(c.results(0), 0, QualificationSettings("top", 2)) == c.results(0)
+
+
+def test_league_markers_survive_a_save_and_reload(sport_index, rng, tmp_path):
+    from xkoranate.competitions.qualification import QualificationSettings
+
+    ev, sport, c = playGroups(sport_index, rng, "Association football—SQIS formula",
+                              "roundRobin", 2, 4)
+    ev.replaceCompetitionOptions(QualificationSettings("top", 2).toOptions())
+    xmlPath = str(tmp_path / "league.xml")
+    XkorXmlWriter(xmlPath, XkorRPList(), [(uuid.uuid4(), ev)])
+    ev2 = XkorXmlReader(xmlPath).events()[0][1]
+
+    settings = QualificationSettings.fromOptions(ev2.competitionOptions())
+    assert settings == QualificationSettings("top", 2)
+    c2 = XkorCompetitionFactory.newCompetitionFull(
+        "roundRobin", ev2.makeStartList(XkorRPList()), sport, ev2.paradigmOptions(),
+        ev2.competitionOptions(), ev2.results())
+    last = c2.matchdays() - 1
+    assert markerCounts(c2.formatQualifications(c2.results(last), last, settings)) == (4, 4)
+
+
+def test_heat_markers_with_the_best_next_placed(sport_index, rng):
+    from xkoranate.competitions.qualification import QualificationSettings
+
+    ev, sport, c = playGroups(sport_index, rng, "Athletics—Men’s 00100 m—Round 1",
+                              "standard", 3, 5)
+    assert len(ev.competitionOptions()["heatRanks"]) == 3
+    text = c.results(0)
+    best = QualificationSettings("topPlusBest", 2, 1)
+    assert markerCounts(c.formatQualifications(text, 0, QualificationSettings("top", 2))) == (6, 9)
+    assert markerCounts(c.formatQualifications(text, 0, best)) == (7, 8)
+
+    # saved before heat ranks were kept: the third-placed can't be compared
+    old = dict(ev.competitionOptions())
+    del old["heatRanks"]
+    c = XkorCompetitionFactory.newCompetitionFull(
+        "standard", ev.makeStartList(XkorRPList()), sport, ev.paradigmOptions(), old, ev.results())
+    assert markerCounts(c.formatQualifications(text, 0, best)) == (6, 6)
+
+
+def test_scorinate_step_box_loads_quietly_and_saves_changes(qt_app, sport_index, rng):
+    from xkoranate.competitions.qualification import QualificationSettings
+    from xkoranate.eventeditor.scorinatewidget import XkorScorinateWidget
+
+    ev, sport, c = playGroups(sport_index, rng, "Association football—SQIS formula",
+                              "roundRobin", 3, 4)
+    ev.replaceCompetitionOptions(QualificationSettings("topPlusBest", 2, 1).toOptions())
+
+    w = XkorScorinateWidget()
+    saved = []
+    w.resumeFileOptionsSet.connect(saved.append)
+    w.setEvent(ev, XkorRPList(), sport)
+    assert saved == []  # opening an event doesn't mark it changed
+    assert not w.qualificationBox.isHidden()
+    assert w.qualificationSettings() == QualificationSettings("topPlusBest", 2, 1)
+
+    w.matchday.setCurrentIndex(w.matchday.count() - 1)
+    assert markerCounts(w.textedit.toPlainText()) == (7, 5)
+
+    w.qualificationBest.setChecked(False)
+    assert saved[-1]["qualificationMode"] == "top"
+    assert markerCounts(w.textedit.toPlainText()) == (6, 6)
+
+    w.qualificationBox.setChecked(False)
+    assert saved[-1]["qualificationMode"] == "off"
+    assert w.textedit.toPlainText() == c.results(c.matchdays() - 1)

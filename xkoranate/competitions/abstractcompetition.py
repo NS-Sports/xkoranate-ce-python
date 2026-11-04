@@ -80,6 +80,18 @@ class XkorAbstractCompetition:
     def supportsOdds(self):
         return False
 
+    def supportsQualifications(self):
+        """Whether formatQualifications() can mark qualified (Q) and
+        eliminated (E) entrants in this competition's standings."""
+        return False
+
+    def formatQualifications(self, text, matchday, settings):
+        """The results text for `matchday` with Q/E markers added under the
+        given QualificationSettings. Display-only: the stored results stay
+        plain, so changing the rule never needs a re-roll. Returns `text`
+        unchanged when there's nothing it can mark."""
+        return text
+
     def _oddsParadigm(self):
         """The event's paradigm, if it can estimate head-to-head odds."""
         from xkoranate.paradigms.abstracth2hparadigm import XkorAbstractH2HParadigm

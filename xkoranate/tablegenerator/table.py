@@ -27,6 +27,9 @@ class XkorTable:
         self.showResultsGrid = False
         self.showOvertime = False
         self.goalName = ""
+        # team name -> "Q"/"E", shown in a "qualification" column if the
+        # columns include one (see XkorRoundRobinCompetition.formatQualifications)
+        self.markers = {}
 
     def addMatchToData(self, m):
         i = self.findTeam(m.team1)
@@ -152,6 +155,9 @@ class XkorTable:
     def setGoalName(self, name):
         self.goalName = name
 
+    def setMarkers(self, markers):
+        self.markers = dict(markers)
+
     def setMatches(self, m):
         self.matches = list(m)
         self.updateMatches()
@@ -271,6 +277,8 @@ class XkorTable:
                                  else "%.3f" % (j.goalsFor() / j.goalsAgainst())).rjust(k.width)
                     elif k.columnType == "points":
                         rval += qNumber(self.getPoints(j)).rjust(k.width)
+                    elif k.columnType == "qualification":
+                        rval += self.markers.get(j.name(), "").ljust(k.width)
                     elif k.columnType == "winPercent":
                         rval += ("undef" if j.played() == 0
                                  else "%.3f" % ((j.wins() + j.draws() / 2.0) / j.played())).rjust(k.width)

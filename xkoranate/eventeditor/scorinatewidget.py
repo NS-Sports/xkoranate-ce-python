@@ -2,10 +2,14 @@ import time
 
 from PySide6.QtCore import QDir, QSize, Qt, Signal
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox,
-                               QFileDialog, QMessageBox, QPlainTextEdit, QStyle,
+                               QFileDialog, QGroupBox, QHBoxLayout, QLabel,
+                               QMessageBox, QPlainTextEdit, QSpinBox, QStyle,
                                QToolBar, QVBoxLayout, QWidget)
 
 from ..bbcode import boldWinners
+from ..competitions.qualification import (MODE_OFF, MODE_TOP,
+                                          MODE_TOP_PLUS_BEST,
+                                          QualificationSettings, ordinal)
 from ..event import XkorEvent
 from ..icons import icon_action
 from ..rng import Mt19937
@@ -15,6 +19,7 @@ from ..sport import XkorSport
 from ..startlist import XkorStartList
 from ..ui.dialogs import message_box, resolved_search_path
 from ..ui.fonts import monospace_font, widen_combo_popup
+from ..ui.tooltips import wrapped_tooltip
 from ..ui.typography import heading_label
 
 
@@ -124,6 +129,8 @@ class XkorScorinateWidget(QWidget):
         self.bbcodeCheckBox = QCheckBox("BBCode output ([pre] tags, bold winners)")
         self.bbcodeCheckBox.toggled.connect(lambda: self.updateResults(self.matchday.currentIndex()))
 
+        self.initQualificationBox()
+
         self.textedit = QPlainTextEdit()
         self.textedit.setReadOnly(True)
         self.textedit.setFont(monospace_font())
@@ -132,10 +139,112 @@ class XkorScorinateWidget(QWidget):
         self.layout.addWidget(label, 0, Qt.AlignCenter)
         self.layout.addWidget(self.matchday, 0, Qt.AlignHCenter)
         self.layout.addWidget(self.bbcodeCheckBox, 0, Qt.AlignHCenter)
+        self.layout.addWidget(self.qualificationBox, 0, Qt.AlignHCenter)
         self.layout.addWidget(self.textedit, 1)
         self.layout.addWidget(toolBar, 0, Qt.AlignCenter)
 
         self.layout.setContentsMargins(0, 0, 0, 0)
+
+    def initQualificationBox(self):
+        # "Top [2] in each group  [ ] + best [1] 3rd-placed": one short row,
+        # the explanations in tooltips (the window starts small)
+        self.qualificationBox = QGroupBox("Format qualifications")
+        self.qualificationBox.setCheckable(True)
+        self.qualificationBox.setChecked(False)
+        self.qualificationBox.setToolTip(wrapped_tooltip(
+            "Mark who has mathematically qualified with Q and who has been "
+            "eliminated with E, in a column after the points. Only the first "
+            "sort rule (usually points) can be projected ahead, so a tie on "
+            "it counts against the team: a marker appears only once no "
+            "remaining result can change it."))
+
+        self.qualificationPlaces = QSpinBox()
+        self.qualificationPlaces.setRange(1, 999)
+        self.qualificationPlaces.setValue(2)
+
+        self.qualificationPerGroup = QLabel("in each group")
+
+        self.qualificationBest = QCheckBox("+ best")
+        self.qualificationBest.setToolTip(wrapped_tooltip(
+            "Also qualify the best few who finish one place below the cut, "
+            "compared across groups with the table's sort rules (head-to-head "
+            "rules left out, as they never met)."))
+
+        self.qualificationBestOf = QSpinBox()
+        self.qualificationBestOf.setRange(1, 999)
+        self.qualificationBestOf.setValue(1)
+
+        self.qualificationBestLabel = QLabel()
+
+        row = QHBoxLayout(self.qualificationBox)
+        row.addWidget(QLabel("Top"))
+        row.addWidget(self.qualificationPlaces)
+        row.addWidget(self.qualificationPerGroup)
+        row.addSpacing(8)
+        row.addWidget(self.qualificationBest)
+        row.addWidget(self.qualificationBestOf)
+        row.addWidget(self.qualificationBestLabel)
+
+        self.qualificationBox.toggled.connect(self.qualificationChanged)
+        self.qualificationPlaces.valueChanged.connect(self.qualificationChanged)
+        self.qualificationBest.toggled.connect(self.qualificationChanged)
+        self.qualificationBestOf.valueChanged.connect(self.qualificationChanged)
+
+        self.updateQualificationControls()
+        self.qualificationBox.hide()  # until an event that supports it is shown
+
+    def qualificationSettings(self):
+        """The rule as the controls set it. "+ best" is kept even while it's
+        hidden for a one-group event; the competition only applies it when
+        there are groups to compare."""
+        if not self.qualificationBox.isChecked():
+            mode = MODE_OFF
+        elif self.qualificationBest.isChecked():
+            mode = MODE_TOP_PLUS_BEST
+        else:
+            mode = MODE_TOP
+        return QualificationSettings(mode, self.qualificationPlaces.value(),
+                                     self.qualificationBestOf.value())
+
+    def loadQualificationSettings(self, competitionOptions):
+        settings = QualificationSettings.fromOptions(competitionOptions)
+        controls = (self.qualificationBox, self.qualificationPlaces,
+                    self.qualificationBest, self.qualificationBestOf)
+        # not a user edit: loading an event mustn't mark it as changed
+        for w in controls:
+            w.blockSignals(True)
+        try:
+            self.qualificationBox.setChecked(settings.mode != MODE_OFF)
+            self.qualificationPlaces.setValue(settings.places)
+            self.qualificationBest.setChecked(settings.mode == MODE_TOP_PLUS_BEST)
+            self.qualificationBestOf.setValue(settings.bestOf)
+        finally:
+            for w in controls:
+                w.blockSignals(False)
+        self.updateQualificationControls()
+
+    def qualificationChanged(self):
+        self.updateQualificationControls()
+        options = self.qualificationSettings().toOptions()
+        # saved with the event's competition options, like the resume data
+        self.e.replaceCompetitionOptions(options)
+        self.resumeFileOptionsSet.emit(options)
+        if self.c is not None:
+            self.updateResults(self.matchday.currentIndex())
+
+    def updateQualificationControls(self):
+        multipleGroups = len(self.sl.groups) > 1
+        for w in (self.qualificationPerGroup, self.qualificationBest,
+                  self.qualificationBestOf, self.qualificationBestLabel):
+            w.setVisible(multipleGroups)
+        best = self.qualificationBest.isChecked()
+        self.qualificationBestOf.setEnabled(best)
+        self.qualificationBestLabel.setEnabled(best)
+        self.qualificationBestLabel.setText("%s-placed" % ordinal(self.qualificationPlaces.value() + 1))
+        self.qualificationPlaces.setToolTip(
+            "Places that qualify from each group" if multipleGroups else "Places that qualify")
+        self.qualificationBestOf.setToolTip(
+            "How many %s-placed finishers qualify" % ordinal(self.qualificationPlaces.value() + 1))
 
     def clear(self):
         self.e = XkorEvent()
@@ -146,6 +255,7 @@ class XkorScorinateWidget(QWidget):
         self.matchday.clear()
         self.matchday.hide()
         self.oddsAction.setEnabled(False)
+        self.qualificationBox.hide()
 
     def exportResults(self, filename=None):
         # C++ overloads: exportResults() shows the dialog; exportResults(QString) writes
@@ -226,7 +336,6 @@ class XkorScorinateWidget(QWidget):
     def scorinateMatchday(self, md):
         # scorinate
         self.c.scorinate(md)
-        self.updateResults(self.matchday.currentIndex())  # we should show the results for the selected matchday, not those we just scorinated
 
         # resume file
         resumeOpts = self.c.resumeFileOptions()
@@ -236,6 +345,10 @@ class XkorScorinateWidget(QWidget):
         self.resumeFileOptionsSet.emit(resumeOpts)
         self.resultConfirmed.emit(md, self.c.results(md))
         self.updateCompetition(resumeOpts, md, self.c.results(md))
+        # shown from the rebuilt competition: only it has the saved matches
+        # (or heat ranks) that the qualification markers are worked out from.
+        # We show the selected matchday, not necessarily the one just scorinated
+        self.updateResults(self.matchday.currentIndex())
         self.updateButtons()
 
     def setEvent(self, event, rpList, sport):
@@ -259,6 +372,10 @@ class XkorScorinateWidget(QWidget):
         self.c = XkorCompetitionFactory.newCompetitionFull(
             event.competition(), self.sl, sport, event.paradigmOptions(),
             event.competitionOptions(), event.results())
+
+        # before the matchday list is filled: filling it shows the results
+        self.loadQualificationSettings(event.competitionOptions())
+        self.qualificationBox.setVisible(self.c.supportsQualifications())
 
         self.matchday.clear()
         matchdayNames = self.c.matchdayNames()
@@ -296,7 +413,9 @@ class XkorScorinateWidget(QWidget):
             self.e.competitionOptions(), self.e.results())
 
     def updateResults(self, matchday):
-        self.textedit.setPlainText(self._formatResults(self.c.results(matchday)))
+        text = self.c.results(matchday)
+        text = self.c.formatQualifications(text, matchday, self.qualificationSettings())
+        self.textedit.setPlainText(self._formatResults(text))
 
     def viewOdds(self):
         if self.c is None:

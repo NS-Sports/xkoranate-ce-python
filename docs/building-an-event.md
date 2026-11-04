@@ -109,3 +109,24 @@ This is where you actually run the simulation:
 Check **BBCode output ([pre] tags, bold winners)** before exporting or
 copying if you're posting straight to the forum — it wraps the results in
 `[pre]` tags and automatically bolds each match's winner.
+
+### Format qualifications
+
+Round-robin and mass-start events show a **Format qualifications** box. Tick
+it to mark each entrant with **Q** once they have mathematically qualified
+and **E** once they have been eliminated, in a column after the points (or
+after the result, for heats). Choose how many places go through:
+
+- **Top X**: for an event with a single group.
+- **Top X in each group**: when there are several groups or heats.
+- **+ best N**: also takes the best N entrants who finish one place below
+  the cut (for example the best 3rd-placed teams), compared across groups.
+
+A marker only appears once no remaining result can change it. Only the
+table's first sort rule (usually points) can be worked out in advance, so
+a team that could still finish level on it isn't marked until the group is
+complete. A tie that straddles the cut stays unmarked.
+
+The markers are added when results are shown and exported. Your setting is
+saved with the event, so you can change it at any time without
+re-scorinating.
