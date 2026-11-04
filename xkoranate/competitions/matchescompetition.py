@@ -16,17 +16,18 @@ class XkorMatchesCompetition(XkorAbstractCompetition):
 
         return XkorMatchesCompetitionOptions(competitionOptions)
 
+    def _pairings(self):
+        """(group name, fixtures) for each group, its entrants paired off
+        in order."""
+        rval = []
+        for g in self.startList.groups:
+            size = len(g.athletes) - (len(g.athletes) % 2)
+            rval.append((g.name, [(g.athletes[h], g.athletes[h + 1]) for h in range(0, size, 2)]))
+        return rval
+
     def schedule(self):
-        lines = []
-        for i in self.startList.groups:
-            size = len(i.athletes) - (len(i.athletes) % 2)
-            if size == 0:
-                continue
-            if len(self.startList.groups) > 1:
-                lines.append(i.name)
-            for home in range(0, size, 2):
-                lines.append(self._formatFixture(i.athletes[home], i.athletes[home + 1]))
-        return "\n".join(lines)
+        return "\n".join(self._fixtureLines(self._pairings(), self._formatFixture,
+                                            len(self.startList.groups) > 1))
 
     def supportsOdds(self):
         return self._oddsParadigm() is not None
@@ -36,16 +37,9 @@ class XkorMatchesCompetition(XkorAbstractCompetition):
         if p is None:
             return None
 
-        lines = []
-        for i in self.startList.groups:
-            size = len(i.athletes) - (len(i.athletes) % 2)
-            if size == 0:
-                continue
-            if len(self.startList.groups) > 1:
-                lines.append(i.name)
-            for home in range(0, size, 2):
-                lines.append(self._formatOdds(p, i.athletes[home], i.athletes[home + 1], trials))
-        return "\n".join(lines) + ("\n" if lines else "")
+        return self._oddsText(self._fixtureLines(
+            self._pairings(), lambda home, away: self._formatOdds(p, home, away, trials),
+            len(self.startList.groups) > 1))
 
     def scorinate(self, matchday):
         p = self._newParadigm()

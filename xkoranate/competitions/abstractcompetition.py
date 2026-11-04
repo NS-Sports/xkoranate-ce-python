@@ -193,6 +193,25 @@ class XkorAbstractCompetition:
     def _formatFixture(self, home, away):
         return "%s v %s" % (self._formatAthleteName(home), self._formatAthleteName(away))
 
+    @staticmethod
+    def _fixtureLines(sections, line, headings=True):
+        """line(home, away) for every fixture in `sections`, a list of
+        (heading, fixtures) pairs, each section under its heading if
+        `headings`. Sections with no fixtures are left out."""
+        lines = []
+        for heading, fixtures in sections:
+            if not fixtures:
+                continue
+            if headings:
+                lines.append(heading)
+            for home, away in fixtures:
+                lines.append(line(home, away))
+        return lines
+
+    @staticmethod
+    def _oddsText(lines):
+        return "\n".join(lines) + ("\n" if lines else "")
+
     def _formatOdds(self, paradigm, home, away, trials):
         odds = paradigm.estimateOdds(home, away, trials)
         return "%s v %s — %s %.0f%%  Draw %.0f%%  %s %.0f%%" % (

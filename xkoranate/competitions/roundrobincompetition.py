@@ -110,6 +110,18 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
 
         return fixtures
 
+    @staticmethod
+    def groupPairs(fixtures, size):
+        """The (home, away) index pairs a group of `size` teams plays, out of
+        fixtures made for the largest group."""
+        return [(h, a) for h, a in fixtures if h < size and a < size]
+
+    def _groupFixtures(self, matchday, groupSize):
+        """(group name, fixtures) for each group on one matchday."""
+        fixtures = self.generateFixtures(matchday, groupSize)
+        return [(g.name, [(g.athletes[h], g.athletes[a]) for h, a in self.groupPairs(fixtures, len(g.athletes))])
+                for g in self.startList.groups]
+
     def schedule(self):
         groupSize = self.largestGroupSize(self.startList)
         if groupSize == 0:
@@ -118,17 +130,9 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         matchdayNames = self.matchdayNames()
         lines = []
         for matchday in range(self.matchdays()):
-            fixtures = self.generateFixtures(matchday, groupSize)
             lines.append(matchdayNames[matchday])
-            for i in self.startList.groups:
-                size = len(i.athletes)
-                pairs = [(h, a) for h, a in fixtures if h < size and a < size]
-                if not pairs:
-                    continue
-                if len(self.startList.groups) > 1:
-                    lines.append(i.name)
-                for home, away in pairs:
-                    lines.append(self._formatFixture(i.athletes[home], i.athletes[away]))
+            lines += self._fixtureLines(self._groupFixtures(matchday, groupSize), self._formatFixture,
+                                        len(self.startList.groups) > 1)
             lines.append("")
         return "\n".join(lines)
 
@@ -141,18 +145,10 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         if p is None or groupSize == 0:
             return None
 
-        fixtures = self.generateFixtures(matchday, groupSize)
-        lines = []
-        for i in self.startList.groups:
-            size = len(i.athletes)
-            pairs = [(h, a) for h, a in fixtures if h < size and a < size]
-            if not pairs:
-                continue
-            if len(self.startList.groups) > 1:
-                lines.append(i.name)
-            for home, away in pairs:
-                lines.append(self._formatOdds(p, i.athletes[home], i.athletes[away], trials))
-        return "\n".join(lines) + ("\n" if lines else "")
+        return self._oddsText(self._fixtureLines(
+            self._groupFixtures(matchday, groupSize),
+            lambda home, away: self._formatOdds(p, home, away, trials),
+            len(self.startList.groups) > 1))
 
     def setTablePoints(self, t):
         t.setPointsForWin(toInt(self.userOpt.get("pointsForWin")) if "pointsForWin" in self.userOpt else 3)
@@ -260,12 +256,11 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         for i in self.startList.groups:
             athletes = []
             groupData = toList(tableData[groupNo])
-            groupSize = len(i.athletes)
+            pairs = self.groupPairs(fixtures, len(i.athletes))
 
-            for j in fixtures:
-                if j[0] < groupSize and j[1] < groupSize:
-                    athletes.append(i.athletes[j[0]])
-                    athletes.append(i.athletes[j[1]])
+            for home, away in pairs:
+                athletes.append(i.athletes[home])
+                athletes.append(i.athletes[away])
 
             p.scorinate(athletes)
 
@@ -276,17 +271,16 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
             self.resultsBuf[matchday] = self.resultsBuf.get(matchday, "") + i.name + "\n" + p.output() + "\n"
 
             # assemble teh tablez
-            for j in fixtures:
-                if j[0] < groupSize and j[1] < groupSize:
-                    score1 = p.findResult(i.athletes[j[0]].id)
-                    score2 = p.findResult(i.athletes[j[1]].id)
+            for home, away in pairs:
+                score1 = p.findResult(i.athletes[home].id)
+                score2 = p.findResult(i.athletes[away].id)
 
-                    scoreValue1, scoreValue2, decider = self.tableScores(
-                        p, score1, score2, self.allowsDraws())
-                    self.tables[groupNo].insertMatch(i.athletes[j[0]].name, i.athletes[j[1]].name, scoreValue1, scoreValue2, decider)
+                scoreValue1, scoreValue2, decider = self.tableScores(
+                    p, score1, score2, self.allowsDraws())
+                self.tables[groupNo].insertMatch(i.athletes[home].name, i.athletes[away].name, scoreValue1, scoreValue2, decider)
 
-                    # insert into the resume options
-                    groupData.append(formatStoredMatch(matchday, i.athletes[j[0]].name, i.athletes[j[1]].name, scoreValue1, scoreValue2, decider))
+                # insert into the resume options
+                groupData.append(formatStoredMatch(matchday, i.athletes[home].name, i.athletes[away].name, scoreValue1, scoreValue2, decider))
 
             self.tables[groupNo].generate()
             tableData[groupNo] = groupData
@@ -397,9 +391,8 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         remaining = []
         groupSize = self.largestGroupSize(self.startList)
         for md in range(matchday + 1, self.matchdays()):
-            for home, away in self.generateFixtures(md, groupSize):
-                if home < size and away < size:
-                    remaining.append((names[home], names[away]))
+            for home, away in self.groupPairs(self.generateFixtures(md, groupSize), size):
+                remaining.append((names[home], names[away]))
 
         legs = toInt(self.userOpt.get("numberOfLegs")) if "numberOfLegs" in self.userOpt else 1
         metric, outcomes, scale = self._qualificationMetric(table, (size - 1) * legs)

@@ -81,6 +81,11 @@ class XkorInterConferenceCompetition(XkorRoundRobinCompetition):
         """The group's own name, or “Pacific v Atlantic” for cross play."""
         return " v ".join(self.startList.groups[c].name for c in section.conferences)
 
+    def _sections(self, day):
+        """(section name, fixtures) for each section of a matchday."""
+        return [(self.sectionName(s), [(self._team(h), self._team(a)) for h, a in s.fixtures])
+                for s in day]
+
     def schedule(self):
         days = self.conferenceSchedule()
         if not days:
@@ -89,10 +94,7 @@ class XkorInterConferenceCompetition(XkorRoundRobinCompetition):
         lines = []
         for name, day in zip(self.matchdayNames(), days):
             lines.append(name)
-            for section in day:
-                lines.append(self.sectionName(section))
-                for home, away in section.fixtures:
-                    lines.append(self._formatFixture(self._team(home), self._team(away)))
+            lines += self._fixtureLines(self._sections(day), self._formatFixture)
             lines.append("")
         return "\n".join(lines)
 
@@ -101,12 +103,9 @@ class XkorInterConferenceCompetition(XkorRoundRobinCompetition):
         if p is None or not self.conferenceSchedule():
             return None
 
-        lines = []
-        for section in self._day(matchday):
-            lines.append(self.sectionName(section))
-            for home, away in section.fixtures:
-                lines.append(self._formatOdds(p, self._team(home), self._team(away), trials))
-        return "\n".join(lines) + ("\n" if lines else "")
+        return self._oddsText(self._fixtureLines(
+            self._sections(self._day(matchday)),
+            lambda home, away: self._formatOdds(p, home, away, trials)))
 
     # results
 

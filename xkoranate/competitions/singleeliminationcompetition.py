@@ -354,7 +354,7 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
                     lines.append(self._byeLine(present))
             else:
                 lines.append(self._formatOdds(p, home, away, trials))
-        return "\n".join(lines) + ("\n" if lines else "")
+        return self._oddsText(lines)
 
     # ------------------------------------------------------------- scorinate
 
