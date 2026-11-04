@@ -53,11 +53,6 @@ def mode():
     return appSettings().value(_SETTINGS_KEY, DEFAULT_MODE)
 
 
-def is_dark():
-    """True for "dark" and "oled" — modes that share dark's icon/text colours."""
-    return mode() in ("dark", "oled")
-
-
 def ink():
     return _INK.get(mode(), _INK[DEFAULT_MODE])
 

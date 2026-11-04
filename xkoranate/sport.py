@@ -37,9 +37,6 @@ class XkorSport:
         rval.r = self.r
         return rval
 
-    def countValues(self):
-        return len(self.m_dataPoints)
-
     def discipline(self):
         return self.m_discipline
 

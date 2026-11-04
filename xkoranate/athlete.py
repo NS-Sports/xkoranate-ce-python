@@ -59,12 +59,10 @@ class XkorAthlete:
             return self.properties.get(key)
 
     def setProperty(self, key, value):
-        import uuid as _uuid
-
         if key == "name":
             self.name = toString(value)
         elif key == "id":
-            self.id = _uuid.UUID(toString(value).strip("{}"))
+            self.id = uuid.UUID(toString(value).strip("{}"))
         elif key == "nation":
             self.nation = toString(value)
         elif key == "skill":

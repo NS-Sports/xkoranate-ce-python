@@ -21,7 +21,6 @@ class XkorRPEditor(QWidget):
         self.m_data = None
         self.isLoading = False
         self.m_currentRPCalcType = ""
-        self.m_currentFileName = ""
 
         self.m_useTeamBonus = QRadioButton("Teams")
         self.m_useParticipantBonus = QRadioButton("Participants")

@@ -26,7 +26,6 @@ class XkorEventEditor(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WA_StyledBackground, True)
-        self.selectionModel = None
         self.stack = None
         self.signupListEditor = None
         self.eventSetupWidget = None  # built after the competition selector
@@ -279,9 +278,6 @@ class XkorEventEditor(QWidget):
         self.signupListEditor.setSport(self.sport, self.m_data.paradigmOptions())
         self.competitionSelector.setSport(self.sport, self.m_data.competitionOptions())
         self.setDataChanged()
-
-    def updateSportList(self):
-        self.sportSelector.updateSportList()
 
     def viewSchedule(self):
         from ..competitions.competitionfactory import XkorCompetitionFactory
