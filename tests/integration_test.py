@@ -1061,12 +1061,21 @@ def test_scorinate_step_box_loads_quietly_and_saves_changes(qt_app, sport_index,
 
 
 # --- events saved before qualification markers existed -----------------------
-# Written by the code on main before this feature: no qualification options,
-# no heat ranks, coin flips not saved. Clicking the box on them must not crash.
+# Written by the code on main before this feature, so they hold what users'
+# existing saves do: no qualification options, no heat ranks, coin flips not
+# saved, and results text laid out by the older code. One file, one event per
+# case:
+#   coin-flip ties          a tie only a coin flip settled, re-rolled on rebuild
+#   halfway                 groups with games still to play
+#   two legs, results grid  the marker column sits before the grid
+#   uneven groups, byes     a group with an odd number of teams
+#   heats                   mass start with no saved heat ranks
+#   conferences             inter-conference play, cross-conference games
 
 PRE_QUALIFICATION = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 "fixtures", "pre-qualification")
-PRE_QUALIFICATION_FILES = sorted(f for f in os.listdir(PRE_QUALIFICATION) if f.endswith(".xml"))
+                                 "fixtures", "pre-qualification.xml")
+PRE_QUALIFICATION_EVENTS = ["coin-flip ties", "halfway", "two legs, results grid",
+                            "uneven groups, byes", "heats", "conferences"]
 
 
 def clickEveryQualificationSetting(w):
@@ -1084,24 +1093,28 @@ def clickEveryQualificationSetting(w):
         w.bbcodeCheckBox.toggle()
 
 
-def openInEditor(editor, path, damage=None):
-    r = XkorXmlReader(path)
-    ev = r.events()[0][1]
+def openInEditor(editor, name, damage=None):
+    r = XkorXmlReader(PRE_QUALIFICATION)
+    ev = next(e for _id, e in r.events() if e.name() == name)
     if damage is not None:
         damage(ev.m_competitionOptions)
     editor.ee.setData(ev, r.rpList())
     return editor.ee.scorinateWidget
 
 
-@pytest.mark.parametrize("name", PRE_QUALIFICATION_FILES)
-def test_old_files_take_every_qualification_setting(editor, name, capfd):
-    w = openInEditor(editor, os.path.join(PRE_QUALIFICATION, name))
+def test_the_old_file_holds_every_case():
+    assert [e.name() for _id, e in XkorXmlReader(PRE_QUALIFICATION).events()] == PRE_QUALIFICATION_EVENTS
+
+
+@pytest.mark.parametrize("name", PRE_QUALIFICATION_EVENTS)
+def test_old_events_take_every_qualification_setting(editor, name, capfd):
+    w = openInEditor(editor, name)
     clickEveryQualificationSetting(w)
     assert "Traceback" not in capfd.readouterr().err
 
     # and where there are finished standings, they get marked
-    if name.startswith("rr-") and "not-started" not in name and "halfway" not in name:
-        w.qualificationPlaces.setValue(2)
+    if name != "halfway":
+        w.qualificationPlaces.setValue(1)
         w.qualificationBest.setChecked(False)
         w.qualificationBox.setChecked(True)
         w.matchday.setCurrentIndex(w.matchday.count() - 1)
@@ -1121,6 +1134,8 @@ def damagedOptions():
         td = list(o.get("tableData") or [[]])
         td[0] = list(td[0]) + ["garbage", "99: Nobody 1–0 Ghost", "x: A 1–1 B"]
         o["tableData"] = td + [["0: Extra 1–0 Group"]]
+        o["conferenceTableData"] = list(o.get("conferenceTableData") or []) + [
+            "garbage", "0: Nobody 1–0 Ghost", "x: A 1–1 B"]
 
     def tableDataNotAList(o):
         o["tableData"] = "not a list"
@@ -1136,9 +1151,9 @@ def damagedOptions():
 
 
 @pytest.mark.parametrize("damage", damagedOptions(), ids=lambda f: f.__name__)
-@pytest.mark.parametrize("name", ["rr-groups-halfway.xml", "rr-coinflip-wins.xml", "ms-heats.xml"])
+@pytest.mark.parametrize("name", ["halfway", "coin-flip ties", "heats", "conferences"])
 def test_hand_damaged_options_dont_crash_the_box(editor, name, damage, capfd):
-    w = openInEditor(editor, os.path.join(PRE_QUALIFICATION, name), damage)
+    w = openInEditor(editor, name, damage)
     clickEveryQualificationSetting(w)
     assert "Traceback" not in capfd.readouterr().err
 
@@ -1147,7 +1162,7 @@ def test_coin_flip_ties_in_an_old_league_still_get_marked(editor):
     # league tables never saved their flips; the markers take them from the
     # order the stored table shows rather than re-rolling (and missing it)
     for _ in range(5):
-        w = openInEditor(editor, os.path.join(PRE_QUALIFICATION, "rr-coinflip-wins.xml"))
+        w = openInEditor(editor, "coin-flip ties")
         w.qualificationPlaces.setValue(2)
         w.qualificationBest.setChecked(False)
         w.qualificationBox.setChecked(True)
@@ -1156,7 +1171,7 @@ def test_coin_flip_ties_in_an_old_league_still_get_marked(editor):
 
 
 def test_a_formatting_failure_shows_the_results_plain(editor, capfd):
-    w = openInEditor(editor, os.path.join(PRE_QUALIFICATION, "rr-one-group-done.xml"))
+    w = openInEditor(editor, "uneven groups, byes")
 
     def broken(*args):
         raise RuntimeError("something an old file confused")
