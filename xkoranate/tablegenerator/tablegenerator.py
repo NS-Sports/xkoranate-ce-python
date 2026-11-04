@@ -9,6 +9,7 @@ from ..ui.dialogs import message_box, resolved_search_path
 from ..ui.fonts import monospace_font
 from ..variant import toString
 from .decider import parseMatchLine
+from .pointsrow import pointsRowLayout
 from .sortcriteriawidget import XkorSortCriteriaWidget
 from .table import XkorTable
 from .tablecolumn import standingsColumns
@@ -110,18 +111,7 @@ class XkorTableGenerator(QWidget):
         self.table.setFont(monospace_font())
         self.table.setReadOnly(True)
 
-        pointsLayout = QGridLayout()
-        pointsLayout.addWidget(self.pointsForWin, 0, 0)
-        pointsLayout.addWidget(QLabel("Draw:"), 0, 1)
-        pointsLayout.addWidget(self.pointsForDraw, 0, 2)
-        pointsLayout.addWidget(QLabel("Loss:"), 0, 3)
-        pointsLayout.addWidget(self.pointsForLoss, 0, 4)
-        pointsLayout.setContentsMargins(0, 0, 0, 0)
-        pointsLayout.setColumnStretch(0, 1)
-        pointsLayout.setColumnStretch(1, 0)  # don't stretch the labels
-        pointsLayout.setColumnStretch(2, 1)
-        pointsLayout.setColumnStretch(3, 0)  # don't stretch the labels
-        pointsLayout.setColumnStretch(4, 1)
+        pointsLayout = pointsRowLayout(self.pointsForWin, self.pointsForDraw, self.pointsForLoss)
 
         otPointsLayout = QGridLayout()
         otPointsLayout.addWidget(self.pointsForOTWin, 0, 0)
