@@ -67,3 +67,42 @@ def qapp():
         app = XkorApplication([])
     app.refreshSearchPaths()
     return app
+
+
+@pytest.fixture(scope="session")
+def sport_index(qapp):
+    """Every sport file, found through the "sports:" search path that the
+    application registers."""
+    from xkoranate.xml.xmlindex import XkorXmlIndex
+
+    index = XkorXmlIndex()
+    index.traverse("sports:")
+    return index
+
+
+@pytest.fixture
+def rng():
+    """A fresh seeded generator per test.
+
+    Module scope shared one stream across the whole file, so how far into it
+    any given test started depended on which tests ran before it. Running a
+    subset, or inserting a test above an existing one, silently changed every
+    later test's numbers — fine for today's structural assertions, a
+    heisenbug for the first outcome-sensitive one.
+    """
+    from xkoranate.rng import Mt19937
+
+    return Mt19937(2026)
+
+
+@pytest.fixture
+def tournament(sport_index, rng):
+    """tournament(name, **overrides) -> (event, sport), one of
+    builders.TOURNAMENTS built fresh, drawing from this test's rng unless
+    given another."""
+    import builders
+
+    def build(name, rng=rng, **overrides):
+        return builders.tournament(name, sport_index, rng, **overrides)
+
+    return build
