@@ -1,31 +1,16 @@
 import sys
 
-from PySide6.QtCore import QFile, QIODevice, QXmlStreamWriter
-
 from ..uuids import uuidToString
 from ..variant import qNumber, toList, toString
+from .xmlbasewriter import XkorXmlBaseWriter
 
 
-class XkorXmlWriter(QXmlStreamWriter):
+class XkorXmlWriter(XkorXmlBaseWriter):
     def __init__(self, filename, rpList, events):
         super().__init__()
-        # stream writer settings
-        self.setAutoFormatting(True)
-        self.setAutoFormattingIndent(-1)
-
-        f = QFile(filename)
-        f.open(QIODevice.WriteOnly)
-
-        self.setDevice(f)
-
-        self.writeStartDocument()
-        self.writeStartElement("scorinationFile")
-        self.writeAttribute("version", "0.3")
-        self.writeRPList(rpList)
-        self.writeEvents(events)
-        self.writeEndDocument()
-
-        f.close()
+        with self.document(filename, "scorinationFile"):
+            self.writeRPList(rpList)
+            self.writeEvents(events)
 
     def writeEvents(self, events):
         for i in events:  # list of (uuid, XkorEvent) pairs
@@ -36,17 +21,8 @@ class XkorXmlWriter(QXmlStreamWriter):
             self.writeTextElement("sport", event.sport())
             self.writeTextElement("competition", event.competition())
 
-            self.writeStartElement("paradigmOptions")
-            paradigmOptions = event.paradigmOptions()
-            for key, value in paradigmOptions.items():
-                self.writeVariant(value, key)
-            self.writeEndElement()
-
-            self.writeStartElement("competitionOptions")
-            competitionOptions = event.competitionOptions()
-            for key, value in competitionOptions.items():
-                self.writeVariant(value, key)
-            self.writeEndElement()
+            self.writeOptions("paradigmOptions", event.paradigmOptions())
+            self.writeOptions("competitionOptions", event.competitionOptions())
 
             self.writeStartElement("results")
             results = event.results()
@@ -87,18 +63,14 @@ class XkorXmlWriter(QXmlStreamWriter):
 
     def writeRPList(self, rpList):
         self.writeStartElement("rpList")
-        self.writeTextElement("useTeams", "true" if rpList.useTeams() else "false")
+        self.writeBoolElement("useTeams", rpList.useTeams())
         self.writeTextElement("competitionName", rpList.competitionName())
         self.writeTextElement("rpEffect", qNumber(rpList.rpEffect()))
         self.writeTextElement("rpCalculationType", rpList.rpCalculationType())
         self.writeTextElement("minBonus", qNumber(rpList.minBonus()))
         self.writeTextElement("maxBonus", qNumber(rpList.maxBonus()))
 
-        rpOptions = rpList.rpOptions()
-        self.writeStartElement("rpOptions")
-        for key, value in rpOptions.items():
-            self.writeVariant(value, key)
-        self.writeEndElement()
+        self.writeOptions("rpOptions", rpList.rpOptions())
 
         bonuses = rpList.bonuses()
         for nation, properties in bonuses.items():
@@ -110,6 +82,12 @@ class XkorXmlWriter(QXmlStreamWriter):
                 self.writeCharacters(qNumber(value))
                 self.writeEndElement()
             self.writeEndElement()
+        self.writeEndElement()
+
+    def writeOptions(self, name, options):
+        self.writeStartElement(name)
+        for key, value in options.items():
+            self.writeVariant(value, key)
         self.writeEndElement()
 
     def writeVariant(self, value, key=""):
