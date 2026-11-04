@@ -1,6 +1,4 @@
-from PySide6.QtWidgets import QButtonGroup, QFormLayout, QLabel, QRadioButton, QWidget
-
-from xkoranate.variant import toString
+from PySide6.QtWidgets import QFormLayout, QLabel, QWidget
 
 from .collapsiblesection import XkorCollapsibleSection
 from .h2hparadigmoptions import XkorH2HParadigmOptions
@@ -72,30 +70,7 @@ class XkorNSFSParadigmOptions(XkorH2HParadigmOptions):
         self.showTLAs = self._flagCheckBox("showTLAs", "Show team names",
                                            self._optionIsTrue("showTLAs", True))
 
-        # style modifiers options
-        self.xkorStyleMods = QRadioButton("xkoranate-style (additive)")
-        self.nsfsStyleMods = QRadioButton("NSFS3-style (multiplicative)")
-        self.noStyleMods = QRadioButton("Disable style modifiers")
-        if toString(self.options.get("NSFSStyleMods")) != "false":
-            self.nsfsStyleMods.setChecked(True)
-        elif toString(self.options.get("styleMods")) == "true":
-            self.xkorStyleMods.setChecked(True)
-        else:
-            self.noStyleMods.setChecked(True)
-        self.styleMods = QButtonGroup()
-        self.styleMods.addButton(self.xkorStyleMods)
-        self.styleMods.addButton(self.nsfsStyleMods)
-        self.styleMods.addButton(self.noStyleMods)
-        self.styleMods.idClicked.connect(self.setStyleMods)
-
-        styleModsForm = QFormLayout()
-        styleModsForm.addRow(self.xkorStyleMods)
-        styleModsForm.addRow(self.nsfsStyleMods)
-        styleModsForm.addRow(self.noStyleMods)
-
-        # QFormLayout sucks, so we create our own label
-        label = QLabel("Style modifiers:")
-        label.setContentsMargins(0, -4, 0, 0)
+        styleModsLabel, styleModsForm = self._styleModsRow(preferNSFS=True)
 
         advancedContent = QWidget()
         advancedForm = QFormLayout(advancedContent)
@@ -109,7 +84,7 @@ class XkorNSFSParadigmOptions(XkorH2HParadigmOptions):
         advancedForm.addRow("Base attacks (inferior):", self.baseAttacksInferior)
         advancedForm.addRow("Attack coefficient (superior):", self.attackCoeffSuperior)
         advancedForm.addRow("Attack coefficient (inferior):", self.attackCoeffInferior)
-        advancedForm.addRow(label, styleModsForm)
+        advancedForm.addRow(styleModsLabel, styleModsForm)
 
         # 10 rows once the formula constants joined style mods -- handled by
         # XkorCollapsibleSection's own height-capped scroll area
@@ -121,16 +96,3 @@ class XkorNSFSParadigmOptions(XkorH2HParadigmOptions):
         form.addRow(self.homeAdvantageMagnitudeLabel, self.homeAdvantageMagnitude)
         form.addRow("", self.showTLAs)
         form.addRow(self.advancedSection)
-
-    def setStyleMods(self):
-        checkedButton = self.styleMods.checkedButton()
-        if checkedButton is self.nsfsStyleMods:
-            self.options["styleMods"] = "false"
-            self.options["NSFSStyleMods"] = "true"
-        elif checkedButton is self.xkorStyleMods:
-            self.options["styleMods"] = "true"
-            self.options["NSFSStyleMods"] = "false"
-        else:
-            self.options["styleMods"] = "false"
-            self.options["NSFSStyleMods"] = "false"
-        self.optionsChanged.emit(self.options)
