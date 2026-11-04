@@ -10,8 +10,9 @@ from ..ui.dialogs import parent_folder, resolved_search_path
 from ..ui.fonts import column_width_for
 from ..uuids import parseAssignedUuid, uuidToString
 from ..variant import qNumber, toDouble, toString
-from .abstractathletewidget import (_AthleteTreeWidgetItem,
-                                    XkorAbstractAthleteWidget, _indexOf)
+from .abstractathletewidget import (_NUMERIC_COLUMN_TYPES, _SPIN_BOX_COLUMN_TYPES,
+                                    _AthleteTreeWidgetItem, XkorAbstractAthleteWidget,
+                                    _indexOf)
 from .athletedelegate import XkorAthleteDelegate
 
 
@@ -37,7 +38,7 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
 
         # set the column widths
         for i in range(len(self.m_columnTypes)):
-            if self.m_columnTypes[i] in ("double", "golfStyle", "skill", "homeAdvantage"):
+            if self.m_columnTypes[i] in _NUMERIC_COLUMN_TYPES:
                 self.treeWidget.header().setSectionResizeMode(i, QHeaderView.Fixed)
                 self.treeWidget.header().resizeSection(i, column_width_for(self.treeWidget, "8888.88"))
             else:
@@ -133,7 +134,7 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
         for i in range(len(self.m_columnTypes)):
             if self.m_columnKeys[i] in properties:
                 item.setText(i, toString(properties[self.m_columnKeys[i]]))
-                if self.m_columnTypes[i] in ("double", "skill", "homeAdvantage"):
+                if self.m_columnTypes[i] in _SPIN_BOX_COLUMN_TYPES:
                     item.setTextAlignment(i, Qt.AlignRight)
             elif self.m_columnTypes[i] == "double":
                 item.setText(i, "0")
