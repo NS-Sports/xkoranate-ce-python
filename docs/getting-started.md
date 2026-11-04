@@ -1,91 +1,125 @@
-# Getting started
+# Installing xkoranate
 
-## Download
+xkoranate is free and runs on Windows, Mac and Linux. There is no installer:
+you download a zip, unpack it, and open the app inside.
 
-Grab the build for your platform from the
-[Releases page](https://github.com/NS-Sports/xkoranate-ce-python/releases).
-Each release ships a build for macOS, Windows, and Linux.
+## 1. Download
 
-| Platform | Archive | Run |
-|---|---|---|
-| macOS (Apple Silicon) | `xkoranate-<version>-macos-arm64.zip` | Unzip, then open `xkoranate.app` |
-| macOS (Intel) | `xkoranate-<version>-macos-x86_64.zip` | Unzip, then open `xkoranate.app` |
-| Windows | `xkoranate-<version>-windows.zip` | Unzip, then run `xkoranate\xkoranate.exe` |
-| Linux | `xkoranate-<version>-linux.tar.gz` | Extract, then run `xkoranate/xkoranate` |
+Go to the
+[Releases page](https://github.com/NS-Sports/xkoranate-ce-python/releases)
+and, under the newest release, open **Assets**. Pick the file for your
+computer:
 
-!!! note "Which Mac build do I need?"
-    Apple Silicon Macs (M1/M2/M3/M4) need the `arm64` build; older Intel
-    Macs need the `x86_64` build. Check via the Apple menu → About This Mac:
-    it lists "Chip" (Apple Silicon) or "Processor" (Intel).
-
-!!! note "Unsigned builds"
-    These builds aren't code-signed or notarized, so your OS will likely warn
-    you the first time you open one (macOS Gatekeeper, Windows SmartScreen).
-    You'll need to explicitly allow the app to run — right-click → Open on
-    macOS, or "More info" → "Run anyway" on Windows.
-
-!!! note "Linux: nothing to install (on Linux Mint 21+ / Ubuntu 22.04+ or newer)"
-    The Linux build ships with everything it needs already inside the
-    `xkoranate/` folder — no system packages required on any regular Linux
-    desktop. The one thing it can't bundle is your graphics driver
-    (`libEGL`/`libGL`), but every desktop Linux install already has this,
-    since it's needed to draw anything on screen at all.
-
-    The build requires **glibc 2.35 or newer** (Linux Mint 21+, Ubuntu
-    22.04+, Debian 12+, Fedora 36+, or comparably recent). This isn't
-    something the app can bundle its way around — glibc is the C library
-    everything else on the system links against, so it has to match what's
-    already installed.
-
-    If double-clicking `xkoranate/xkoranate` does nothing, check the log file
-    — see [If something goes wrong](#if-something-goes-wrong) below.
-
-## If something goes wrong
-
-If xkoranate crashes, or double-clicking it does nothing at all, it still
-writes a log file — no terminal required:
-
-| Platform | Log location |
+| Your computer | Download the file ending in |
 |---|---|
-| Linux | `~/.local/state/xkoranate/logs/` |
-| macOS | `~/Library/Logs/xkoranate/logs/` |
-| Windows | `%LOCALAPPDATA%\xkoranate\logs\` |
+| Windows | `-windows.zip` |
+| Mac with an Apple chip (M1, M2, M3, M4…) | `-macos-arm64.zip` |
+| Older Mac with an Intel chip | `-macos-x86_64.zip` |
+| Linux | `-linux.tar.gz` |
 
-There are two files worth checking:
+!!! tip "Which Mac do I have?"
+    Open the Apple menu (top-left corner of the screen) and choose **About This Mac**. If it lists a
+    **Chip** (such as "Apple M2"), use `arm64`. If it lists a
+    **Processor** (such as "Intel Core i5"), use `x86_64`.
 
-- **`launch.log`** (macOS/Linux only) — everything the app printed, captured
-  even if it failed before the app itself could start (e.g. an incompatible
-  system library). This is the one to check first for "nothing happens."
-- **`app.log`** — a structured record of anything that went wrong after the
-  app started, including a full error trace and basic system info (OS,
-  Python/Qt version).
+## 2. Unpack it
 
-If you're reporting an issue, please attach both files (whichever exist) —
-it turns "it doesn't work" into something we can actually act on.
+Double-click the downloaded file to unpack it, then move what's inside
+somewhere you'll find it again. Your Applications folder or your Documents
+folder are both fine.
 
-## The main window
+- **Windows:** you get an `xkoranate` folder. The app is
+  `xkoranate.exe` inside it. Keep the whole folder together, because the
+  app needs the files next to it.
+- **Mac:** you get `xkoranate.app`.
+- **Linux:** you get an `xkoranate` folder. The app is the file called
+  `xkoranate` inside it.
 
-When you launch xkoranate you land on the main window: a sidebar on the left
-listing your **Events** and your **Bonuses** configuration, and a large
-central area that shows whichever one is selected. A toolbar across the top
-gives you the core actions:
+## 3. Open it the first time
 
-| Button | Does |
+xkoranate is made by volunteers and isn't registered with Apple or
+Microsoft. Your computer will warn you the first time you open it. This
+warning is expected, and you only have to deal with it once.
+
+=== "Windows"
+
+    1. Double-click `xkoranate.exe`.
+    2. If a blue "Windows protected your PC" box appears, click
+       **More info**.
+    3. Click **Run anyway**.
+
+=== "Mac"
+
+    1. Right-click (or Control-click) `xkoranate.app` and choose **Open**.
+    2. Click **Open** in the box that appears.
+
+    If your Mac only offers **Done** or **Move to Bin**:
+
+    1. Click **Done**.
+    2. Open **System Settings › Privacy & Security**.
+    3. Scroll down and click **Open Anyway** next to the message about
+       xkoranate.
+
+=== "Linux"
+
+    Double-click the `xkoranate` file inside the folder.
+
+    It needs a reasonably recent system: Ubuntu 22.04, Linux Mint 21,
+    Debian 12, Fedora 36 or newer. Nothing else needs installing. If
+    nothing happens, see [Troubleshooting](troubleshooting.md).
+
+## A quick look around
+
+![The main window, empty, the first time you open it](screenshots/guide-01-first-launch.png)
+
+**Toolbar (top).** From left to right:
+
+- **New file** and **Open file**
+- **Save** and **Save as**
+- **Table generator**, which turns match results into a league table
+
+Hover over any button to see what it does.
+
+**Sidebar (left).** It has two headings:
+
+- **BONUSES** holds roleplay bonuses for this file. You can ignore it for now.
+- **EVENTS** lists your events. Add one with the **+** button at the
+  bottom of the sidebar.
+
+**Main area (right).** This shows whatever you've selected in the sidebar.
+
+!!! info "One file, many events"
+    One saved xkoranate file can hold every event of a tournament: the
+    group stage, the knockout rounds, the 100 m and the marathon. You
+    don't need a separate file for each event.
+
+### Menus
+
+| Menu | What's in it |
 |---|---|
-| New file | Start a fresh document |
-| Open file | Load a saved `.xml` document |
-| Save / Save as | Save the current document |
-| Table generator | Open the standalone [table generator](table-generator.md) window |
-| Dark mode | Toggle light/dark theme (also in the **View** menu) |
+| **File** | New, Open, Save, Save as, Table generator, Quit |
+| **View** | The colour theme: **Light**, **Dark** or **True Dark (OLED)**. xkoranate remembers your choice. |
+| **Help** | **xkoranate manual** opens this guide. The shortcut is <kbd>F1</kbd>, or <kbd>⌘</kbd> <kbd>?</kbd> on a Mac. |
 
-A single xkoranate document (the `.xml` file you save) can contain **multiple
-events** plus **one bonuses configuration** shared across all of them — you
-don't need a separate file per event.
+![xkoranate in dark mode](screenshots/guide-19-dark-mode.png)
 
-## What's next
+### Saving your work
 
-- [Building an event](building-an-event.md) walks through the 5-step wizard
-  used to set up and run a scorination.
-- [Table generator](table-generator.md) covers the standalone tool for
-  turning match results into league standings.
-- [RP bonuses](rp-bonuses.md) explains the per-nation bonus configuration.
+xkoranate doesn't save on its own. Save with **File › Save** (or
+<kbd>Ctrl</kbd> <kbd>S</kbd>, or <kbd>⌘</kbd> <kbd>S</kbd> on a Mac).
+
+If you try to close the window or open another file with unsaved changes,
+xkoranate asks you first:
+
+![The "Do you want to save the changes" question](screenshots/guide-17-unsaved-changes.png)
+
+- **Save** keeps your changes.
+- **Discard** throws them away.
+- **Cancel** takes you back to what you were doing.
+
+Files are saved as `.xml`. They also work in the original xkoranate
+program, and the original's files work here.
+
+## Next
+
+[Run your first event →](first-event.md)
