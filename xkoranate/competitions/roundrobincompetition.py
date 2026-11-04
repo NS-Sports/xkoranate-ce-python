@@ -29,6 +29,7 @@ def formatStoredMatch(matchday, home, away, score1, score2, decider=None):
 
 class XkorRoundRobinCompetition(XkorAbstractCompetition):
     def __init__(self, *args, **kwargs):
+        self._qualificationCache = {}
         super().__init__(*args, **kwargs)
         self.tables = []  # QList<XkorTable>
 
@@ -41,20 +42,12 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         return XkorRoundRobinCompetitionOptions(competitionOptions)
 
     def scorinate(self, matchday):
-        from xkoranate.tablegenerator.table import XkorTable
-
         if self.largestGroupSize(self.startList) > 0:  # if there are no teams, don’t bother!
             # initialize the tables
             self.tables = []
-            sortCriteria = self.tableSortCriteria()
             groupNo = 0
             for i in self.startList.groups:
-                t = XkorTable()
-                t.setColumns(self.generateTableColumns(i.name))
-                t.setMatches(self.retrieveMatches(groupNo))
-                t.setSortCriteria(sortCriteria)
-                self.setTablePoints(t)
-                self.tables.append(t)
+                self.tables.append(self._groupTable(i.name, self.retrieveMatches(groupNo)))
                 groupNo += 1
 
             # initialize the results in the resume file options
@@ -229,7 +222,9 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
             rval.append("Matchday " + str(i + 1))
         return rval
 
-    def retrieveMatches(self, groupNo):
+    def retrieveMatches(self, groupNo, upTo=None):
+        """The saved matches for a group; with `upTo`, only those played on
+        that matchday or earlier."""
         rval = []
 
         if "tableData" in self.userOpt:
@@ -239,6 +234,8 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
                 for i in results:
                     parsed = parseStoredMatch(i)
                     if parsed is not None:  # if we matched
+                        if upTo is not None and parsed[0] > upTo:
+                            continue
                         rval.append(parsed[1])
         return rval
 
@@ -324,6 +321,215 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
 
             groupNo += 1
         self.resumeOpt["tableData"] = tableData
+
+    def _groupTable(self, groupName, matches):
+        """A group's standings table holding `matches`. Both scorinating and
+        formatQualifications() build tables through here, so the latter can
+        recognise the table text the former wrote."""
+        from xkoranate.tablegenerator.table import XkorTable
+
+        t = XkorTable()
+        t.setColumns(self.generateTableColumns(groupName))
+        t.setMatches(matches)
+        self._configureTable(t, self.tableSortCriteria())
+        return t
+
+    def _configureTable(self, t, sortCriteria):
+        t.setSortCriteria(sortCriteria)
+        self.setTablePoints(t)
+
+    def supportsQualifications(self):
+        return True
+
+    def formatQualifications(self, text, matchday, settings):
+        from xkoranate.competitions.qualification import leagueMarkers
+
+        if not text or not settings.isEnabled() or self.largestGroupSize(self.startList) == 0:
+            return text
+        key = (text, matchday, settings)
+        if key in self._qualificationCache:
+            return self._qualificationCache[key]
+
+        # the standings as they stood after `matchday`, rebuilt from the
+        # saved matches — the same way scorinate() built them
+        groups = self.startList.groups
+        tables = [self._rebuilt(text, self._groupTable(g.name, self.retrieveMatches(groupNo, upTo=matchday)))
+                  for groupNo, g in enumerate(groups)]
+
+        markers = leagueMarkers(
+            [self._qualificationGroup(g, t, matchday) for g, t in zip(groups, tables)],
+            settings, crossRank=lambda candidates: self._rankNextPlaced(candidates, tables))
+
+        rval = self._markTables(text, list(zip(tables, markers)))
+        self._qualificationCache[key] = rval
+        return rval
+
+    def _rebuilt(self, text, t):
+        """Generate a table rebuilt for formatQualifications()."""
+        if "coinFlip" in t.getSortCriteria():
+            # league tables don't save their coin flips, so rebuilding
+            # one re-rolls any tie a flip decided; take the flips from
+            # the order the stored table shows instead
+            t.setCoinFlips(self._storedFlips(text, t))
+        t.generate()
+        return t
+
+    def _markTables(self, text, tablesAndMarkers):
+        """Swap each table's plain text in `text` for one with a marker
+        column. Every table gets the column once any team has a marker."""
+        if not any(m for _t, m in tablesAndMarkers):
+            return text
+        for t, m in tablesAndMarkers:
+            plain = t.toText()
+            if plain not in text:
+                # the stored table isn't the one these matches give (saved
+                # by an older version, or edited): leave it
+                continue
+            t.setColumns(self._withQualificationColumn(t.getColumns()))
+            t.setMarkers(m)
+            text = text.replace(plain, t.toText(), 1)
+        return text
+
+    @staticmethod
+    def _storedFlips(text, table):
+        """Coin-flip values that reproduce the row order of `table` as it
+        appears in the stored results text: earlier rows flip higher. Empty
+        if the table can't be found there."""
+        columns = table.getColumns()
+        if len(columns) < 2 or columns[0].columnType != "position":
+            return {}
+        header = table.toText().split("\n")[0]  # doesn't depend on the order
+        lines = text.split("\n")
+        if header not in lines:
+            return {}
+        start = columns[0].width + 1  # where the name column begins
+        names = sorted(table.unsortedData.keys(), key=len, reverse=True)
+        flips = {}
+        rows = lines[lines.index(header) + 1:]
+        for i, row in enumerate(rows):
+            if not row.strip():
+                break
+            for name in names:
+                if name not in flips and row[start:start + len(name)] == name:
+                    flips[name] = len(rows) - i
+                    break
+        return flips
+
+    def _qualificationGroup(self, group, table, matchday):
+        from xkoranate.competitions.qualification import QualificationGroup
+
+        names = [a.name for a in group.athletes]
+        size = len(names)
+        remaining = []
+        groupSize = self.largestGroupSize(self.startList)
+        for md in range(matchday + 1, self.matchdays()):
+            for home, away in self.generateFixtures(md, groupSize):
+                if home < size and away < size:
+                    remaining.append((names[home], names[away]))
+
+        legs = toInt(self.userOpt.get("numberOfLegs")) if "numberOfLegs" in self.userOpt else 1
+        metric, outcomes, scale = self._qualificationMetric(table, (size - 1) * legs)
+        return QualificationGroup(
+            teams=names, current=self._currentMetric(table, metric), remaining=remaining,
+            outcomes=None if outcomes is None else outcomes(False),
+            order=[[r.name() for r in b] for b in table.data if b], scale=scale)
+
+    @staticmethod
+    def _currentMetric(table, metric):
+        if metric is None:
+            return None
+        return {r.name(): metric(r) for b in table.data for r in b}
+
+    def _qualificationMetric(self, table, gamesPerTeam):
+        """How the table's first sort criterion is earned, as (value of a
+        row, outcomes(cross) giving what one match can add to each side,
+        scale), or Nones when it can't be projected forward. `cross` asks
+        about a game against another conference, which can score its own
+        points. Win percentages are compared as totals within a group and
+        divided by games per team across groups (`gamesPerTeam`, None if it
+        isn't the same for everyone)."""
+        from fractions import Fraction
+
+        criteria = self.tableSortCriteria()
+        first = criteria[0] if criteria else ""
+        draws = (toString(self.sport.paradigmOptions().get("forceTieBreak")) != "1"
+                 and toString(self.userOpt.get("allowDraws")) != "false")
+        perGame = None if not gamesPerTeam else Fraction(1, gamesPerTeam)
+        win = [(1, 0), (0, 1)]  # one side wins, the other loses
+
+        if first == "points":
+            def outcomes(cross):
+                w, d, l = table.getPointsForWin(), table.getPointsForDraw(), table.getPointsForLoss()
+                cross = cross and table.crossPoints is not None
+                if cross:
+                    w, d, l = table.crossPoints
+                rval = [(w, l), (l, w)]
+                if draws:
+                    rval.append((d, d))
+                    return rval
+                # a level match goes to extra time or a shootout instead; in
+                # a cross game those follow the cross points unless set
+                for winRaw, winPts, lossRaw, lossPts in (
+                        (table.getRawPointsForOTWin(), table.getPointsForOTWin(),
+                         table.getRawPointsForOTLoss(), table.getPointsForOTLoss()),
+                        (table.getRawPointsForSOWin(), table.getPointsForSOWin(),
+                         table.getRawPointsForSOLoss(), table.getPointsForSOLoss())):
+                    winPts = w if cross and winRaw is None else winPts
+                    lossPts = l if cross and lossRaw is None else lossPts
+                    rval += [(winPts, lossPts), (lossPts, winPts)]
+                return rval
+            return (lambda r: Fraction(table.getPoints(r))), outcomes, Fraction(1)
+
+        plain = win + ([(0, 0)] if draws else [])
+        if first == "wins":
+            return (lambda r: Fraction(r.wins())), (lambda cross: plain), Fraction(1)
+        if perGame is None:
+            return None, None, Fraction(1)
+        if first == "winPercent":
+            half = Fraction(1, 2)
+            withHalves = win + ([(half, half)] if draws else [])
+            return ((lambda r: Fraction(r.wins()) + Fraction(r.draws()) / 2),
+                    (lambda cross: withHalves), perGame)
+        if first == "winPercentPure":
+            return (lambda r: Fraction(r.wins())), (lambda cross: plain), perGame
+        if first == "winPercentNFL" and not draws:
+            return (lambda r: Fraction(r.wins())), (lambda cross: win), perGame
+        return None, None, Fraction(1)
+
+    def _rankNextPlaced(self, candidates, tables):
+        """Rank the teams placed X+1 in different groups against each other
+        with the table's own sort rules, leaving out the head-to-head ones
+        (they never met) and coin flips."""
+        from xkoranate.tablegenerator.table import XkorTable
+
+        sorter = XkorTable()
+        self._configureTable(sorter, [c for c in self.tableSortCriteria()
+                                      if not c.startswith("h2h") and c != "coinFlip"])
+        rows = []
+        owner = {}
+        for groupNo, name in candidates:
+            row = next((r for b in tables[groupNo].data for r in b if r.name() == name), None)
+            if row is None:
+                return None
+            row = row.clone()
+            rows.append(row)
+            owner[id(row)] = (groupNo, name)
+        return [[owner[id(r)] for r in b] for b in sorter.sortTable(rows) if b]
+
+    @staticmethod
+    def _withQualificationColumn(columns):
+        """The marker column goes straight after the points (before a
+        results grid), with a blank heading."""
+        from xkoranate.tablegenerator.tablecolumn import XkorTableColumn
+
+        types = [c.columnType for c in columns]
+        if "points" in types:
+            at = types.index("points") + 1
+        elif "resultsGrid" in types:
+            at = types.index("resultsGrid")
+        else:
+            at = len(columns)
+        return columns[:at] + [XkorTableColumn("qualification", "", 1)] + columns[at:]
 
     def tableSortCriteria(self):
         rval = []

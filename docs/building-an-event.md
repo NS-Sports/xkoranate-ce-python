@@ -330,6 +330,34 @@ sense.
 
 ![Match odds for a matchday](screenshots/guide-11-odds.png)
 
+### Qualification markers
+
+Round-robin, inter-conference and mass-start events have a **Format
+qualifications** box.
+Tick it to mark a **Q** next to everyone who has qualified and an **E**
+next to everyone who has been knocked out. In a league table the marker
+goes in a column after the points. In heats it goes after each result.
+
+Choose how many places go through:
+
+- **Top X:** the top X of a single table.
+- **Top X in each group:** when there are several groups or heats.
+- **+ best N:** also takes the best N who finish one place below the cut,
+  for example the four best third-placed teams, compared across groups.
+
+A marker only appears once no remaining result can change it. Only the
+table's first sort rule (usually points) can be worked out ahead of time,
+so a team that could still finish level on it isn't marked until its group
+is complete. A tie that sits across the cut stays unmarked.
+
+The markers are added to what you see and export, not to the saved
+results, so you can change the setting at any time without scorinating
+again. The setting is saved with the event.
+
+In an inter-conference event, each conference counts as a group, and its
+games against other conferences count towards it, at their own points if
+you set any. The overall table shows each team's mark from its conference.
+
 ### Posting your results
 
 Tick **BBCode output** before you copy. The results are wrapped in

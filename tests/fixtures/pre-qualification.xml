@@ -1,0 +1,658 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scorinationFile version="0.3">
+	<rpList>
+		<useTeams>true</useTeams>
+		<competitionName></competitionName>
+		<rpEffect>15</rpEffect>
+		<rpCalculationType>olympic</rpCalculationType>
+		<minBonus>0</minBonus>
+		<maxBonus>1</maxBonus>
+		<rpOptions/>
+	</rpList>
+	<event id="{00000000-0000-0000-0000-000000000001}" name="coin-flip ties">
+		<sport>Association football—SQIS formula</sport>
+		<competition>roundRobin</competition>
+		<paradigmOptions/>
+		<competitionOptions>
+			<list type="sortCriteria">
+				<string>wins</string>
+				<string>coinFlip</string>
+			</list>
+			<list type="tableData">
+				<list>
+					<string>0: T1 0–2 T4</string>
+					<string>0: T2 1–2 T3</string>
+					<string>1: T4 1–3 T3</string>
+					<string>1: T1 1–1 T2</string>
+					<string>2: T2 1–1 T4</string>
+					<string>2: T3 1–0 T1</string>
+				</list>
+				<list>
+					<string>0: T5 2–0 T8</string>
+					<string>0: T6 1–0 T7</string>
+					<string>1: T8 0–6 T7</string>
+					<string>1: T5 2–2 T6</string>
+					<string>2: T6 3–3 T8</string>
+					<string>2: T7 0–0 T5</string>
+				</list>
+			</list>
+		</competitionOptions>
+		<results>
+			<result matchday="0">A
+T1 0–2 T4
+T2 1–2 T3
+
+  A                    Pld   W  D  L 
+1 T3                     1   1  0  0
+2 T4                     1   1  0  0
+3 T1                     1   0  0  1
+4 T2                     1   0  0  1
+
+B
+T5 2–0 T8
+T6 1–0 T7
+
+  B                    Pld   W  D  L 
+1 T6                     1   1  0  0
+2 T5                     1   1  0  0
+3 T8                     1   0  0  1
+4 T7                     1   0  0  1
+
+
+</result>
+			<result matchday="1">A
+T4 1–3 T3
+T1 1–1 T2
+
+  A                    Pld   W  D  L 
+1 T3                     2   2  0  0
+2 T4                     2   1  0  1
+3 T1                     2   0  1  1
+4 T2                     2   0  1  1
+
+B
+T8 0–6 T7
+T5 2–2 T6
+
+  B                    Pld   W  D  L 
+1 T6                     2   1  1  0
+2 T7                     2   1  0  1
+3 T5                     2   1  1  0
+4 T8                     2   0  0  2
+
+
+</result>
+			<result matchday="2">A
+T2 1–1 T4
+T3 1–0 T1
+
+  A                    Pld   W  D  L 
+1 T3                     3   3  0  0
+2 T4                     3   1  1  1
+3 T2                     3   0  2  1
+4 T1                     3   0  1  2
+
+B
+T6 3–3 T8
+T7 0–0 T5
+
+  B                    Pld   W  D  L 
+1 T5                     3   1  2  0
+2 T7                     3   1  1  1
+3 T6                     3   1  2  0
+4 T8                     3   0  1  2
+
+
+</result>
+		</results>
+		<signupList>
+			<minRank>0</minRank>
+			<maxRank>1</maxRank>
+			<signup id="{5425c525-d179-cfba-4959-d1b069140e27}" name="T1" nation="" skill="0.125"/>
+			<signup id="{d71f7da3-040e-92b3-6ce0-4c81fd3dd5d6}" name="T2" nation="" skill="0.25"/>
+			<signup id="{b8b17df2-e176-d37c-643e-180c0a618d4b}" name="T3" nation="" skill="0.375"/>
+			<signup id="{4f280537-9372-4064-d8a0-d9f17139b9e6}" name="T4" nation="" skill="0.5"/>
+			<signup id="{a79c78fb-31f6-695e-1988-1305ef25529b}" name="T5" nation="" skill="0.625"/>
+			<signup id="{051f1756-8d71-3e98-f6b1-ec2625674c57}" name="T6" nation="" skill="0.75"/>
+			<signup id="{fd4f089c-5284-736c-0c1e-15146b0406fb}" name="T7" nation="" skill="0.875"/>
+			<signup id="{73446d4f-e885-117e-d1db-6ab9a983232f}" name="T8" nation="" skill="0.125"/>
+		</signupList>
+		<group name="A">
+			<signup>{5425c525-d179-cfba-4959-d1b069140e27}</signup>
+			<signup>{d71f7da3-040e-92b3-6ce0-4c81fd3dd5d6}</signup>
+			<signup>{b8b17df2-e176-d37c-643e-180c0a618d4b}</signup>
+			<signup>{4f280537-9372-4064-d8a0-d9f17139b9e6}</signup>
+		</group>
+		<group name="B">
+			<signup>{a79c78fb-31f6-695e-1988-1305ef25529b}</signup>
+			<signup>{051f1756-8d71-3e98-f6b1-ec2625674c57}</signup>
+			<signup>{fd4f089c-5284-736c-0c1e-15146b0406fb}</signup>
+			<signup>{73446d4f-e885-117e-d1db-6ab9a983232f}</signup>
+		</group>
+	</event>
+	<event id="{00000000-0000-0000-0000-000000000002}" name="halfway">
+		<sport>Association football—SQIS formula</sport>
+		<competition>roundRobin</competition>
+		<paradigmOptions/>
+		<competitionOptions>
+			<list type="tableData">
+				<list>
+					<string>0: T2 1–3 T3</string>
+				</list>
+				<list>
+					<string>0: T5 0–0 T6</string>
+				</list>
+				<list>
+					<string>0: T8 0–1 T9</string>
+				</list>
+			</list>
+		</competitionOptions>
+		<results>
+			<result matchday="0">A
+T2 1–3 T3
+
+  A                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T3                     1   1  0  0    3   1  +2    3
+2 T2                     1   0  0  1    1   3  −2    0
+
+B
+T5 0–0 T6
+
+  B                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T5                     1   0  1  0    0   0   0    1
+  T6                     1   0  1  0    0   0   0    1
+
+C
+T8 0–1 T9
+
+  C                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T9                     1   1  0  0    1   0  +1    3
+2 T8                     1   0  0  1    0   1  −1    0
+
+
+</result>
+		</results>
+		<signupList>
+			<minRank>0</minRank>
+			<maxRank>1</maxRank>
+			<signup id="{5425c525-d179-cfba-4959-d1b069140e27}" name="T1" nation="" skill="0.125"/>
+			<signup id="{d71f7da3-040e-92b3-6ce0-4c81fd3dd5d6}" name="T2" nation="" skill="0.25"/>
+			<signup id="{b8b17df2-e176-d37c-643e-180c0a618d4b}" name="T3" nation="" skill="0.375"/>
+			<signup id="{4f280537-9372-4064-d8a0-d9f17139b9e6}" name="T4" nation="" skill="0.5"/>
+			<signup id="{a79c78fb-31f6-695e-1988-1305ef25529b}" name="T5" nation="" skill="0.625"/>
+			<signup id="{051f1756-8d71-3e98-f6b1-ec2625674c57}" name="T6" nation="" skill="0.75"/>
+			<signup id="{fd4f089c-5284-736c-0c1e-15146b0406fb}" name="T7" nation="" skill="0.875"/>
+			<signup id="{73446d4f-e885-117e-d1db-6ab9a983232f}" name="T8" nation="" skill="0.125"/>
+			<signup id="{8595d60d-29bc-694e-fc91-5d901255e869}" name="T9" nation="" skill="0.25"/>
+		</signupList>
+		<group name="A">
+			<signup>{5425c525-d179-cfba-4959-d1b069140e27}</signup>
+			<signup>{d71f7da3-040e-92b3-6ce0-4c81fd3dd5d6}</signup>
+			<signup>{b8b17df2-e176-d37c-643e-180c0a618d4b}</signup>
+		</group>
+		<group name="B">
+			<signup>{4f280537-9372-4064-d8a0-d9f17139b9e6}</signup>
+			<signup>{a79c78fb-31f6-695e-1988-1305ef25529b}</signup>
+			<signup>{051f1756-8d71-3e98-f6b1-ec2625674c57}</signup>
+		</group>
+		<group name="C">
+			<signup>{fd4f089c-5284-736c-0c1e-15146b0406fb}</signup>
+			<signup>{73446d4f-e885-117e-d1db-6ab9a983232f}</signup>
+			<signup>{8595d60d-29bc-694e-fc91-5d901255e869}</signup>
+		</group>
+	</event>
+	<event id="{00000000-0000-0000-0000-000000000003}" name="two legs, results grid">
+		<sport>Association football—SQIS formula</sport>
+		<competition>roundRobin</competition>
+		<paradigmOptions/>
+		<competitionOptions>
+			<string type="numberOfLegs">2</string>
+			<string type="showResultsGrid">true</string>
+			<list type="tableData">
+				<list>
+					<string>0: T2 1–3 T3</string>
+					<string>1: T1 0–1 T2</string>
+					<string>2: T3 1–0 T1</string>
+					<string>3: T3 2–1 T2</string>
+					<string>4: T2 3–1 T1</string>
+					<string>5: T1 0–0 T3</string>
+				</list>
+			</list>
+		</competitionOptions>
+		<results>
+			<result matchday="0">A
+T2 1–3 T3
+
+  A                    Pld   W  D  L   GF  GA  GD  Pts                      
+1 T3                     1   1  0  0    3   1  +2    3              —    — 
+2 T2                     1   0  0  1    1   3  −2    0             1–3   — 
+
+
+</result>
+			<result matchday="1">A
+T1 0–1 T2
+
+  A                    Pld   W  D  L   GF  GA  GD  Pts                      
+1 T3                     1   1  0  0    3   1  +2    3         —    —    — 
+2 T2                     2   1  0  1    2   3  −1    3        1–3   —    — 
+3 T1                     1   0  0  1    0   1  −1    0         —   0–1   — 
+
+
+</result>
+			<result matchday="2">A
+T3 1–0 T1
+
+  A                    Pld   W  D  L   GF  GA  GD  Pts                      
+1 T3                     2   2  0  0    4   1  +3    6         —    —   1–0
+2 T2                     2   1  0  1    2   3  −1    3        1–3   —    — 
+3 T1                     2   0  0  2    0   2  −2    0         —   0–1   — 
+
+
+</result>
+			<result matchday="3">A
+T3 2–1 T2
+
+  A                    Pld   W  D  L   GF  GA  GD  Pts                      
+1 T3                     3   3  0  0    6   2  +4    9         —   2–1  1–0
+2 T2                     3   1  0  2    3   5  −2    3        1–3   —    — 
+3 T1                     2   0  0  2    0   2  −2    0         —   0–1   — 
+
+
+</result>
+			<result matchday="4">A
+T2 3–1 T1
+
+  A                    Pld   W  D  L   GF  GA  GD  Pts                      
+1 T3                     3   3  0  0    6   2  +4    9         —   2–1  1–0
+2 T2                     4   2  0  2    6   6   0    6        1–3   —   3–1
+3 T1                     3   0  0  3    1   5  −4    0         —   0–1   — 
+
+
+</result>
+			<result matchday="5">A
+T1 0–0 T3
+
+  A                    Pld   W  D  L   GF  GA  GD  Pts                      
+1 T3                     4   3  1  0    6   2  +4   10         —   2–1  1–0
+2 T2                     4   2  0  2    6   6   0    6        1–3   —   3–1
+3 T1                     4   0  1  3    1   5  −4    1        0–0  0–1   — 
+
+
+</result>
+		</results>
+		<signupList>
+			<minRank>0</minRank>
+			<maxRank>1</maxRank>
+			<signup id="{5425c525-d179-cfba-4959-d1b069140e27}" name="T1" nation="" skill="0.125"/>
+			<signup id="{d71f7da3-040e-92b3-6ce0-4c81fd3dd5d6}" name="T2" nation="" skill="0.25"/>
+			<signup id="{b8b17df2-e176-d37c-643e-180c0a618d4b}" name="T3" nation="" skill="0.375"/>
+		</signupList>
+		<group name="A">
+			<signup>{5425c525-d179-cfba-4959-d1b069140e27}</signup>
+			<signup>{d71f7da3-040e-92b3-6ce0-4c81fd3dd5d6}</signup>
+			<signup>{b8b17df2-e176-d37c-643e-180c0a618d4b}</signup>
+		</group>
+	</event>
+	<event id="{00000000-0000-0000-0000-000000000004}" name="uneven groups, byes">
+		<sport>Association football—SQIS formula</sport>
+		<competition>roundRobin</competition>
+		<paradigmOptions/>
+		<competitionOptions>
+			<list type="tableData">
+				<list>
+					<string>0: T2 1–3 T3</string>
+					<string>1: T1 1–1 T2</string>
+					<string>2: T3 3–0 T1</string>
+				</list>
+				<list>
+					<string>0: T4 0–0 T7</string>
+					<string>0: T5 0–1 T6</string>
+					<string>1: T7 1–0 T6</string>
+					<string>1: T4 2–1 T5</string>
+					<string>2: T5 1–2 T7</string>
+					<string>2: T6 0–1 T4</string>
+				</list>
+			</list>
+		</competitionOptions>
+		<results>
+			<result matchday="0">A
+T2 1–3 T3
+
+  A                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T3                     1   1  0  0    3   1  +2    3
+2 T2                     1   0  0  1    1   3  −2    0
+
+B
+T4 0–0 T7
+T5 0–1 T6
+
+  B                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T6                     1   1  0  0    1   0  +1    3
+2 T4                     1   0  1  0    0   0   0    1
+  T7                     1   0  1  0    0   0   0    1
+4 T5                     1   0  0  1    0   1  −1    0
+
+
+</result>
+			<result matchday="1">A
+T1 1–1 T2
+
+  A                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T3                     1   1  0  0    3   1  +2    3
+2 T1                     1   0  1  0    1   1   0    1
+3 T2                     2   0  1  1    2   4  −2    1
+
+B
+T7 1–0 T6
+T4 2–1 T5
+
+  B                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T4                     2   1  1  0    2   1  +1    4
+2 T7                     2   1  1  0    1   0  +1    4
+3 T6                     2   1  0  1    1   1   0    3
+4 T5                     2   0  0  2    1   3  −2    0
+
+
+</result>
+			<result matchday="2">A
+T3 3–0 T1
+
+  A                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T3                     2   2  0  0    6   1  +5    6
+2 T2                     2   0  1  1    2   4  −2    1
+3 T1                     2   0  1  1    1   4  −3    1
+
+B
+T5 1–2 T7
+T6 0–1 T4
+
+  B                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T4                     3   2  1  0    3   1  +2    7
+  T7                     3   2  1  0    3   1  +2    7
+3 T6                     3   1  0  2    1   2  −1    3
+4 T5                     3   0  0  3    2   5  −3    0
+
+
+</result>
+		</results>
+		<signupList>
+			<minRank>0</minRank>
+			<maxRank>1</maxRank>
+			<signup id="{5425c525-d179-cfba-4959-d1b069140e27}" name="T1" nation="" skill="0.125"/>
+			<signup id="{d71f7da3-040e-92b3-6ce0-4c81fd3dd5d6}" name="T2" nation="" skill="0.25"/>
+			<signup id="{b8b17df2-e176-d37c-643e-180c0a618d4b}" name="T3" nation="" skill="0.375"/>
+			<signup id="{4f280537-9372-4064-d8a0-d9f17139b9e6}" name="T4" nation="" skill="0.5"/>
+			<signup id="{a79c78fb-31f6-695e-1988-1305ef25529b}" name="T5" nation="" skill="0.625"/>
+			<signup id="{051f1756-8d71-3e98-f6b1-ec2625674c57}" name="T6" nation="" skill="0.75"/>
+			<signup id="{fd4f089c-5284-736c-0c1e-15146b0406fb}" name="T7" nation="" skill="0.875"/>
+		</signupList>
+		<group name="A">
+			<signup>{5425c525-d179-cfba-4959-d1b069140e27}</signup>
+			<signup>{d71f7da3-040e-92b3-6ce0-4c81fd3dd5d6}</signup>
+			<signup>{b8b17df2-e176-d37c-643e-180c0a618d4b}</signup>
+		</group>
+		<group name="B">
+			<signup>{4f280537-9372-4064-d8a0-d9f17139b9e6}</signup>
+			<signup>{a79c78fb-31f6-695e-1988-1305ef25529b}</signup>
+			<signup>{051f1756-8d71-3e98-f6b1-ec2625674c57}</signup>
+			<signup>{fd4f089c-5284-736c-0c1e-15146b0406fb}</signup>
+		</group>
+	</event>
+	<event id="{00000000-0000-0000-0000-000000000005}" name="heats">
+		<sport>Athletics—Men’s 00100 m—Round 1</sport>
+		<competition>standard</competition>
+		<paradigmOptions/>
+		<competitionOptions>
+			<string type="overallRanking">true</string>
+		</competitionOptions>
+		<results>
+			<result matchday="0">  A
+1 T1                      10.45
+2 T4                      10.61
+3 T3                      10.63
+4 T2                      11.43
+
+  B
+1 T7                      10.22
+2 T5                      10.24
+3 T6                      10.32
+4 T8                      10.61
+
+  Overall ranking
+1 T7                      10.22
+2 T5                      10.24
+3 T6                      10.32
+4 T1                      10.45
+5 T4                      10.61
+6 T8                      10.61
+7 T3                      10.63
+8 T2                      11.43
+
+</result>
+		</results>
+		<signupList>
+			<minRank>0</minRank>
+			<maxRank>1</maxRank>
+			<signup id="{5425c525-d179-cfba-4959-d1b069140e27}" name="T1" nation="" skill="0.125"/>
+			<signup id="{d71f7da3-040e-92b3-6ce0-4c81fd3dd5d6}" name="T2" nation="" skill="0.25"/>
+			<signup id="{b8b17df2-e176-d37c-643e-180c0a618d4b}" name="T3" nation="" skill="0.375"/>
+			<signup id="{4f280537-9372-4064-d8a0-d9f17139b9e6}" name="T4" nation="" skill="0.5"/>
+			<signup id="{a79c78fb-31f6-695e-1988-1305ef25529b}" name="T5" nation="" skill="0.625"/>
+			<signup id="{051f1756-8d71-3e98-f6b1-ec2625674c57}" name="T6" nation="" skill="0.75"/>
+			<signup id="{fd4f089c-5284-736c-0c1e-15146b0406fb}" name="T7" nation="" skill="0.875"/>
+			<signup id="{73446d4f-e885-117e-d1db-6ab9a983232f}" name="T8" nation="" skill="0.125"/>
+		</signupList>
+		<group name="A">
+			<signup>{5425c525-d179-cfba-4959-d1b069140e27}</signup>
+			<signup>{d71f7da3-040e-92b3-6ce0-4c81fd3dd5d6}</signup>
+			<signup>{b8b17df2-e176-d37c-643e-180c0a618d4b}</signup>
+			<signup>{4f280537-9372-4064-d8a0-d9f17139b9e6}</signup>
+		</group>
+		<group name="B">
+			<signup>{a79c78fb-31f6-695e-1988-1305ef25529b}</signup>
+			<signup>{051f1756-8d71-3e98-f6b1-ec2625674c57}</signup>
+			<signup>{fd4f089c-5284-736c-0c1e-15146b0406fb}</signup>
+			<signup>{73446d4f-e885-117e-d1db-6ab9a983232f}</signup>
+		</group>
+	</event>
+	<event id="{00000000-0000-0000-0000-000000000006}" name="conferences">
+		<sport>Association football—SQIS formula</sport>
+		<competition>interConference</competition>
+		<paradigmOptions/>
+		<competitionOptions>
+			<string type="numberOfLegs">1</string>
+			<list type="conferenceTableData">
+				<string>0: T2 1–3 T3</string>
+				<string>0: T5 0–0 T6</string>
+				<string>1: T1 0–2 T4</string>
+				<string>1: T2 0–1 T5</string>
+				<string>1: T3 0–2 T6</string>
+				<string>2: T1 0–1 T2</string>
+				<string>2: T4 2–2 T5</string>
+				<string>3: T5 2–1 T1</string>
+				<string>3: T6 0–1 T2</string>
+				<string>3: T4 2–2 T3</string>
+				<string>4: T3 1–1 T1</string>
+				<string>4: T6 1–0 T4</string>
+				<string>5: T1 0–2 T6</string>
+				<string>5: T2 1–5 T4</string>
+				<string>5: T3 0–1 T5</string>
+			</list>
+		</competitionOptions>
+		<results>
+			<result matchday="0">A
+T2 1–3 T3
+
+B
+T5 0–0 T6
+
+  A                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T3                     1   1  0  0    3   1  +2    3
+2 T1                     0   0  0  0    0   0   0    0
+3 T2                     1   0  0  1    1   3  −2    0
+
+  B                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T5                     1   0  1  0    0   0   0    1
+  T6                     1   0  1  0    0   0   0    1
+3 T4                     0   0  0  0    0   0   0    0
+
+  Overall              Pld   W  D  L   GF  GA  GD  Pts 
+1 T3                     1   1  0  0    3   1  +2    3
+2 T5                     1   0  1  0    0   0   0    1
+  T6                     1   0  1  0    0   0   0    1
+4 T1                     0   0  0  0    0   0   0    0
+  T4                     0   0  0  0    0   0   0    0
+6 T2                     1   0  0  1    1   3  −2    0
+
+
+</result>
+			<result matchday="1">A v B
+T1 0–2 T4
+T2 0–1 T5
+T3 0–2 T6
+
+  A                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T3                     2   1  0  1    3   3   0    3
+2 T1                     1   0  0  1    0   2  −2    0
+3 T2                     2   0  0  2    1   4  −3    0
+
+  B                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T6                     2   1  1  0    2   0  +2    4
+2 T5                     2   1  1  0    1   0  +1    4
+3 T4                     1   1  0  0    2   0  +2    3
+
+  Overall              Pld   W  D  L   GF  GA  GD  Pts 
+1 T6                     2   1  1  0    2   0  +2    4
+2 T5                     2   1  1  0    1   0  +1    4
+3 T4                     1   1  0  0    2   0  +2    3
+4 T3                     2   1  0  1    3   3   0    3
+5 T1                     1   0  0  1    0   2  −2    0
+6 T2                     2   0  0  2    1   4  −3    0
+
+
+</result>
+			<result matchday="2">A
+T1 0–1 T2
+
+B
+T4 2–2 T5
+
+  A                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T3                     2   1  0  1    3   3   0    3
+2 T2                     3   1  0  2    2   4  −2    3
+3 T1                     2   0  0  2    0   3  −3    0
+
+  B                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T5                     3   1  2  0    3   2  +1    5
+2 T4                     2   1  1  0    4   2  +2    4
+3 T6                     2   1  1  0    2   0  +2    4
+
+  Overall              Pld   W  D  L   GF  GA  GD  Pts 
+1 T5                     3   1  2  0    3   2  +1    5
+2 T4                     2   1  1  0    4   2  +2    4
+3 T6                     2   1  1  0    2   0  +2    4
+4 T3                     2   1  0  1    3   3   0    3
+5 T2                     3   1  0  2    2   4  −2    3
+6 T1                     2   0  0  2    0   3  −3    0
+
+
+</result>
+			<result matchday="3">A v B
+T5 2–1 T1
+T6 0–1 T2
+T4 2–2 T3
+
+  A                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T2                     4   2  0  2    3   4  −1    6
+2 T3                     3   1  1  1    5   5   0    4
+3 T1                     3   0  0  3    1   5  −4    0
+
+  B                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T5                     4   2  2  0    5   3  +2    8
+2 T4                     3   1  2  0    6   4  +2    5
+3 T6                     3   1  1  1    2   1  +1    4
+
+  Overall              Pld   W  D  L   GF  GA  GD  Pts 
+1 T5                     4   2  2  0    5   3  +2    8
+2 T2                     4   2  0  2    3   4  −1    6
+3 T4                     3   1  2  0    6   4  +2    5
+4 T6                     3   1  1  1    2   1  +1    4
+5 T3                     3   1  1  1    5   5   0    4
+6 T1                     3   0  0  3    1   5  −4    0
+
+
+</result>
+			<result matchday="4">A
+T3 1–1 T1
+
+B
+T6 1–0 T4
+
+  A                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T2                     4   2  0  2    3   4  −1    6
+2 T3                     4   1  2  1    6   6   0    5
+3 T1                     4   0  1  3    2   6  −4    1
+
+  B                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T5                     4   2  2  0    5   3  +2    8
+2 T6                     4   2  1  1    3   1  +2    7
+3 T4                     4   1  2  1    6   5  +1    5
+
+  Overall              Pld   W  D  L   GF  GA  GD  Pts 
+1 T5                     4   2  2  0    5   3  +2    8
+2 T6                     4   2  1  1    3   1  +2    7
+3 T2                     4   2  0  2    3   4  −1    6
+4 T4                     4   1  2  1    6   5  +1    5
+5 T3                     4   1  2  1    6   6   0    5
+6 T1                     4   0  1  3    2   6  −4    1
+
+
+</result>
+			<result matchday="5">A v B
+T1 0–2 T6
+T2 1–5 T4
+T3 0–1 T5
+
+  A                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T2                     5   2  0  3    4   9  −5    6
+2 T3                     5   1  2  2    6   7  −1    5
+3 T1                     5   0  1  4    2   8  −6    1
+
+  B                    Pld   W  D  L   GF  GA  GD  Pts 
+1 T5                     5   3  2  0    6   3  +3   11
+2 T6                     5   3  1  1    5   1  +4   10
+3 T4                     5   2  2  1   11   6  +5    8
+
+  Overall              Pld   W  D  L   GF  GA  GD  Pts 
+1 T5                     5   3  2  0    6   3  +3   11
+2 T6                     5   3  1  1    5   1  +4   10
+3 T4                     5   2  2  1   11   6  +5    8
+4 T2                     5   2  0  3    4   9  −5    6
+5 T3                     5   1  2  2    6   7  −1    5
+6 T1                     5   0  1  4    2   8  −6    1
+
+
+</result>
+		</results>
+		<signupList>
+			<minRank>0</minRank>
+			<maxRank>1</maxRank>
+			<signup id="{5425c525-d179-cfba-4959-d1b069140e27}" name="T1" nation="" skill="0.125"/>
+			<signup id="{d71f7da3-040e-92b3-6ce0-4c81fd3dd5d6}" name="T2" nation="" skill="0.25"/>
+			<signup id="{b8b17df2-e176-d37c-643e-180c0a618d4b}" name="T3" nation="" skill="0.375"/>
+			<signup id="{4f280537-9372-4064-d8a0-d9f17139b9e6}" name="T4" nation="" skill="0.5"/>
+			<signup id="{a79c78fb-31f6-695e-1988-1305ef25529b}" name="T5" nation="" skill="0.625"/>
+			<signup id="{051f1756-8d71-3e98-f6b1-ec2625674c57}" name="T6" nation="" skill="0.75"/>
+		</signupList>
+		<group name="A">
+			<signup>{5425c525-d179-cfba-4959-d1b069140e27}</signup>
+			<signup>{d71f7da3-040e-92b3-6ce0-4c81fd3dd5d6}</signup>
+			<signup>{b8b17df2-e176-d37c-643e-180c0a618d4b}</signup>
+		</group>
+		<group name="B">
+			<signup>{4f280537-9372-4064-d8a0-d9f17139b9e6}</signup>
+			<signup>{a79c78fb-31f6-695e-1988-1305ef25529b}</signup>
+			<signup>{051f1756-8d71-3e98-f6b1-ec2625674c57}</signup>
+		</group>
+	</event>
+</scorinationFile>

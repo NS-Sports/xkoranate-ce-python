@@ -948,6 +948,241 @@ def test_a_tie_that_no_shoot_off_can_break_stands_instead_of_hanging(sport_index
     assert "can't break a tie by shoot-off" in capfd.readouterr().err
 
 
+# --- qualification markers (Q / E) -------------------------------------------
+
+def playGroups(index, rng, sportName, competition, groups, perGroup):
+    """Scorinate every matchday, rebuilding the competition from the saved
+    options in between the way the Scorinate step does."""
+    ev, sport = build_event(index, rng, sportName, groups * perGroup)
+    ids = list(ev.groups()[0].athletes)
+    ev.setGroups([XkorGroup("Group %s" % chr(65 + g), ids[g * perGroup:(g + 1) * perGroup])
+                  for g in range(groups)])
+    ev.setCompetition(competition)
+    sl = ev.makeStartList(XkorRPList())
+
+    def build():
+        return XkorCompetitionFactory.newCompetitionFull(
+            competition, sl, sport, ev.paradigmOptions(), ev.competitionOptions(), ev.results())
+
+    c = build()
+    for md in range(c.matchdays()):
+        c.scorinate(md)
+        ev.replaceCompetitionOptions(c.resumeFileOptions())
+        ev.setResult(md, c.results(md))
+        c = build()
+    return ev, sport, c
+
+
+def markerCounts(text):
+    rows = [line for line in text.split("\n") if line[-2:] in (" Q", " E")]
+    return sum(1 for r in rows if r.endswith("Q")), sum(1 for r in rows if r.endswith("E"))
+
+
+def test_league_markers_on_the_final_matchday(sport_index, rng):
+    from xkoranate.competitions.qualification import QualificationSettings
+
+    ev, sport, c = playGroups(sport_index, rng, "Association football—SQIS formula",
+                              "roundRobin", 3, 4)
+    last = c.matchdays() - 1
+    text = c.results(last)
+
+    assert c.formatQualifications(text, last, QualificationSettings()) == text
+    assert markerCounts(c.formatQualifications(text, last, QualificationSettings("top", 2))) == (6, 6)
+    assert markerCounts(c.formatQualifications(
+        text, last, QualificationSettings("topPlusBest", 2, 1))) == (7, 5)
+    # after one game nobody is through or out yet
+    assert c.formatQualifications(c.results(0), 0, QualificationSettings("top", 2)) == c.results(0)
+
+
+def test_league_markers_survive_a_save_and_reload(sport_index, rng, tmp_path):
+    from xkoranate.competitions.qualification import QualificationSettings
+
+    ev, sport, c = playGroups(sport_index, rng, "Association football—SQIS formula",
+                              "roundRobin", 2, 4)
+    ev.replaceCompetitionOptions(QualificationSettings("top", 2).toOptions())
+    xmlPath = str(tmp_path / "league.xml")
+    XkorXmlWriter(xmlPath, XkorRPList(), [(uuid.uuid4(), ev)])
+    ev2 = XkorXmlReader(xmlPath).events()[0][1]
+
+    settings = QualificationSettings.fromOptions(ev2.competitionOptions())
+    assert settings == QualificationSettings("top", 2)
+    c2 = XkorCompetitionFactory.newCompetitionFull(
+        "roundRobin", ev2.makeStartList(XkorRPList()), sport, ev2.paradigmOptions(),
+        ev2.competitionOptions(), ev2.results())
+    last = c2.matchdays() - 1
+    assert markerCounts(c2.formatQualifications(c2.results(last), last, settings)) == (4, 4)
+
+
+def test_heat_markers_with_the_best_next_placed(sport_index, rng):
+    from xkoranate.competitions.qualification import QualificationSettings
+
+    ev, sport, c = playGroups(sport_index, rng, "Athletics—Men’s 00100 m—Round 1",
+                              "standard", 3, 5)
+    assert len(ev.competitionOptions()["heatRanks"]) == 3
+    text = c.results(0)
+    best = QualificationSettings("topPlusBest", 2, 1)
+    assert markerCounts(c.formatQualifications(text, 0, QualificationSettings("top", 2))) == (6, 9)
+    assert markerCounts(c.formatQualifications(text, 0, best)) == (7, 8)
+
+    # saved before heat ranks were kept: the third-placed can't be compared
+    old = dict(ev.competitionOptions())
+    del old["heatRanks"]
+    c = XkorCompetitionFactory.newCompetitionFull(
+        "standard", ev.makeStartList(XkorRPList()), sport, ev.paradigmOptions(), old, ev.results())
+    assert markerCounts(c.formatQualifications(text, 0, best)) == (6, 6)
+
+
+def test_scorinate_step_box_loads_quietly_and_saves_changes(qt_app, sport_index, rng):
+    from xkoranate.competitions.qualification import QualificationSettings
+    from xkoranate.eventeditor.scorinatewidget import XkorScorinateWidget
+
+    ev, sport, c = playGroups(sport_index, rng, "Association football—SQIS formula",
+                              "roundRobin", 3, 4)
+    ev.replaceCompetitionOptions(QualificationSettings("topPlusBest", 2, 1).toOptions())
+
+    w = XkorScorinateWidget()
+    saved = []
+    w.resumeFileOptionsSet.connect(saved.append)
+    w.setEvent(ev, XkorRPList(), sport)
+    assert saved == []  # opening an event doesn't mark it changed
+    assert not w.qualificationBox.isHidden()
+    assert w.qualificationSettings() == QualificationSettings("topPlusBest", 2, 1)
+
+    w.matchday.setCurrentIndex(w.matchday.count() - 1)
+    assert markerCounts(w.textedit.toPlainText()) == (7, 5)
+
+    w.qualificationBest.setChecked(False)
+    assert saved[-1]["qualificationMode"] == "top"
+    assert markerCounts(w.textedit.toPlainText()) == (6, 6)
+
+    w.qualificationBox.setChecked(False)
+    assert saved[-1]["qualificationMode"] == "off"
+    assert w.textedit.toPlainText() == c.results(c.matchdays() - 1)
+
+
+# --- events saved before qualification markers existed -----------------------
+# Written by the code on main before this feature, so they hold what users'
+# existing saves do: no qualification options, no heat ranks, coin flips not
+# saved, and results text laid out by the older code. One file, one event per
+# case:
+#   coin-flip ties          a tie only a coin flip settled, re-rolled on rebuild
+#   halfway                 groups with games still to play
+#   two legs, results grid  the marker column sits before the grid
+#   uneven groups, byes     a group with an odd number of teams
+#   heats                   mass start with no saved heat ranks
+#   conferences             inter-conference play, cross-conference games
+
+PRE_QUALIFICATION = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "fixtures", "pre-qualification.xml")
+PRE_QUALIFICATION_EVENTS = ["coin-flip ties", "halfway", "two legs, results grid",
+                            "uneven groups, byes", "heats", "conferences"]
+
+
+def clickEveryQualificationSetting(w):
+    """Every mode, on every matchday, with and without BBCode."""
+    for checked, best, places, bestOf in [(True, False, 1, 1), (True, True, 2, 1),
+                                          (True, True, 1, 3), (True, False, 99, 1),
+                                          (False, False, 2, 1)]:
+        w.qualificationPlaces.setValue(places)
+        w.qualificationBestOf.setValue(bestOf)
+        w.qualificationBest.setChecked(best)
+        w.qualificationBox.setChecked(checked)
+        for md in range(max(1, w.matchday.count())):
+            w.matchday.setCurrentIndex(md)
+            w.updateResults(md)
+        w.bbcodeCheckBox.toggle()
+
+
+def openInEditor(editor, name, damage=None):
+    r = XkorXmlReader(PRE_QUALIFICATION)
+    ev = next(e for _id, e in r.events() if e.name() == name)
+    if damage is not None:
+        damage(ev.m_competitionOptions)
+    editor.ee.setData(ev, r.rpList())
+    return editor.ee.scorinateWidget
+
+
+def test_the_old_file_holds_every_case():
+    assert [e.name() for _id, e in XkorXmlReader(PRE_QUALIFICATION).events()] == PRE_QUALIFICATION_EVENTS
+
+
+@pytest.mark.parametrize("name", PRE_QUALIFICATION_EVENTS)
+def test_old_events_take_every_qualification_setting(editor, name, capfd):
+    w = openInEditor(editor, name)
+    clickEveryQualificationSetting(w)
+    assert "Traceback" not in capfd.readouterr().err
+
+    # and where there are finished standings, they get marked
+    if name != "halfway":
+        w.qualificationPlaces.setValue(1)
+        w.qualificationBest.setChecked(False)
+        w.qualificationBox.setChecked(True)
+        w.matchday.setCurrentIndex(w.matchday.count() - 1)
+        rows = w.textedit.toPlainText().split("\n")
+        # a Q in the marker column: at the end, or before a results grid
+        assert any(line.endswith(" Q") or " Q  " in line for line in rows)
+
+
+def damagedOptions():
+    def junkSettings(o):
+        o.update(qualificationMode="banana", qualificationPlaces="abc", qualificationBestOf="-7")
+
+    def hugeSettings(o):
+        o.update(qualificationMode="topPlusBest", qualificationPlaces="99999", qualificationBestOf="0")
+
+    def junkTableData(o):
+        td = list(o.get("tableData") or [[]])
+        td[0] = list(td[0]) + ["garbage", "99: Nobody 1–0 Ghost", "x: A 1–1 B"]
+        o["tableData"] = td + [["0: Extra 1–0 Group"]]
+        o["conferenceTableData"] = list(o.get("conferenceTableData") or []) + [
+            "garbage", "0: Nobody 1–0 Ghost", "x: A 1–1 B"]
+
+    def tableDataNotAList(o):
+        o["tableData"] = "not a list"
+
+    def junkHeatRanks(o):
+        o["heatRanks"] = [["x", "", "3"], "nonsense", [], ["1"] * 99]
+
+    def heatRanksNotAList(o):
+        o["heatRanks"] = "7"
+
+    return [junkSettings, hugeSettings, junkTableData, tableDataNotAList,
+            junkHeatRanks, heatRanksNotAList]
+
+
+@pytest.mark.parametrize("damage", damagedOptions(), ids=lambda f: f.__name__)
+@pytest.mark.parametrize("name", ["halfway", "coin-flip ties", "heats", "conferences"])
+def test_hand_damaged_options_dont_crash_the_box(editor, name, damage, capfd):
+    w = openInEditor(editor, name, damage)
+    clickEveryQualificationSetting(w)
+    assert "Traceback" not in capfd.readouterr().err
+
+
+def test_coin_flip_ties_in_an_old_league_still_get_marked(editor):
+    # league tables never saved their flips; the markers take them from the
+    # order the stored table shows rather than re-rolling (and missing it)
+    for _ in range(5):
+        w = openInEditor(editor, "coin-flip ties")
+        w.qualificationPlaces.setValue(2)
+        w.qualificationBest.setChecked(False)
+        w.qualificationBox.setChecked(True)
+        w.matchday.setCurrentIndex(w.matchday.count() - 1)
+        assert markerCounts(w.textedit.toPlainText()) == (4, 4)
+
+
+def test_a_formatting_failure_shows_the_results_plain(editor, capfd):
+    w = openInEditor(editor, "uneven groups, byes")
+
+    def broken(*args):
+        raise RuntimeError("something an old file confused")
+
+    w.c.formatQualifications = broken
+    w.qualificationBox.setChecked(True)
+    md = w.matchday.currentIndex()
+    assert w.textedit.toPlainText() == w.c.results(md)
+    assert "something an old file confused" in capfd.readouterr().err
+
+
 # ------------------------------------------------------ inter-conference play
 
 
@@ -1091,3 +1326,30 @@ def test_conference_tables_count_stoppages_and_negative_scores(sport_index, spor
     assert stoppages > 0
     if sportName.startswith("Taekwondo"):
         assert negatives > 0
+
+
+def test_inter_conference_markers_count_cross_games(editor, sport_index, rng):
+    """Conferences are the groups; their tables include games against other
+    conferences. The overall table repeats each team's mark."""
+    from xkoranate.competitions.qualification import QualificationSettings
+
+    ev, sport, c = playGroups(sport_index, rng, "Association football—SQIS formula",
+                              "interConference", 3, 4)
+    last = c.matchdays() - 1
+    text = c.results(last)
+    marked = c.formatQualifications(text, last, QualificationSettings("topPlusBest", 2, 1))
+    # three conference tables and the overall one: 7 through, 5 out, twice
+    assert markerCounts(marked) == (14, 10)
+    assert c.formatQualifications(text, last, QualificationSettings()) == text
+
+    # with crossover games worth more, still sound at every matchday
+    ev.replaceCompetitionOptions({"crossPointsForWin": "4", "crossPointsForDraw": "2"})
+    c = XkorCompetitionFactory.newCompetitionFull(
+        "interConference", ev.makeStartList(XkorRPList()), sport, ev.paradigmOptions(),
+        ev.competitionOptions(), ev.results())
+    for md in range(c.matchdays()):
+        c.formatQualifications(c.results(md), md, QualificationSettings("topPlusBest", 2, 1))
+
+    editor.ee.setData(ev, XkorRPList())
+    w = editor.ee.scorinateWidget
+    assert not w.qualificationBox.isHidden()

@@ -203,6 +203,77 @@ class XkorInterConferenceCompetition(XkorRoundRobinCompetition):
         self.resultsBuf[matchday] = self.resultsBuf.get(matchday, "") + output
         self.resumeOpt[self.DATA_KEY] = stored
 
+    # qualification markers: conferences are the groups
+
+    def _configureTable(self, t, sortCriteria):
+        super()._configureTable(t, sortCriteria)
+        t.setCrossPoints(self.crossPoints())
+
+    def formatQualifications(self, text, matchday, settings):
+        from xkoranate.competitions.qualification import leagueMarkers
+
+        if not text or not settings.isEnabled() or not self._day(matchday):
+            return text
+        key = (text, matchday, settings)
+        if key in self._qualificationCache:
+            return self._qualificationCache[key]
+
+        # rebuilt as scorinate() built them: every conference's table from
+        # all the results so far, cross-conference ones included
+        matches = [parseStoredMatch(line)[1] for line in self._storedResults(matchday + 1)]
+        conferences = [g for g in self.startList.groups if g.athletes]
+        tables = [self._rebuilt(text, self._newTable(g.name, [a.name for a in g.athletes], matches))
+                  for g in conferences]
+
+        markers = leagueMarkers(
+            [self._conferenceGroup(g, t, matchday) for g, t in zip(conferences, tables)],
+            settings, crossRank=lambda candidates: self._rankNextPlaced(candidates, tables))
+
+        marked = list(zip(tables, markers))
+        if self.showOverallTable() and len(tables) > 1:
+            # the overall table repeats each team's mark from its conference
+            everyone = [a.name for g in self.startList.groups for a in g.athletes]
+            overall = self._rebuilt(text, self._newTable(OVERALL_TABLE_NAME, everyone, matches))
+            marked.append((overall, {name: m for ms in markers for name, m in ms.items()}))
+
+        rval = self._markTables(text, marked)
+        self._qualificationCache[key] = rval
+        return rval
+
+    def _conferenceGroup(self, conference, table, matchday):
+        from xkoranate.competitions.qualification import QualificationGroup
+
+        names = [a.name for a in conference.athletes]
+        inConference = set(names)
+        remaining, games = [], dict.fromkeys(names, 0)
+        for md, day in enumerate(self.conferenceSchedule()):
+            for section in day:
+                for home, away in section.fixtures:
+                    h, a = self._team(home).name, self._team(away).name
+                    if h not in inConference and a not in inConference:
+                        continue
+                    for team in (h, a):
+                        if team in games:
+                            games[team] += 1
+                    if md > matchday:
+                        # played against another conference: that game's
+                        # points, and only this conference's side counts
+                        remaining.append((h, a, home[0] != away[0]))
+
+        # a win percentage compares across conferences only if every team
+        # in this one plays the same number of games
+        perTeam = set(games.values())
+        metric, outcomes, scale = self._qualificationMetric(
+            table, perTeam.pop() if len(perTeam) == 1 else None)
+        if outcomes is not None:
+            remaining = [(h, a, outcomes(cross)) for h, a, cross in remaining]
+        else:
+            remaining = [(h, a) for h, a, _cross in remaining]
+        return QualificationGroup(
+            teams=names, current=self._currentMetric(table, metric), remaining=remaining,
+            outcomes=None if outcomes is None else outcomes(False),
+            order=[[r.name() for r in b] for b in table.data if b], scale=scale)
+
     def revertToMatchday(self, matchday):
         # “matchday” is the first that will be erased
         for k in list(self.resultsBuf.keys()):
