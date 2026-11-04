@@ -15,6 +15,8 @@ from xkoranate.rng import Mt19937
 from xkoranate.rplist import XkorRPList
 from xkoranate.signuplist import XkorSignupList
 from xkoranate.sport import XkorSport
+from xkoranate.tablegenerator.table import XkorTable
+from xkoranate.tablegenerator.tablematch import XkorTableMatch
 from xkoranate.xml.xmlsportreader import XkorXmlSportReader
 
 NATIONS = ["AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG", "HHH"]
@@ -204,3 +206,35 @@ def tournament(name, index, rng, **overrides):
     """(event, sport) for one of TOURNAMENTS, with any argument overridden."""
     kw = dict(TOURNAMENTS[name], **overrides)
     return event_for(index, rng, kw.pop("sport_name"), **kw)
+
+
+# --- tables --------------------------------------------------------------------
+
+OT_POINTS = {"ot_win": "setPointsForOTWin", "so_win": "setPointsForSOWin",
+             "ot_loss": "setPointsForOTLoss", "so_loss": "setPointsForSOLoss"}
+
+
+def make_table(win=3, draw=1, loss=0, criteria=None, matches=(), **ot):
+    """A table with these points and sort criteria, and matches given as
+    (team1, team2, score1, score2[, decider]). ot_win, so_win, ot_loss and
+    so_loss override the overtime points, which otherwise follow win/loss."""
+    t = XkorTable()
+    t.setPointsForWin(win)
+    t.setPointsForDraw(draw)
+    t.setPointsForLoss(loss)
+    for key, value in ot.items():
+        getattr(t, OT_POINTS[key])(value)
+    if criteria is not None:
+        t.setSortCriteria(criteria)
+    t.setMatches([XkorTableMatch(*m) for m in matches])
+    return t
+
+
+def names(t):
+    """A generated table's teams, top first."""
+    return [row.name() for tier in t.data for row in tier]
+
+
+def points(t):
+    """A generated table's {team: points}."""
+    return {row.name(): t.getPoints(row) for tier in t.data for row in tier}

@@ -1,12 +1,12 @@
 import os
 import re
 
+from builders import make_table, names, points
 from PySide6.QtCore import QRegularExpression
 
 from xkoranate.tablegenerator.decider import (MATCH_RESULT_PATTERN, classify,
                                               parseMatchLine,
                                               stripTrailingDeciders)
-from xkoranate.tablegenerator.table import XkorTable
 from xkoranate.tablegenerator.tablematch import XkorTableMatch
 from xkoranate.tablegenerator.tablerow import XkorTableRow
 from xkoranate.tablegenerator.tablesorter import XkorTableSorter
@@ -53,10 +53,7 @@ def test_ot_and_so_wins_are_tracked_separately_from_regulation():
 
 def test_getPoints_matches_old_formula_when_no_deciders_are_used():
     row = _row_with_matches((1, 3, True, None), (1, 1, True, None), (3, 0, True, None))
-    t = XkorTable()
-    t.setPointsForWin(3)
-    t.setPointsForDraw(1)
-    t.setPointsForLoss(0)
+    t = make_table()
     # the old formula: wins*pointsForWin + draws*pointsForDraw + losses*pointsForLoss
     assert t.getPoints(row) == row.wins() * 3 + row.draws() * 1 + row.losses() * 0
 
@@ -70,23 +67,14 @@ def test_getPoints_supports_nhl_style_scoring():
         (2, 1, True, "SO"),   # SO loss: 1 pt
         (3, 0, True, None),   # regulation loss: 0 pts
     )
-    t = XkorTable()
-    t.setPointsForWin(2)
-    t.setPointsForDraw(2)
-    t.setPointsForLoss(0)
-    t.setPointsForOTWin(2)
-    t.setPointsForSOWin(2)
-    t.setPointsForOTLoss(1)
-    t.setPointsForSOLoss(1)
+    t = make_table(2, 2, 0, ot_win=2, so_win=2, ot_loss=1, so_loss=1)
     # 3 wins (all worth 2) + 1 OT loss (1) + 1 SO loss (1) + 1 regulation loss (0)
     assert t.getPoints(row) == 3 * 2 + 1 + 1 + 0
 
 
 def test_ot_so_points_fall_back_to_win_loss_when_unset():
     row = _row_with_matches((1, 3, True, "OT"), (3, 1, True, "SO"))
-    t = XkorTable()
-    t.setPointsForWin(3)
-    t.setPointsForLoss(0)
+    t = make_table()
     assert t.getPointsForOTWin() == 3
     assert t.getPointsForSOLoss() == 0
     assert t.getPoints(row) == 3  # 1 OT win (3) + 1 SO loss (0)
@@ -158,20 +146,9 @@ def test_xml_readMatches_pattern_recognizes_optional_decider():
 def test_xml_round_trip_preserves_decider_and_ot_so_points(tmp_path):
     filename = os.path.join(str(tmp_path), "table.xml")
 
-    t = XkorTable()
-    t.setColumns([])
-    t.setPointsForWin(2)
-    t.setPointsForDraw(2)
-    t.setPointsForLoss(0)
-    t.setPointsForOTWin(2)
-    t.setPointsForSOWin(2)
-    t.setPointsForOTLoss(1)
-    t.setPointsForSOLoss(1)
+    t = make_table(2, 2, 0, matches=[("Aquilla", "Busby", 3, 2, "OT"), ("Busby", "Aquilla", 1, 4, "SO")],
+                   ot_win=2, so_win=2, ot_loss=1, so_loss=1)
     t.setShowOvertime(True)
-    t.setMatches([
-        XkorTableMatch("Aquilla", "Busby", 3, 2, "OT"),
-        XkorTableMatch("Busby", "Aquilla", 1, 4, "SO"),
-    ])
 
     XkorXmlTableWriter(filename, t)
 
@@ -231,12 +208,7 @@ def test_saving_a_table_that_overrides_nothing_keeps_the_ot_so_fallback(tmp_path
     # then keep 3-point OT wins even after pointsForWin changed
     filename = os.path.join(str(tmp_path), "no_overrides.xml")
 
-    t = XkorTable()
-    t.setColumns([])
-    t.setPointsForWin(3)
-    t.setPointsForDraw(1)
-    t.setPointsForLoss(0)
-
+    t = make_table()
     XkorXmlTableWriter(filename, t)
     with open(filename, encoding="utf-8") as f:
         assert "pointsForOTWin" not in f.read()
@@ -250,12 +222,7 @@ def test_saving_a_table_that_overrides_nothing_keeps_the_ot_so_fallback(tmp_path
 def test_saving_a_table_that_does_override_ot_points_keeps_the_override(tmp_path):
     filename = os.path.join(str(tmp_path), "overrides.xml")
 
-    t = XkorTable()
-    t.setColumns([])
-    t.setPointsForWin(2)
-    t.setPointsForLoss(0)
-    t.setPointsForOTLoss(1)
-
+    t = make_table(win=2, ot_loss=1)
     XkorXmlTableWriter(filename, t)
 
     reloaded = XkorXmlTableReader(filename).table()
@@ -495,10 +462,7 @@ def test_coin_flip_values_survive_qNumber_exactly():
 
 
 def test_coin_flips_are_dropped_for_teams_the_table_no_longer_has():
-    t = XkorTable()
-    t.setColumns([])
-    t.setSortCriteria(["coinFlip"])
-    t.setMatches([XkorTableMatch("Aquilla", "Busby", 1, 1)])
+    t = make_table(criteria=["coinFlip"], matches=[("Aquilla", "Busby", 1, 1)])
     t.generate()
     assert set(t.getCoinFlips()) == {"Aquilla", "Busby"}
 
@@ -511,16 +475,8 @@ def test_coin_flips_are_dropped_for_teams_the_table_no_longer_has():
 def test_coin_flip_result_survives_an_xml_save_and_reload(tmp_path):
     filename = os.path.join(str(tmp_path), "coin_flip_table.xml")
 
-    t = XkorTable()
-    t.setColumns([])
-    t.setPointsForWin(3)
-    t.setPointsForDraw(1)
-    t.setPointsForLoss(0)
-    t.setSortCriteria(["points", "coinFlip"])
-    t.setMatches([
-        XkorTableMatch("Aquilla", "Busby", 1, 1),
-        XkorTableMatch("Busby", "Aquilla", 1, 1),
-    ])
+    t = make_table(criteria=["points", "coinFlip"],
+                   matches=[("Aquilla", "Busby", 1, 1), ("Busby", "Aquilla", 1, 1)])
     t.generate()
     originalOrder = [row[0].name() for row in t.data]
     assert sorted(originalOrder) == ["Aquilla", "Busby"]  # tied on everything but the coin flip
@@ -607,20 +563,11 @@ def test_the_match_results_box_parses_through_the_shared_parser(qapp):
 def _conferenceTable(teams=None):
     """A and B share a conference; X is from another one. A and B are level
     on points, but A won the head-to-head."""
-    t = XkorTable()
-    t.setPointsForWin(3)
-    t.setPointsForDraw(1)
-    t.setPointsForLoss(0)
-    t.setSortCriteria(["points", "h2hPoints", "goalDifference"])
-    t.setMatches([
-        XkorTableMatch("A", "X", 0, 3),
-        XkorTableMatch("B", "X", 3, 0),
-        XkorTableMatch("A", "B", 1, 0),
-        XkorTableMatch("B", "X", 0, 5),
-    ])
+    t = make_table(criteria=["points", "h2hPoints", "goalDifference"],
+                   matches=[("A", "X", 0, 3), ("B", "X", 3, 0), ("A", "B", 1, 0), ("B", "X", 0, 5)])
     t.setTeams(teams)
     t.generate()
-    return [row.name() for tier in t.data for row in tier]
+    return names(t)
 
 
 def test_a_team_filter_keeps_only_those_teams_in_the_table():
@@ -628,8 +575,7 @@ def test_a_team_filter_keeps_only_those_teams_in_the_table():
 
 
 def test_a_team_filter_still_counts_games_against_teams_outside_it():
-    t = XkorTable()
-    t.setMatches([XkorTableMatch("A", "X", 2, 0), XkorTableMatch("A", "B", 1, 1)])
+    t = make_table(matches=[("A", "X", 2, 0), ("A", "B", 1, 1)])
     t.setTeams(["A", "B"])
     t.generate()
     rows = {row.name(): row for tier in t.data for row in tier}
@@ -640,17 +586,11 @@ def test_a_team_filter_still_counts_games_against_teams_outside_it():
 
 def test_head_to_head_breaks_a_tie_inside_a_filtered_table():
     # level on points and goal difference; A won the meeting
-    t = XkorTable()
-    t.setPointsForWin(3)
-    t.setSortCriteria(["points", "h2hPoints"])
-    t.setMatches([
-        XkorTableMatch("A", "X", 0, 1),
-        XkorTableMatch("B", "X", 1, 0),
-        XkorTableMatch("B", "A", 0, 1),
-    ])
+    t = make_table(criteria=["points", "h2hPoints"],
+                   matches=[("A", "X", 0, 1), ("B", "X", 1, 0), ("B", "A", 0, 1)])
     t.setTeams(["B", "A"])
     t.generate()
-    assert [row.name() for tier in t.data for row in tier] == ["A", "B"]
+    assert names(t) == ["A", "B"]
 
 
 def test_an_unfiltered_table_shows_every_team():
@@ -661,68 +601,48 @@ def test_an_unfiltered_table_shows_every_team():
 def _crossTable(crossPoints, conferences=None):
     """A (East) beats B (East) and loses to X (West); B beats X; C (East)
     draws with X."""
-    t = XkorTable()
-    t.setPointsForWin(3)
-    t.setPointsForDraw(1)
-    t.setPointsForLoss(0)
-    t.setSortCriteria(["points"])
+    t = make_table(criteria=["points"],
+                   matches=[("A", "B", 2, 0), ("A", "X", 0, 1), ("B", "X", 1, 0), ("C", "X", 1, 1)])
     t.setConferences(conferences or {"A": 0, "B": 0, "C": 0, "X": 1})
     t.setCrossPoints(crossPoints)
-    t.setMatches([
-        XkorTableMatch("A", "B", 2, 0),
-        XkorTableMatch("A", "X", 0, 1),
-        XkorTableMatch("B", "X", 1, 0),
-        XkorTableMatch("C", "X", 1, 1),
-    ])
     t.generate()
-    return t, {row.name(): t.getPoints(row) for tier in t.data for row in tier}
+    return t, points(t)
 
 
 def test_cross_conference_games_score_their_own_points():
-    t, points = _crossTable((2, 0, 1))
+    t, scored = _crossTable((2, 0, 1))
     # A: in-conference win 3, cross loss 1
-    assert points == {"A": 4, "B": 2, "C": 0, "X": 2 + 1 + 0}
+    assert scored == {"A": 4, "B": 2, "C": 0, "X": 2 + 1 + 0}
 
 
 def test_without_cross_points_every_game_scores_alike():
-    t, points = _crossTable(None)
-    assert points == {"A": 3, "B": 3, "C": 1, "X": 3 + 0 + 1}
+    t, scored = _crossTable(None)
+    assert scored == {"A": 3, "B": 3, "C": 1, "X": 3 + 0 + 1}
 
 
 def test_the_points_sort_uses_cross_points():
     # with cross wins worth 5, B (cross win) passes A (conference win)
-    t, points = _crossTable((5, 1, 0))
-    order = [row.name() for tier in t.data for row in tier]
+    t, scored = _crossTable((5, 1, 0))
+    order = names(t)
     assert order.index("B") < order.index("A")
 
 
 def test_teams_without_a_conference_never_count_as_cross():
-    t, points = _crossTable((2, 0, 1), conferences={"A": 0})
-    assert points == {"A": 3, "B": 3, "C": 1, "X": 3 + 0 + 1}
+    t, scored = _crossTable((2, 0, 1), conferences={"A": 0})
+    assert scored == {"A": 3, "B": 3, "C": 1, "X": 3 + 0 + 1}
 
 
 def test_an_overtime_cross_game_keeps_its_overtime_points():
-    t = XkorTable()
-    t.setPointsForWin(3)
-    t.setPointsForLoss(0)
-    t.setPointsForOTWin(2)
-    t.setPointsForOTLoss(1)
+    t = make_table(matches=[("A", "X", 2, 1, "OT")], ot_win=2, ot_loss=1)
     t.setConferences({"A": 0, "X": 1})
     t.setCrossPoints((1, 0, 0))
-    t.setMatches([XkorTableMatch("A", "X", 2, 1, "OT")])
     t.generate()
-    points = {row.name(): t.getPoints(row) for tier in t.data for row in tier}
-    assert points == {"A": 2, "X": 1}
+    assert points(t) == {"A": 2, "X": 1}
 
 
 def test_a_shootout_cross_game_follows_cross_points_when_so_points_are_unset():
-    t = XkorTable()
-    t.setPointsForWin(3)
-    t.setPointsForLoss(0)
-    t.setSortCriteria(["points"])
+    t = make_table(criteria=["points"], matches=[("A", "X", 1.01, 1, "SO")])
     t.setConferences({"A": 0, "X": 1})
     t.setCrossPoints((1, 0, 0))
-    t.setMatches([XkorTableMatch("A", "X", 1.01, 1, "SO")])
     t.generate()
-    points = {row.name(): t.getPoints(row) for tier in t.data for row in tier}
-    assert points == {"A": 1, "X": 0}
+    assert points(t) == {"A": 1, "X": 0}

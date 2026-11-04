@@ -2,6 +2,7 @@ import itertools
 import random
 
 import pytest
+from builders import make_table
 
 from xkoranate.competitions import qualification
 from xkoranate.competitions.qualification import (MODE_OFF, MODE_TOP,
@@ -13,7 +14,6 @@ from xkoranate.competitions.roundrobincompetition import XkorRoundRobinCompetiti
 from xkoranate.competitions.standardcompetition import XkorMassStartCompetition
 from xkoranate.startlist import XkorStartListGroup
 from xkoranate.athlete import XkorAthlete
-from xkoranate.tablegenerator.table import XkorTable
 from xkoranate.tablegenerator.tablecolumn import XkorTableColumn
 
 FOOTBALL = [(3, 0), (0, 3), (1, 1)]  # win / loss / draw, home and away
@@ -223,12 +223,9 @@ def test_best_of_markers_hold_in_every_completion(monkeypatch, cap):
 # --- the table's marker column -----------------------------------------------
 
 def test_marker_column_has_a_blank_heading_and_sits_after_the_points():
-    t = XkorTable()
+    t = make_table(criteria=["points"], matches=[("Aquilla", "Busby", 2, 0)])
     t.setColumns([XkorTableColumn("position", "", 1), XkorTableColumn("name", "Group A", 10),
                   XkorTableColumn("points", "Pts", 4)])
-    t.setSortCriteria(["points"])
-    t.setPointsForWin(3)
-    t.insertMatch("Aquilla", "Busby", 2, 0)
     t.generate()
     plain = t.toText()
 
@@ -248,9 +245,8 @@ def test_marker_column_goes_before_a_results_grid():
 
 
 def test_a_table_without_the_column_is_unchanged_by_markers():
-    t = XkorTable()
+    t = make_table(matches=[("Aquilla", "Busby", 1, 0)])
     t.setColumns([XkorTableColumn("position", "", 1), XkorTableColumn("name", "G", 10)])
-    t.insertMatch("Aquilla", "Busby", 1, 0)
     t.generate()
     before = t.toText()
     t.setMarkers({"Aquilla": "Q"})
