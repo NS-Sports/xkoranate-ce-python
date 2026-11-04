@@ -1,4 +1,4 @@
-from paradigm_helpers import make_athlete
+from builders import make_athlete
 
 from xkoranate.paradigms.abstractparadigm import XkorAbstractParadigm
 from xkoranate.result import XkorResult

@@ -1,4 +1,4 @@
-from paradigm_helpers import make_paradigm, make_sport, stub_uniform
+from builders import make_paradigm, make_sport, stub_uniform
 
 from xkoranate.paradigms.sqisparadigm import XkorSQISParadigm
 

@@ -3,16 +3,12 @@
 import math
 
 import pytest
-
-from xkoranate.rng import Mt19937
-from xkoranate.sport import XkorSport
+from builders import make_sport
 
 
 @pytest.fixture
 def sport():
-    s = XkorSport()
-    s.setPRNG(Mt19937(2026))
-    return s
+    return make_sport(2026)
 
 
 @pytest.mark.parametrize("skill", [-50.0, -1.0, 0.0, 0.5, 1.0, 27.0, 92.0, 1e6])

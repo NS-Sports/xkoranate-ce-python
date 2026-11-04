@@ -1,19 +1,13 @@
 import pytest
+from builders import make_athletes
 
-from xkoranate.athlete import XkorAthlete
 from xkoranate.competitions import bracket
 from xkoranate.rng import Mt19937
 
 
 def entrants(n):
     """n athletes, strongest first (skill descending)."""
-    rval = []
-    for i in range(n):
-        a = XkorAthlete()
-        a.name = "Seed %d" % (i + 1)
-        a.skill = 1.0 - i / 100.0
-        rval.append(a)
-    return rval
+    return make_athletes(n, "Seed %d", "", [1.0 - i / 100.0 for i in range(n)])
 
 
 def assertWellFormed(slots, ents):

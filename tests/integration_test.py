@@ -1,98 +1,47 @@
 """End-to-end integration test: app boot, event creation, scorination, save/load."""
 
 import os
-import sys
 import uuid
 
 import pytest
 
-from PySide6.QtCore import QDir
-from PySide6.QtWidgets import QApplication
-
-from xkoranate.application import XkorApplication
-from xkoranate.athlete import BYE_ID, XkorAthlete
-from xkoranate.competitions.competitionfactory import XkorCompetitionFactory
-from xkoranate.event import XkorEvent
+from builders import (CONF_NAMES, LISA, PLAYOFF, SPRINT, SQIS, TOURNAMENTS, event_for,
+                      new_competition, play)
+from xkoranate.athlete import BYE_ID
 from xkoranate.eventeditor.eventeditor import XkorEventEditor
 from xkoranate.group import XkorGroup
 from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
-from xkoranate.paths import sportsDir
 from xkoranate.rng import Mt19937
 from xkoranate.rplist import XkorRPList
-from xkoranate.signuplist import XkorSignupList
-from xkoranate.xml.xmlindex import XkorXmlIndex
 from xkoranate.xml.xmlreader import XkorXmlReader
 from xkoranate.xml.xmlsportreader import XkorXmlSportReader
 from xkoranate.xml.xmlwriter import XkorXmlWriter
 
-NATIONS = ["AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG", "HHH"]
+
+# Most tests below play one of the tournaments named in builders.TOURNAMENTS.
+
+@pytest.mark.parametrize("name", list(TOURNAMENTS))
+def test_every_named_tournament_builds(tournament, rng, name):
+    ev, sport = tournament(name)
+    assert rng() == Mt19937(2026)()  # building drew nothing from the rng
+    assert ev.competition() == TOURNAMENTS[name]["competition"]
+    assert new_competition(ev, sport).matchdays() > 0
+
 
 SCORINATE_CASES = [
-    ("Athletics—Men’s 00100 m—Round 1", None),
+    (SPRINT, None),
     ("Badminton—xkoranate formula", "matches"),
-    ("Association football—SQIS formula", "roundRobin"),
+    (SQIS, "roundRobin"),
     ("Association football—Footba11er formula", "matches"),
-    ("Association football—LISA formula", "roundRobin"),
-    ("Association football—LISA formula", "singleElimination"),
+    (LISA, "roundRobin"),
+    (LISA, "singleElimination"),
 ]
 
 
-@pytest.fixture(scope="module")
-def sport_index():
-    # the "sports:" search path is registered by the application object, so
-    # make sure one exists — otherwise this fixture only works when the
-    # app-boot test happens to have run first
-    app = XkorApplication.instance() or XkorApplication(sys.argv)
-    app.refreshSearchPaths()
-    index = XkorXmlIndex()
-    index.traverse("sports:")
-    return index
-
-
-@pytest.fixture
-def rng():
-    """A fresh seeded generator per test.
-
-    Module scope shared one stream across the whole file, so how far into it
-    any given test started depended on which tests ran before it. Running a
-    subset, or inserting a test above an existing one, silently changed every
-    later test's numbers — fine for today's structural assertions, a
-    heisenbug for the first outcome-sensitive one.
-    """
-    return Mt19937(2026)
-
-
-def build_event(index, rng, sportName, nAthletes=8):
-    sportFile = index.lookup(sportName)
-    reader = XkorXmlSportReader(sportFile)
-    sport = reader.sport()
-    sport.setPRNG(rng)
-
-    sl = XkorSignupList()
-    athletes = []
-    for i in range(nAthletes):
-        a = XkorAthlete()
-        a.name = "Athlete %d" % (i + 1)
-        a.nation = NATIONS[i % len(NATIONS)]
-        a.skill = (i + 1) / float(nAthletes + 1)
-        sl.addAthlete(a)
-        athletes.append(a)
-
-    ev = XkorEvent()
-    ev.setName("Test " + sportName)
-    ev.setSignupList(sl)
-    ev.setSport(sportName, sport.paradigm())
-    ev.addGroup(XkorGroup("Group A", [a.id for a in athletes]))
-    return ev, sport
-
-
 def scorinate(index, rng, sportName, competition=None):
-    ev, sport = build_event(index, rng, sportName)
+    ev, sport = event_for(index, rng, sportName)
     par = XkorParadigmFactory.newParadigmForSport(sport, {})
-    comp = competition or par.defaultCompetition()
-    startList = ev.makeStartList(XkorRPList())
-    c = XkorCompetitionFactory.newCompetitionFull(
-        comp, startList, sport, ev.paradigmOptions(), ev.competitionOptions(), {})
+    c = new_competition(ev, sport, competition=competition or par.defaultCompetition())
     n = c.matchdays()
     outputs = []
     for md in range(n if n > 0 else 1):
@@ -101,10 +50,9 @@ def scorinate(index, rng, sportName, competition=None):
     return outputs
 
 
-def test_app_boots_and_loads_sports():
-    app = XkorApplication(sys.argv)
-    app.loadSports()
-    assert app.cw is not None
+def test_app_boots_and_loads_sports(qapp):
+    qapp.loadSports()
+    assert qapp.cw is not None
 
 
 @pytest.mark.parametrize("sportName,competition", SCORINATE_CASES)
@@ -115,8 +63,7 @@ def test_scorinate_produces_results(sport_index, rng, sportName, competition):
 
 
 def test_save_load_roundtrip(sport_index, rng, tmp_path):
-    ev, sport = build_event(sport_index, rng, "Athletics—Men’s 00100 m—Round 1")
-    ev.setCompetition("standard")
+    ev, sport = event_for(sport_index, rng, SPRINT, competition="standard")
     ev.setResult(0, "some result text\nline 2")
     rp = XkorRPList()
     rp.setCompetitionName("Test Cup")
@@ -146,64 +93,20 @@ def test_save_load_roundtrip(sport_index, rng, tmp_path):
 
 
 # ---------------------------------------------------------------- knockouts
+# Entrants stay in signup order unless a test draws its own bracket, and the
+# competition pads the bracket with byes itself.
 
 
-def buildKnockout(index, rng, nAthletes, options=None, sportName="Association football—LISA formula",
-                  draw=None):
-    """An event set up as a single-elimination bracket, plus its start list.
-
-    `draw` is the slot list the bracket editor would have produced; without
-    one the entrants are left in signup order and the competition pads the
-    bracket with byes itself.
-    """
-    ev, sport = build_event(index, rng, sportName, nAthletes=nAthletes)
-    ev.setCompetition("singleElimination")
-    ev.setCompetitionOptions(dict(options or {}))
-    if draw is not None:
-        ev.setGroups([XkorGroup("Bracket", draw)])
-    return ev, sport, ev.makeStartList(XkorRPList())
-
-
-def newKnockout(ev, sport, startList):
-    return XkorCompetitionFactory.newCompetitionFull(
-        "singleElimination", startList, sport, ev.paradigmOptions(),
-        ev.competitionOptions(), ev.results())
-
-
-def playKnockout(ev, sport, startList, upTo=None):
-    """Play the bracket the way the GUI does: a fresh object per matchday."""
-    c = newKnockout(ev, sport, startList)
-    last = c.matchdays() if upTo is None else upTo
-    for md in range(last):
-        c.scorinate(md)
-        ev.replaceCompetitionOptions(c.resumeFileOptions())
-        ev.setResult(md, c.results(md))
-        c = newKnockout(ev, sport, startList)
-    return c
-
-
-def test_single_elimination_round_names(sport_index, rng):
-    ev, sport, sl = buildKnockout(sport_index, rng, 12, None)
-    c = newKnockout(ev, sport, sl)
+def test_single_elimination_round_names(tournament):
+    ev, sport = tournament("cup of 12")
+    c = new_competition(ev, sport)
     assert c.matchdays() == 4
     assert c.matchdayNames() == ["Round of 16", "Quarter-finals", "Semi-finals", "Final"]
 
 
-def test_single_elimination_leaves_one_entrant_standing(sport_index, rng):
-    ev, sport, sl = buildKnockout(sport_index, rng, 12, None)
-    c = playKnockout(ev, sport, sl)
-
-    # the last round is a single match, so exactly one entrant comes out of it
-    winners = c._winnersOfRound(c._rounds() - 1)
-    assert winners is not None
-    assert len(winners) == 1
-    assert winners[0] is not None
-    assert winners[0].name in ev.results()[c.matchdays() - 1]
-
-
-def test_single_elimination_byes_appear_in_the_first_round_only(sport_index, rng):
-    ev, sport, sl = buildKnockout(sport_index, rng, 12, None)
-    c = playKnockout(ev, sport, sl)
+def test_single_elimination_byes_appear_in_the_first_round_only(tournament):
+    ev, sport = tournament("cup of 12")
+    c = play(ev, sport)
 
     assert "BYE" in ev.results()[0]
     assert ev.results()[0].count("BYE — advances") == 4  # 16-slot bracket, 12 entrants
@@ -211,28 +114,32 @@ def test_single_elimination_byes_appear_in_the_first_round_only(sport_index, rng
         assert "BYE" not in ev.results()[md]
 
 
-@pytest.mark.parametrize("nAthletes", [2, 3, 5, 8, 11, 16])
+@pytest.mark.parametrize("nAthletes", [2, 3, 5, 8, 11, 12, 16])
 def test_single_elimination_plays_out_for_any_size(sport_index, rng, nAthletes):
-    ev, sport, sl = buildKnockout(sport_index, rng, nAthletes)
-    c = playKnockout(ev, sport, sl)
-    assert len(c._winnersOfRound(c._rounds() - 1)) == 1
+    ev, sport = event_for(sport_index, rng, LISA, n=nAthletes, competition="singleElimination")
+    c = play(ev, sport)
+
+    # the last round is a single match, so exactly one entrant comes out of it
+    winners = c._winnersOfRound(c._rounds() - 1)
+    assert winners is not None
+    assert len(winners) == 1
+    assert winners[0] is not None
+    assert winners[0].name in ev.results()[c.matchdays() - 1]
     for md in range(c.matchdays()):
         assert ev.results()[md].strip() != ""
 
 
-def test_single_elimination_third_place_playoff_is_its_own_matchday(sport_index, rng):
-    ev, sport, sl = buildKnockout(
-        sport_index, rng, 16, {"thirdPlacePlayoff": "true"})
-    c = newKnockout(ev, sport, sl)
+def test_single_elimination_third_place_playoff_is_its_own_matchday(tournament):
+    ev, sport = tournament("cup of 12, playoff")
+    c = new_competition(ev, sport)
     assert c.matchdays() == 5  # four rounds plus the playoff
     assert c.matchdayNames() == [
         "Round of 16", "Quarter-finals", "Semi-finals", "Third-place playoff", "Final"]
 
 
-def test_single_elimination_third_place_contests_the_beaten_semi_finalists(sport_index, rng):
-    ev, sport, sl = buildKnockout(
-        sport_index, rng, 16, {"thirdPlacePlayoff": "true"})
-    c = playKnockout(ev, sport, sl)
+def test_single_elimination_third_place_contests_the_beaten_semi_finalists(tournament):
+    ev, sport = tournament("cup of 12, playoff")
+    c = play(ev, sport)
 
     semiFinalRound = c._rounds() - 2
     losers = set(a.name for a in c._losersOfRound(semiFinalRound))
@@ -246,17 +153,16 @@ def test_single_elimination_third_place_contests_the_beaten_semi_finalists(sport
         assert winner.name not in playoff
 
 
-def test_single_elimination_revert_keeps_the_draw_and_earlier_rounds(sport_index, rng):
-    ev, sport, sl = buildKnockout(
-        sport_index, rng, 12, {"thirdPlacePlayoff": "true"})
-    c = playKnockout(ev, sport, sl)
+def test_single_elimination_revert_keeps_the_draw_and_earlier_rounds(tournament):
+    ev, sport = tournament("cup of 12, playoff")
+    c = play(ev, sport)
 
     draw = list(ev.competitionOptions()["bracketDraw"])
     rowsBefore = list(ev.competitionOptions()["bracketResults"])
     finalMatchday = c.matchdays() - 1
 
     ev.replaceCompetitionOptions(c.revertToMatchday(finalMatchday))
-    c = newKnockout(ev, sport, sl)
+    c = new_competition(ev, sport)
 
     assert list(ev.competitionOptions()["bracketDraw"]) == draw
     rowsAfter = list(ev.competitionOptions()["bracketResults"])
@@ -269,21 +175,20 @@ def test_single_elimination_revert_keeps_the_draw_and_earlier_rounds(sport_index
     assert len(c._winnersOfRound(c._rounds() - 1)) == 1
 
 
-def test_single_elimination_revert_to_the_first_round_clears_the_draw(sport_index, rng):
-    ev, sport, sl = buildKnockout(sport_index, rng, 12, None)
-    c = playKnockout(ev, sport, sl)
+def test_single_elimination_revert_to_the_first_round_clears_the_draw(tournament):
+    ev, sport = tournament("cup of 12")
+    c = play(ev, sport)
 
     options = c.revertToMatchday(0)
     assert options["bracketDraw"] == []
     assert options["bracketResults"] == []
 
 
-def test_single_elimination_survives_a_save_load_roundtrip(sport_index, rng, tmp_path):
-    ev, sport, sl = buildKnockout(
-        sport_index, rng, 12, {"thirdPlacePlayoff": "true"})
+def test_single_elimination_survives_a_save_load_roundtrip(tournament, tmp_path):
+    ev, sport = tournament("cup of 12, playoff")
     # play everything but the final, then reload and finish it
-    finalMatchday = newKnockout(ev, sport, sl).matchdays() - 1
-    playKnockout(ev, sport, sl, upTo=finalMatchday)
+    finalMatchday = new_competition(ev, sport).matchdays() - 1
+    play(ev, sport, up_to=finalMatchday)
 
     xmlPath = str(tmp_path / "cup.xml")
     XkorXmlWriter(xmlPath, XkorRPList(), [(uuid.uuid4(), ev)])
@@ -295,16 +200,16 @@ def test_single_elimination_survives_a_save_load_roundtrip(sport_index, rng, tmp
     assert (list(ev2.competitionOptions()["bracketResults"])
             == list(ev.competitionOptions()["bracketResults"]))
 
-    c2 = newKnockout(ev2, sport, ev2.makeStartList(XkorRPList()))
+    c2 = new_competition(ev2, sport)
     assert c2.matchdays() - 1 == finalMatchday
     c2.scorinate(finalMatchday)
     assert c2.results(finalMatchday).strip() != ""
     assert len(c2._winnersOfRound(c2._rounds() - 1)) == 1
 
 
-def test_single_elimination_schedule_shows_the_bracket_and_its_byes(sport_index, rng):
-    ev, sport, sl = buildKnockout(sport_index, rng, 12, None)
-    c = newKnockout(ev, sport, sl)
+def test_single_elimination_schedule_shows_the_bracket_and_its_byes(tournament):
+    ev, sport = tournament("cup of 12")
+    c = new_competition(ev, sport)
 
     # the entrant order already describes a draw, so the pairings show up
     # before anything has been scorinated
@@ -312,8 +217,8 @@ def test_single_elimination_schedule_shows_the_bracket_and_its_byes(sport_index,
     assert "12 entrants — 16-slot bracket, 4 byes" in before
     assert before.count("— BYE —") == 4
 
-    playKnockout(ev, sport, sl, upTo=1)
-    after = newKnockout(ev, sport, sl).schedule()
+    play(ev, sport, up_to=1)
+    after = new_competition(ev, sport).schedule()
     assert "12 entrants — 16-slot bracket, 4 byes" in after
     assert after.count("— BYE —") == 4
     # once played, the stored draw is what's shown
@@ -322,15 +227,13 @@ def test_single_elimination_schedule_shows_the_bracket_and_its_byes(sport_index,
 
 def test_single_elimination_plays_the_draw_the_bracket_editor_produced(sport_index, rng):
     """An explicit slot list — byes included — is played exactly as arranged."""
-    ev, sport = build_event(sport_index, rng, "Association football—LISA formula", nAthletes=6)
+    ev, sport = event_for(sport_index, rng, LISA, n=6, competition="singleElimination")
     ids = [a.id for a in ev.signupList().athletes()]
     # 6 entrants in an 8-slot bracket: two byes, deliberately not at the top
     draw = [ids[0], ids[1], ids[2], BYE_ID, ids[3], ids[4], ids[5], BYE_ID]
-    ev.setCompetition("singleElimination")
     ev.setGroups([XkorGroup("Bracket", draw)])
-    sl = ev.makeStartList(XkorRPList())
 
-    c = newKnockout(ev, sport, sl)
+    c = new_competition(ev, sport)
     fixtures = c._fixtures(0)
     names = [(h.name if h else None, a.name if a else None) for h, a in fixtures]
     byId = {a.id: a.name for a in ev.signupList().athletes()}
@@ -349,28 +252,26 @@ def test_single_elimination_plays_the_draw_the_bracket_editor_produced(sport_ind
 
 def test_byes_are_stripped_for_competitions_that_do_not_understand_them(sport_index, rng):
     """The same group used for a league must not sprout phantom participants."""
-    ev, sport = build_event(sport_index, rng, "Association football—LISA formula", nAthletes=6)
+    ev, sport = event_for(sport_index, rng, LISA, n=6)
     ids = [a.id for a in ev.signupList().athletes()]
     ev.setGroups([XkorGroup("Bracket", ids[:3] + [BYE_ID] + ids[3:] + [BYE_ID])])
     sl = ev.makeStartList(XkorRPList())
 
     assert len(sl.groups[0].athletes) == 8  # byes survive into the start list
 
-    knockout = XkorCompetitionFactory.newCompetitionFull(
-        "singleElimination", sl, sport, ev.paradigmOptions(), {}, {})
+    knockout = new_competition(ev, sport, sl, "singleElimination")
     assert len(knockout.startList.groups[0].athletes) == 8
     assert len(knockout._realEntrants()) == 6
 
     for competition in ("roundRobin", "matches"):
-        c = XkorCompetitionFactory.newCompetitionFull(
-            competition, sl, sport, ev.paradigmOptions(), {}, {})
+        c = new_competition(ev, sport, sl, competition)
         assert len(c.startList.groups[0].athletes) == 6
         assert all(a.id != BYE_ID for a in c.startList.groups[0].athletes)
 
 
-def test_schedule_names_the_matches_that_feed_later_rounds(sport_index, rng):
-    ev, sport, sl = buildKnockout(sport_index, rng, 8, {"thirdPlacePlayoff": "true"})
-    schedule = newKnockout(ev, sport, sl).schedule()
+def test_schedule_names_the_matches_that_feed_later_rounds(tournament):
+    ev, sport = tournament("cup of 8, playoff")
+    schedule = new_competition(ev, sport).schedule()
 
     assert "Quarter-finals" in schedule
     # every match is numbered continuously, and later rounds refer back
@@ -394,10 +295,10 @@ def scheduleSection(schedule, heading):
     return rval
 
 
-def test_schedule_fills_in_real_names_as_rounds_are_played(sport_index, rng):
-    ev, sport, sl = buildKnockout(sport_index, rng, 8, {"thirdPlacePlayoff": "true"})
-    playKnockout(ev, sport, sl, upTo=1)  # quarter-finals only
-    schedule = newKnockout(ev, sport, sl).schedule()
+def test_schedule_fills_in_real_names_as_rounds_are_played(tournament):
+    ev, sport = tournament("cup of 8, playoff")
+    play(ev, sport, up_to=1)  # quarter-finals only
+    schedule = new_competition(ev, sport).schedule()
 
     # the semi-finals are known now, so they name entrants instead of matches
     semis = scheduleSection(schedule, "Semi-finals")
@@ -416,11 +317,10 @@ def test_schedule_fills_in_real_names_as_rounds_are_played(sport_index, rng):
 
 
 @pytest.fixture(scope="module")
-def editor(sport_index):
+def editor(qapp):
     """The real event editor, with the sport list loaded."""
-    app = XkorApplication.instance() or XkorApplication(sys.argv)
-    app.loadSports()
-    return app.cw
+    qapp.loadSports()
+    return qapp.cw
 
 
 def selectedCompetition(cw):
@@ -438,8 +338,7 @@ def test_opening_an_event_keeps_its_competition_type(editor, sport_index, rng, c
     those wrote a competition type into the event being loaded — so anything
     that wasn't the first item in the list was silently replaced.
     """
-    ev, sport = build_event(sport_index, rng, "Association football—LISA formula")
-    ev.setCompetition(competition)
+    ev, sport = event_for(sport_index, rng, LISA, competition=competition)
 
     editor.showEventEditor(ev)
     assert selectedCompetition(editor) == competition
@@ -460,9 +359,9 @@ def test_opening_an_event_keeps_its_competition_type(editor, sport_index, rng, c
 # ------------------------------------------------- round output and staleness
 
 
-def test_a_round_names_the_next_round_s_pairings(sport_index, rng):
-    ev, sport, sl = buildKnockout(sport_index, rng, 8)
-    playKnockout(ev, sport, sl, upTo=1)  # quarter-finals
+def test_a_round_names_the_next_round_s_pairings(tournament):
+    ev, sport = tournament("cup of 8")
+    play(ev, sport, up_to=1)  # quarter-finals
 
     result = ev.results()[0]
     assert "Into the Semi-finals" in result
@@ -475,9 +374,9 @@ def test_a_round_names_the_next_round_s_pairings(sport_index, rng):
             assert line.count("Athlete") == 2
 
 
-def test_the_last_round_names_the_champion(sport_index, rng):
-    ev, sport, sl = buildKnockout(sport_index, rng, 8)
-    c = playKnockout(ev, sport, sl)
+def test_the_last_round_names_the_champion(tournament):
+    ev, sport = tournament("cup of 8")
+    c = play(ev, sport)
 
     final = ev.results()[c.matchdays() - 1]
     assert "Champion" in final
@@ -491,14 +390,12 @@ def test_a_bracket_larger_than_the_field_keeps_the_size_it_was_given(sport_index
     re-sized to a four-slot bracket and re-paired, so the semi-finals played
     were pairings that appeared nowhere on the setup page.
     """
-    ev, sport = build_event(sport_index, rng, "Association football—LISA formula", nAthletes=4)
+    ev, sport = event_for(sport_index, rng, LISA, n=4, competition="singleElimination")
     ids = [a.id for a in ev.signupList().athletes()]
     draw = [ids[0], BYE_ID, ids[1], BYE_ID, ids[2], BYE_ID, ids[3], BYE_ID]
-    ev.setCompetition("singleElimination")
     ev.setGroups([XkorGroup("Bracket", draw)])
-    sl = ev.makeStartList(XkorRPList())
 
-    c = newKnockout(ev, sport, sl)
+    c = new_competition(ev, sport)
     assert c.matchdays() == 3  # quarter-finals, semi-finals, final
 
     byId = {a.id: a.name for a in ev.signupList().athletes()}
@@ -511,20 +408,20 @@ def test_a_bracket_larger_than_the_field_keeps_the_size_it_was_given(sport_index
     ]
 
     # and it plays out to a champion from that bracket, not a re-drawn one
-    c = playKnockout(ev, sport, sl)
+    c = play(ev, sport)
     assert "Champion" in ev.results()[c.matchdays() - 1]
 
 
-def test_rearranging_the_bracket_supersedes_a_stored_draw(sport_index, rng):
+def test_rearranging_the_bracket_supersedes_a_stored_draw(tournament):
     """A draw only describes the tournament while the bracket still matches it."""
-    ev, sport, sl = buildKnockout(sport_index, rng, 8)
-    playKnockout(ev, sport, sl, upTo=1)
+    ev, sport = tournament("cup of 8")
+    play(ev, sport, up_to=1)
     assert ev.competitionOptions()["bracketResults"]
 
     # reverse the entrants, as dragging them around would
     reversed_ = list(reversed(ev.groups()[0].athletes))
     ev.setGroups([XkorGroup("Bracket", reversed_)])
-    c = newKnockout(ev, sport, ev.makeStartList(XkorRPList()))
+    c = new_competition(ev, sport)
 
     fixtures = c._fixtures(0)
     names = [h.name for h, a in fixtures]
@@ -532,11 +429,11 @@ def test_rearranging_the_bracket_supersedes_a_stored_draw(sport_index, rng):
     assert c._rowsForRound(0) == {}  # nor are the results it produced
 
 
-def test_an_unchanged_bracket_keeps_its_draw_and_results(sport_index, rng):
-    ev, sport, sl = buildKnockout(sport_index, rng, 8)
-    playKnockout(ev, sport, sl, upTo=1)
+def test_an_unchanged_bracket_keeps_its_draw_and_results(tournament):
+    ev, sport = tournament("cup of 8")
+    play(ev, sport, up_to=1)
 
-    c = newKnockout(ev, sport, sl)
+    c = new_competition(ev, sport)
     assert len(c._rowsForRound(0)) == 4
     assert c._winnersOfRound(0) is not None
 
@@ -587,9 +484,9 @@ def test_every_paradigm_that_runs_matches_offers_a_knockout(sport_index):
 
 
 @pytest.mark.parametrize("sportName", H2H_PARADIGM_SPORTS)
-def test_a_knockout_plays_out_for_every_head_to_head_paradigm(sport_index, rng, sportName):
-    ev, sport, sl = buildKnockout(sport_index, rng, 8, sportName=sportName)
-    c = playKnockout(ev, sport, sl)
+def test_a_knockout_plays_out_for_every_head_to_head_paradigm(tournament, sportName):
+    ev, sport = tournament("cup of 8", sport_name=sportName)
+    c = play(ev, sport)
     assert len(c._winnersOfRound(c._rounds() - 1)) == 1
 
 
@@ -597,8 +494,8 @@ def test_the_editor_never_shows_a_type_the_event_will_not_use(editor, sport_inde
     """A saved type the sport's paradigm can't run used to leave the selector
     and the event disagreeing, so the editor said "round robin" while a cup
     was what actually got scorinated."""
-    ev, sport = build_event(sport_index, rng, "Athletics—Men’s 00100 m—Round 1")
-    ev.setCompetition("singleElimination")  # a sprint has no knockout
+    # a sprint has no knockout
+    ev, sport = event_for(sport_index, rng, SPRINT, competition="singleElimination")
 
     editor.showEventEditor(ev)
     assert selectedCompetition(editor) == editor.ee.m_data.competition()
@@ -608,23 +505,23 @@ def test_the_editor_never_shows_a_type_the_event_will_not_use(editor, sport_inde
     assert ev.competition() == selectedCompetition(editor)
 
 
-def test_resizing_the_bracket_clears_results_that_no_longer_apply(sport_index, rng):
+def test_resizing_the_bracket_clears_results_that_no_longer_apply(tournament):
     """Results from a bracket that has since been changed were still shown."""
-    ev, sport, sl = buildKnockout(sport_index, rng, 8)
-    playKnockout(ev, sport, sl, upTo=2)
-    assert newKnockout(ev, sport, sl).results(0).strip()
+    ev, sport = tournament("cup of 8")
+    play(ev, sport, up_to=2)
+    assert new_competition(ev, sport).results(0).strip()
 
     # cut the field down: the played rounds describe a bracket that is gone
     ev.setGroups([XkorGroup("Bracket", ev.groups()[0].athletes[:4])])
-    c = newKnockout(ev, sport, ev.makeStartList(XkorRPList()))
+    c = new_competition(ev, sport)
     assert [c.results(i).strip() for i in range(3)] == ["", "", ""]
 
 
-def test_toggling_the_playoff_clears_results_stored_under_the_old_numbering(sport_index, rng):
+def test_toggling_the_playoff_clears_results_stored_under_the_old_numbering(tournament):
     """The playoff sits before the final, so enabling it shifts every later
     round along one and the final's result ends up under its heading."""
-    ev, sport, sl = buildKnockout(sport_index, rng, 8)
-    c = playKnockout(ev, sport, sl)
+    ev, sport = tournament("cup of 8")
+    c = play(ev, sport)
     assert c.matchdays() == 3
     assert c.results(2).strip()  # the final
 
@@ -632,26 +529,19 @@ def test_toggling_the_playoff_clears_results_stored_under_the_old_numbering(spor
     options["thirdPlacePlayoff"] = "true"
     ev.setCompetitionOptions(options)
 
-    c = newKnockout(ev, sport, sl)
+    c = new_competition(ev, sport)
     assert c.matchdays() == 4
     assert [c.results(i).strip() for i in range(4)] == ["", "", "", ""]
 
 
 def test_a_bracket_too_small_to_play_says_so(sport_index, rng):
-    ev, sport, sl = buildKnockout(sport_index, rng, 1)
-    c = newKnockout(ev, sport, sl)
+    ev, sport = event_for(sport_index, rng, LISA, n=1, competition="singleElimination")
+    c = new_competition(ev, sport)
 
     assert c.matchdays() == 0
     schedule = c.schedule()
     assert schedule is not None  # not "this type has no schedule to preview"
     assert "at least two participants" in schedule
-
-
-@pytest.fixture(scope="module")
-def qt_app():
-    app = QApplication.instance() or XkorApplication(sys.argv)
-    QDir.setSearchPaths("sports", [sportsDir()])
-    return app
 
 
 @pytest.mark.parametrize("sportName", [
@@ -663,8 +553,8 @@ def qt_app():
     # a paradigm that does use a maximum skill, as a control
     "Association football—NSFS formula",
 ])
-def test_loading_saved_event_keeps_participants(qt_app, sport_index, rng, tmp_path, sportName):
-    ev, _ = build_event(sport_index, rng, sportName)
+def test_loading_saved_event_keeps_participants(qapp, sport_index, rng, tmp_path, sportName):
+    ev, _ = event_for(sport_index, rng, sportName)
     ev.setResult(0, "some result text")
 
     xmlPath = str(tmp_path / "event.xml")
@@ -716,13 +606,13 @@ def _result(athlete, score, **values):
     return r
 
 
-def test_a_stoppage_names_the_beaten_side(sport_index, rng):
+def test_a_stoppage_names_the_beaten_side(tournament):
     """A status on one side means that side was beaten, so the assignment is
     deliberately inverted — and an inverted-back version would advance the
     wrong athlete while every structural assertion still held."""
-    ev, sport, sl = buildKnockout(sport_index, rng, 4)
-    c = newKnockout(ev, sport, sl)
-    home, away = sl.groups[0].athletes[0], sl.groups[0].athletes[1]
+    ev, sport = tournament("cup of 4")
+    c = new_competition(ev, sport)
+    home, away = c.startList.groups[0].athletes[:2]
 
     p = _StubParadigm({home.id: _result(home, 0.0, status="ret."),
                        away.id: _result(away, 0.0)})
@@ -735,11 +625,11 @@ def test_a_stoppage_names_the_beaten_side(sport_index, rng):
     assert winner is home
 
 
-def test_a_match_the_paradigm_cannot_separate_is_flipped_for(sport_index, rng):
+def test_a_match_the_paradigm_cannot_separate_is_flipped_for(tournament):
     """A knockout cannot end level; the coin toss is the last resort."""
-    ev, sport, sl = buildKnockout(sport_index, rng, 4)
-    c = newKnockout(ev, sport, sl)
-    home, away = sl.groups[0].athletes[0], sl.groups[0].athletes[1]
+    ev, sport = tournament("cup of 4")
+    c = new_competition(ev, sport)
+    home, away = c.startList.groups[0].athletes[:2]
 
     seen = set()
     for _ in range(50):
@@ -752,20 +642,21 @@ def test_a_match_the_paradigm_cannot_separate_is_flipped_for(sport_index, rng):
     assert len(seen) == 2  # both sides come up
 
 
-def test_a_coin_toss_is_reproducible_from_the_event_seed(sport_index, rng):
+def test_a_coin_toss_is_reproducible_from_the_event_seed(tournament):
     """Everything else in a scorination replays from the seed; this did not."""
     def champion(seed):
-        ev, sport, sl = buildKnockout(sport_index, Mt19937(seed), 4)
+        ev, sport = tournament("cup of 4", rng=Mt19937(seed))
         sport.setPRNG(Mt19937(seed))
-        c = playKnockout(ev, sport, sl)
+        c = play(ev, sport)
         return c._winnersOfRound(c._rounds() - 1)[0].name
 
     assert champion(99) == champion(99)
 
 
 def test_match_odds_cover_byes_normal_pairings_and_the_playoff(sport_index, rng):
-    ev, sport, sl = buildKnockout(sport_index, rng, 6, {"thirdPlacePlayoff": "true"})
-    c = newKnockout(ev, sport, sl)
+    ev, sport = event_for(sport_index, rng, LISA, n=6, competition="singleElimination",
+                          options=PLAYOFF)
+    c = new_competition(ev, sport)
     assert c.supportsOdds()
 
     first = c.matchOdds(0, trials=20)  # 6 entrants in an 8-slot bracket
@@ -777,30 +668,30 @@ def test_match_odds_cover_byes_normal_pairings_and_the_playoff(sport_index, rng)
     playoffMatchday = c.matchdays() - 2
     assert c.matchOdds(playoffMatchday, trials=20) is None
 
-    c = playKnockout(ev, sport, sl, upTo=2)
+    c = play(ev, sport, up_to=2)
     odds = c.matchOdds(playoffMatchday, trials=20)
     assert odds is not None and odds.strip()
 
 
-def test_a_coin_toss_without_a_prng_is_still_reproducible(sport_index, rng, capsys):
+def test_a_coin_toss_without_a_prng_is_still_reproducible(tournament, capsys):
     """A sport with no PRNG is a misconfiguration, but it must not make the
     one result the paradigm can't derive clock-dependent too."""
-    ev, sport, sl = buildKnockout(sport_index, rng, 4)
-    c = newKnockout(ev, sport, sl)
+    ev, sport = tournament("cup of 4")
+    c = new_competition(ev, sport)
     c.sport.r = None
 
     flips = [c._coinFlip() for _ in range(8)]
-    c2 = newKnockout(ev, sport, sl)
+    c2 = new_competition(ev, sport)
     c2.sport.r = None
     assert [c2._coinFlip() for _ in range(8)] == flips
     assert "no PRNG set" in capsys.readouterr().err
 
 
-def test_scorinating_a_round_out_of_order_says_why_it_is_empty(sport_index, rng):
+def test_scorinating_a_round_out_of_order_says_why_it_is_empty(tournament):
     """Leaving resultsBuf unset gave a blank matchday with no explanation,
     where the third-place playoff writes a line for the same situation."""
-    ev, sport, sl = buildKnockout(sport_index, rng, 8)
-    c = newKnockout(ev, sport, sl)
+    ev, sport = tournament("cup of 8")
+    c = new_competition(ev, sport)
 
     c.scorinate(2)  # the final, with the earlier rounds unplayed
     result = c.results(2)
@@ -816,10 +707,8 @@ def test_switching_away_from_a_knockout_adds_no_stray_group(editor, sport_index,
     The switch to the next event's format then turned that into a group of
     its own, and a stray "Bracket" heading turned up in that event's results.
     """
-    race, _ = build_event(sport_index, rng, "Athletics—Men’s 00100 m—Round 1")
-    race.m_groups[0].name = "Final"
-    cup, _ = build_event(sport_index, rng, "Association football—LISA formula")
-    cup.setCompetition("singleElimination")
+    race, _ = event_for(sport_index, rng, SPRINT, names=["Final"])
+    cup, _ = event_for(sport_index, rng, LISA, competition="singleElimination")
 
     def groups():
         return [(g.name, len(g.athletes)) for g in editor.ee.eventSetupWidget.groups()]
@@ -868,31 +757,18 @@ def test_a_stoppage_counts_as_a_win_for_the_winner_in_a_league_table(sport_index
 
     stoppages = 0
     for seed in range(6):
-        ev, sport = build_event(sport_index, Mt19937(seed), sportName)
-        ev.setCompetition("roundRobin")
-        sl = ev.makeStartList(XkorRPList())
-        opts = {"numberOfLegs": "2"}
-        results = {}
-
-        def build():
-            return XkorCompetitionFactory.newCompetitionFull(
-                "roundRobin", sl, sport, ev.paradigmOptions(), opts, results)
-
-        c = build()
-        for md in range(c.matchdays()):
-            c.scorinate(md)  # used to raise OverflowError on a stoppage
-            results[md] = c.results(md)
-            opts.update(c.resumeFileOptions())
-            c = build()
+        ev, sport = event_for(sport_index, Mt19937(seed), sportName, competition="roundRobin",
+                              options={"numberOfLegs": "2"})
+        play(ev, sport)  # used to raise OverflowError on a stoppage
 
         stored = {}
-        for line in opts["tableData"][0]:
+        for line in ev.competitionOptions()["tableData"][0]:
             # taekwondo scores can go below zero
             rx = re.match(r"(\d+): (.+) (-?[0-9.]+)–(-?[0-9.]+) (.+)", line)
             assert rx, line
             stored[(int(rx.group(1)), rx.group(2), rx.group(5))] = (float(rx.group(3)), float(rx.group(4)))
 
-        for md, text in results.items():
+        for md, text in ev.results().items():
             for rx in re.finditer(r"^(.+?) \(\w+\) def\.( by)? (.+?) \(\w+\) \((\w+)\)$", text, re.M):
                 home, by, away = rx.group(1), rx.group(2), rx.group(3)
                 h, a = stored[(md, home, away)]
@@ -926,21 +802,17 @@ def test_a_tie_that_no_shoot_off_can_break_stands_instead_of_hanging(sport_index
     old = signal.signal(signal.SIGALRM, hang)
     try:
         for seed in [6450, 6510] + list(range(40)):
-            ev, sport = build_event(sport_index, Mt19937(seed), sportName)
-            athletes = list(ev.groups()[0].athletes)
-            ev.setGroups([XkorGroup("Group A", athletes[:4]), XkorGroup("Group B", athletes[4:])])
-            ev.setCompetition("shooting")
+            ev, sport = event_for(sport_index, Mt19937(seed), sportName, groups=[4, 4],
+                                  competition="shooting")
             sl = ev.makeStartList(XkorRPList())
-            opts, results = {}, {}
             for md in range(2):
-                c = XkorCompetitionFactory.newCompetitionFull(
-                    "shooting", sl, sport, ev.paradigmOptions(), opts, results)
+                c = new_competition(ev, sport, sl)
                 signal.alarm(10)
                 c.scorinate(md)
                 signal.alarm(0)
-                results[md] = c.results(md)
-                opts.update(c.resumeFileOptions())
-                assert results[md].strip()
+                ev.replaceCompetitionOptions(c.resumeFileOptions())
+                ev.setResult(md, c.results(md))
+                assert ev.results()[md].strip()
     finally:
         signal.alarm(0)
         signal.signal(signal.SIGALRM, old)
@@ -950,39 +822,16 @@ def test_a_tie_that_no_shoot_off_can_break_stands_instead_of_hanging(sport_index
 
 # --- qualification markers (Q / E) -------------------------------------------
 
-def playGroups(index, rng, sportName, competition, groups, perGroup):
-    """Scorinate every matchday, rebuilding the competition from the saved
-    options in between the way the Scorinate step does."""
-    ev, sport = build_event(index, rng, sportName, groups * perGroup)
-    ids = list(ev.groups()[0].athletes)
-    ev.setGroups([XkorGroup("Group %s" % chr(65 + g), ids[g * perGroup:(g + 1) * perGroup])
-                  for g in range(groups)])
-    ev.setCompetition(competition)
-    sl = ev.makeStartList(XkorRPList())
-
-    def build():
-        return XkorCompetitionFactory.newCompetitionFull(
-            competition, sl, sport, ev.paradigmOptions(), ev.competitionOptions(), ev.results())
-
-    c = build()
-    for md in range(c.matchdays()):
-        c.scorinate(md)
-        ev.replaceCompetitionOptions(c.resumeFileOptions())
-        ev.setResult(md, c.results(md))
-        c = build()
-    return ev, sport, c
-
-
 def markerCounts(text):
     rows = [line for line in text.split("\n") if line[-2:] in (" Q", " E")]
     return sum(1 for r in rows if r.endswith("Q")), sum(1 for r in rows if r.endswith("E"))
 
 
-def test_league_markers_on_the_final_matchday(sport_index, rng):
+def test_league_markers_on_the_final_matchday(tournament):
     from xkoranate.competitions.qualification import QualificationSettings
 
-    ev, sport, c = playGroups(sport_index, rng, "Association football—SQIS formula",
-                              "roundRobin", 3, 4)
+    ev, sport = tournament("league 3×4")
+    c = play(ev, sport)
     last = c.matchdays() - 1
     text = c.results(last)
 
@@ -994,11 +843,11 @@ def test_league_markers_on_the_final_matchday(sport_index, rng):
     assert c.formatQualifications(c.results(0), 0, QualificationSettings("top", 2)) == c.results(0)
 
 
-def test_league_markers_survive_a_save_and_reload(sport_index, rng, tmp_path):
+def test_league_markers_survive_a_save_and_reload(tournament, tmp_path):
     from xkoranate.competitions.qualification import QualificationSettings
 
-    ev, sport, c = playGroups(sport_index, rng, "Association football—SQIS formula",
-                              "roundRobin", 2, 4)
+    ev, sport = tournament("league 3×4")
+    play(ev, sport)
     ev.replaceCompetitionOptions(QualificationSettings("top", 2).toOptions())
     xmlPath = str(tmp_path / "league.xml")
     XkorXmlWriter(xmlPath, XkorRPList(), [(uuid.uuid4(), ev)])
@@ -1006,18 +855,16 @@ def test_league_markers_survive_a_save_and_reload(sport_index, rng, tmp_path):
 
     settings = QualificationSettings.fromOptions(ev2.competitionOptions())
     assert settings == QualificationSettings("top", 2)
-    c2 = XkorCompetitionFactory.newCompetitionFull(
-        "roundRobin", ev2.makeStartList(XkorRPList()), sport, ev2.paradigmOptions(),
-        ev2.competitionOptions(), ev2.results())
+    c2 = new_competition(ev2, sport)
     last = c2.matchdays() - 1
-    assert markerCounts(c2.formatQualifications(c2.results(last), last, settings)) == (4, 4)
+    assert markerCounts(c2.formatQualifications(c2.results(last), last, settings)) == (6, 6)
 
 
-def test_heat_markers_with_the_best_next_placed(sport_index, rng):
+def test_heat_markers_with_the_best_next_placed(tournament):
     from xkoranate.competitions.qualification import QualificationSettings
 
-    ev, sport, c = playGroups(sport_index, rng, "Athletics—Men’s 00100 m—Round 1",
-                              "standard", 3, 5)
+    ev, sport = tournament("heats 3×5")
+    c = play(ev, sport)
     assert len(ev.competitionOptions()["heatRanks"]) == 3
     text = c.results(0)
     best = QualificationSettings("topPlusBest", 2, 1)
@@ -1027,17 +874,17 @@ def test_heat_markers_with_the_best_next_placed(sport_index, rng):
     # saved before heat ranks were kept: the third-placed can't be compared
     old = dict(ev.competitionOptions())
     del old["heatRanks"]
-    c = XkorCompetitionFactory.newCompetitionFull(
-        "standard", ev.makeStartList(XkorRPList()), sport, ev.paradigmOptions(), old, ev.results())
+    ev.setCompetitionOptions(old)
+    c = new_competition(ev, sport)
     assert markerCounts(c.formatQualifications(text, 0, best)) == (6, 6)
 
 
-def test_scorinate_step_box_loads_quietly_and_saves_changes(qt_app, sport_index, rng):
+def test_scorinate_step_box_loads_quietly_and_saves_changes(qapp, tournament):
     from xkoranate.competitions.qualification import QualificationSettings
     from xkoranate.eventeditor.scorinatewidget import XkorScorinateWidget
 
-    ev, sport, c = playGroups(sport_index, rng, "Association football—SQIS formula",
-                              "roundRobin", 3, 4)
+    ev, sport = tournament("league 3×4")
+    c = play(ev, sport)
     ev.replaceCompetitionOptions(QualificationSettings("topPlusBest", 2, 1).toOptions())
 
     w = XkorScorinateWidget()
@@ -1186,40 +1033,6 @@ def test_a_formatting_failure_shows_the_results_plain(editor, capfd):
 # ------------------------------------------------------ inter-conference play
 
 
-def buildConferences(index, rng, sizes, sportName="Association football—LISA formula"):
-    """An event with one group per conference, named Conf 1, Conf 2, …"""
-    ev, sport = build_event(index, rng, sportName, nAthletes=sum(sizes))
-    ids = list(ev.groups()[0].athletes)
-    groups = []
-    start = 0
-    for n, size in enumerate(sizes):
-        groups.append(XkorGroup("Conf %d" % (n + 1), ids[start:start + size]))
-        start += size
-    ev.setGroups(groups)
-    ev.setCompetition("interConference")
-    return ev, sport
-
-
-def playConferences(ev, sport, options=None, upTo=None):
-    """Play matchdays the way the scorinate page does: a fresh competition
-    each time, built from the options the last one saved."""
-    sl = ev.makeStartList(XkorRPList())
-    opts = dict(options or {})
-    results = {}
-
-    def build():
-        return XkorCompetitionFactory.newCompetitionFull(
-            "interConference", sl, sport, ev.paradigmOptions(), opts, results)
-
-    c = build()
-    for md in range(c.matchdays() if upTo is None else upTo):
-        c.scorinate(md)
-        results[md] = c.results(md)
-        opts.update(c.resumeFileOptions())
-        c = build()
-    return c, opts, results
-
-
 def tableRows(text, heading):
     """{team: games played} from the table headed by the given name."""
     lines = text.splitlines()
@@ -1234,15 +1047,16 @@ def tableRows(text, heading):
 
 
 @pytest.mark.parametrize("sizes,own,other", [([4, 4], 2, 1), ([3, 3, 3], 1, 1)])
-def test_a_conference_season_plays_everyone_the_right_number_of_times(sport_index, rng, sizes, own, other):
-    ev, sport = buildConferences(sport_index, rng, sizes)
-    options = {"numberOfLegs": str(own), "interConferenceLegs": str(other)}
-    c, opts, results = playConferences(ev, sport, options)
+def test_a_conference_season_plays_everyone_the_right_number_of_times(tournament, sizes, own, other):
+    ev, sport = tournament("conferences 4+4", groups=sizes,
+                           options={"numberOfLegs": str(own), "interConferenceLegs": str(other)})
+    c = play(ev, sport)
+    results = ev.results()
 
     final = results[c.matchdays() - 1]
     total = sum(sizes)
     for n, size in enumerate(sizes):
-        rows = tableRows(final, "Conf %d" % (n + 1))
+        rows = tableRows(final, CONF_NAMES[n])
         assert len(rows) == size
         expected = own * (size - 1) + other * (total - size)
         assert set(rows.values()) == {expected}
@@ -1250,38 +1064,35 @@ def test_a_conference_season_plays_everyone_the_right_number_of_times(sport_inde
     assert all(results[md].strip() for md in range(c.matchdays()))
 
 
-def test_the_overall_table_can_be_turned_off(sport_index, rng):
-    ev, sport = buildConferences(sport_index, rng, [2, 2])
-    c, opts, results = playConferences(ev, sport, {"showOverallTable": "false"}, upTo=1)
-    assert "Overall" not in results[0]
+def test_the_overall_table_can_be_turned_off(tournament):
+    ev, sport = tournament("conferences 4+4", options={"showOverallTable": "false"})
+    play(ev, sport, up_to=1)
+    assert "Overall" not in ev.results()[0]
 
 
-def test_reverting_drops_later_conference_results(sport_index, rng):
-    ev, sport = buildConferences(sport_index, rng, [4, 4])
-    c, opts, results = playConferences(ev, sport, upTo=5)
+def test_reverting_drops_later_conference_results(tournament):
+    ev, sport = tournament("conferences 4+4")
+    c = play(ev, sport, up_to=5)
     resume = c.revertToMatchday(3)
     days = {int(line.split(":")[0]) for line in resume["conferenceTableData"]}
     assert days == {0, 1, 2}
 
 
-def test_the_conference_schedule_is_headed_by_the_groups_own_names(sport_index, rng):
-    ev, sport = buildConferences(sport_index, rng, [2, 2])
-    sl = ev.makeStartList(XkorRPList())
-    c = XkorCompetitionFactory.newCompetitionFull(
-        "interConference", sl, sport, ev.paradigmOptions(), {}, {})
-    text = c.schedule()
+def test_the_conference_schedule_is_headed_by_the_groups_own_names(tournament):
+    ev, sport = tournament("conferences 4+4")
+    text = new_competition(ev, sport).schedule()
     assert "Conf 1 v Conf 2" in text
     assert "\nConf 1\n" in text
 
 
-def test_cross_conference_points_change_only_cross_games(sport_index, rng):
+def test_cross_conference_points_change_only_cross_games(tournament):
     """Cross wins worth 0 leave each conference table showing exactly the
     points its teams took off each other."""
-    ev, sport = buildConferences(sport_index, rng, [3, 3])
     options = {"numberOfLegs": "1", "interConferenceLegs": "1", "allowDraws": "false",
                "crossPointsForWin": "0", "crossPointsForDraw": "0", "crossPointsForLoss": "0"}
-    c, opts, results = playConferences(ev, sport, options)
-    final = results[c.matchdays() - 1]
+    ev, sport = tournament("conferences 4+4", groups=[3, 3], options=options)
+    c = play(ev, sport)
+    final = ev.results()[c.matchdays() - 1]
 
     for conf in ("Conf 1", "Conf 2"):
         lines = final.splitlines()
@@ -1298,14 +1109,14 @@ def test_cross_conference_points_change_only_cross_games(sport_index, rng):
 def test_round_robin_is_still_the_default_for_a_new_head_to_head_event(editor, sport_index, rng):
     """New types go into the factory list ahead of round robin: the selector
     falls back to whichever supported type it lists first."""
-    ev, sport = build_event(sport_index, rng, "Association football—LISA formula")
+    ev, sport = event_for(sport_index, rng, LISA)
     editor.showEventEditor(ev)
     assert selectedCompetition(editor) == "roundRobin"
     assert ev.competition() == "roundRobin" or editor.ee.m_data.competition() == "roundRobin"
 
 
 @pytest.mark.parametrize("sportName", ["Boxing—xkoranate formula", "Taekwondo—xkoranate formula"])
-def test_conference_tables_count_stoppages_and_negative_scores(sport_index, sportName):
+def test_conference_tables_count_stoppages_and_negative_scores(tournament, sportName):
     """Stoppages (KO, DSQ, …) and taekwondo's below-zero scores both used to
     break conference tables, as they did round robin's: a stoppage
     overflowed the table, and a negative score dropped out of it."""
@@ -1313,28 +1124,30 @@ def test_conference_tables_count_stoppages_and_negative_scores(sport_index, spor
     total = sum(sizes)
     stoppages = negatives = 0
     for seed in range(4):
-        ev, sport = buildConferences(sport_index, Mt19937(seed), sizes, sportName=sportName)
-        c, opts, results = playConferences(ev, sport)
+        ev, sport = tournament("conferences 4+4", rng=Mt19937(seed), sport_name=sportName,
+                               groups=sizes)
+        c = play(ev, sport)
+        results = ev.results()
         final = results[c.matchdays() - 1]
         played = tableRows(final, "Overall")
         for n, size in enumerate(sizes):
-            for team, games in tableRows(final, "Conf %d" % (n + 1)).items():
+            for team, games in tableRows(final, CONF_NAMES[n]).items():
                 assert games == 2 * (size - 1) + (total - size) == played[team], team
         text = "\n".join(results.values())
         stoppages += text.count(" def. ")
-        negatives += sum("–-" in line for line in opts["conferenceTableData"])
+        negatives += sum("–-" in line for line in ev.competitionOptions()["conferenceTableData"])
     assert stoppages > 0
     if sportName.startswith("Taekwondo"):
         assert negatives > 0
 
 
-def test_inter_conference_markers_count_cross_games(editor, sport_index, rng):
+def test_inter_conference_markers_count_cross_games(editor, tournament):
     """Conferences are the groups; their tables include games against other
     conferences. The overall table repeats each team's mark."""
     from xkoranate.competitions.qualification import QualificationSettings
 
-    ev, sport, c = playGroups(sport_index, rng, "Association football—SQIS formula",
-                              "interConference", 3, 4)
+    ev, sport = tournament("league 3×4", competition="interConference")
+    c = play(ev, sport)
     last = c.matchdays() - 1
     text = c.results(last)
     marked = c.formatQualifications(text, last, QualificationSettings("topPlusBest", 2, 1))
@@ -1344,9 +1157,7 @@ def test_inter_conference_markers_count_cross_games(editor, sport_index, rng):
 
     # with crossover games worth more, still sound at every matchday
     ev.replaceCompetitionOptions({"crossPointsForWin": "4", "crossPointsForDraw": "2"})
-    c = XkorCompetitionFactory.newCompetitionFull(
-        "interConference", ev.makeStartList(XkorRPList()), sport, ev.paradigmOptions(),
-        ev.competitionOptions(), ev.results())
+    c = new_competition(ev, sport)
     for md in range(c.matchdays()):
         c.formatQualifications(c.results(md), md, QualificationSettings("topPlusBest", 2, 1))
 

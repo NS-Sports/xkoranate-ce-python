@@ -18,11 +18,6 @@ from xkoranate.tablegenerator.sortcriteriawidget import XkorSortCriteriaWidget
 CRITERIA = ["points", "goalDifference", "goalsFor", "h2hPoints"]
 
 
-@pytest.fixture(scope="module")
-def qapp():
-    return QApplication.instance() or QApplication([])
-
-
 @pytest.fixture
 def widget(qapp):
     w = XkorSortCriteriaWidget()

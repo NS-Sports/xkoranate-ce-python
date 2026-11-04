@@ -1,11 +1,9 @@
 """The participants page: the skill range and the modes it is derived in."""
 
 import pytest
+from builders import make_athletes, make_signup_list
 
-from xkoranate.athlete import XkorAthlete
-from xkoranate.signuplist import XkorSignupList
 from xkoranate.signuplisteditor.signuplisteditor import XkorSignupListEditor
-from xkoranate.xml.xmlindex import XkorXmlIndex
 from xkoranate.xml.xmlsportreader import XkorXmlSportReader
 
 # a paradigm that rescales skill, so "Maximum skill" is an organiser-set
@@ -13,27 +11,13 @@ from xkoranate.xml.xmlsportreader import XkorXmlSportReader
 RESCALING_SPORT = "Golf"
 
 
-@pytest.fixture(scope="module")
-def sportIndex(qapp):
-    index = XkorXmlIndex()
-    index.traverse("sports:")
-    return index
-
-
-def signupList(skills, minRank=0.0, maxRank=100.0):
-    sl = XkorSignupList()
-    sl.setMinRank(minRank)
-    sl.setMaxRank(maxRank)
-    for i, skill in enumerate(skills):
-        a = XkorAthlete()
-        a.name, a.nation, a.skill = "Athlete %d" % (i + 1), "AAA", float(skill)
-        sl.addAthlete(a)
-    return sl
+def signupList(skills, maxRank):
+    return make_signup_list(make_athletes(len(skills), nation="AAA", skills=skills), max_rank=maxRank)
 
 
 @pytest.fixture
-def editor(qapp, sportIndex):
-    sport = XkorXmlSportReader(sportIndex.lookup(RESCALING_SPORT)).sport()
+def editor(qapp, sport_index):
+    sport = XkorXmlSportReader(sport_index.lookup(RESCALING_SPORT)).sport()
     w = XkorSignupListEditor()
     w.setSport(sport, {})
     assert w.athletes is not None

@@ -1,29 +1,21 @@
 """The event setup page in bracket mode: matches, byes and the draw buttons."""
 
-import uuid
-
 import pytest
+from builders import make_athletes, make_signup_list
 
-from xkoranate.athlete import BYE_ID, XkorAthlete
+from xkoranate.athlete import BYE_ID
 from xkoranate.competitions import bracket
 from xkoranate.eventeditor.eventsetupdelegate import BYE_LABEL
 from xkoranate.eventeditor.eventsetupwidget import XkorEventSetupWidget
 from xkoranate.group import XkorGroup
 from xkoranate.rng import Mt19937
-from xkoranate.signuplist import XkorSignupList
-
-CLUBS = [("Club %d" % (i + 1), "C%02d" % (i + 1), 100 - i * 5) for i in range(12)]
 
 
 @pytest.fixture
 def widget(qapp):
-    sl = XkorSignupList()
-    sl.setMinRank(0.0)
-    sl.setMaxRank(100.0)
-    for name, tla, rating in CLUBS:
-        a = XkorAthlete()
-        a.name, a.nation, a.skill = name, tla, float(rating)
-        sl.addAthlete(a)
+    # Club 1 (C01) rated 100 down to Club 12 (C12) rated 45, out of 100
+    sl = make_signup_list(make_athletes(12, "Club %d", "C%02d", [100.0 - i * 5 for i in range(12)]),
+                          max_rank=100.0)
 
     w = XkorEventSetupWidget()
     w.setSignupList(sl)
@@ -62,6 +54,11 @@ def pairs(w):
 
 def realEntrants(w):
     return [i for i in w.bracketEntrants() if i not in (None, BYE_ID)]
+
+
+def offeredSizes(w):
+    """The bracket sizes the size dropdown offers."""
+    return [w.bracketSizeCombo.itemData(i) for i in range(w.bracketSizeCombo.count())]
 
 
 def test_the_tree_holds_matches_not_groups(widget):
@@ -295,15 +292,6 @@ def test_the_size_dropdown_resizes_the_bracket(widget):
     assert widget.bracketSizeCombo.currentData() == 8
 
 
-def test_shrinking_the_bracket_releases_the_clubs_that_no_longer_fit(widget):
-    loadBracket(widget, 12)
-    widget.setBracketSize(4)
-
-    assert widget.treeWidget.topLevelItemCount() == 2
-    assert len(realEntrants(widget)) == 4
-    assert len(widget.availableAthletes) == 8  # the rest are back in the pool
-
-
 def test_the_size_dropdown_is_only_shown_for_a_bracket(widget):
     widget.setCompetition("singleElimination")
     assert widget.bracketSizeCombo.isVisible() or not widget.isVisible()
@@ -320,14 +308,11 @@ def test_only_playable_bracket_sizes_are_offered(widget):
     the cup that follows is the four-slot one.
     """
     loadBracket(widget, 12)
-    sizes = [widget.bracketSizeCombo.itemData(i)
-             for i in range(widget.bracketSizeCombo.count())]
-    assert sizes == [2, 4, 8, 16]  # smaller cups are allowed too
+    assert offeredSizes(widget) == [2, 4, 8, 16]  # smaller cups are allowed too
 
     onlyEntrants(widget, 4)
     loadBracket(widget, 4)
-    sizes = [widget.bracketSizeCombo.itemData(i)
-             for i in range(widget.bracketSizeCombo.count())]
+    sizes = offeredSizes(widget)
     assert sizes == [2, 4]
     assert 8 not in sizes
 
@@ -340,7 +325,7 @@ def test_a_smaller_bracket_can_be_chosen_than_the_field_needs(widget):
     assert widget.treeWidget.topLevelItemCount() == 2
     assert len(realEntrants(widget)) == 4
     assert widget.bracketEntrants().count(BYE_ID) == 0
-    assert len(widget.availableAthletes) == 8
+    assert len(widget.availableAthletes) == 8  # the rest are back in the pool
 
 
 def test_the_offered_sizes_follow_the_entrant_count(widget):
@@ -354,19 +339,16 @@ def test_the_offered_sizes_follow_the_entrant_count(widget):
     """
     loadBracket(widget, 9)
     onlyEntrants(widget, 9)
-    assert 16 in [widget.bracketSizeCombo.itemData(i)
-                  for i in range(widget.bracketSizeCombo.count())]
+    assert 16 in offeredSizes(widget)
 
     clearSlots(widget, 5)  # the five go back to the pool, so 16 is still on
     assert len(realEntrants(widget)) == 4
-    assert 16 in [widget.bracketSizeCombo.itemData(i)
-                  for i in range(widget.bracketSizeCombo.count())]
+    assert 16 in offeredSizes(widget)
 
     # a field of four, on the other hand, can only play four
     onlyEntrants(widget, 4)
     loadBracket(widget, 4)
-    assert [widget.bracketSizeCombo.itemData(i)
-            for i in range(widget.bracketSizeCombo.count())] == [2, 4]
+    assert offeredSizes(widget) == [2, 4]
 
 
 def test_shrinking_the_bracket_can_be_walked_back(widget):
@@ -375,8 +357,7 @@ def test_shrinking_the_bracket_can_be_walked_back(widget):
     loadBracket(widget, 4)
     widget.setBracketSize(2)
     assert len(realEntrants(widget)) == 2
-    assert [widget.bracketSizeCombo.itemData(i)
-            for i in range(widget.bracketSizeCombo.count())] == [2, 4]
+    assert offeredSizes(widget) == [2, 4]
 
     widget.setBracketSize(4)
     assert widget.bracketSlotCount == 4
@@ -793,15 +774,7 @@ def test_a_new_signup_list_refreshes_the_available_list(widget):
     loadBracket(widget, 4)
     widget.updateButtons()
 
-    sl = XkorSignupList()
-    sl.setMinRank(0.0)
-    sl.setMaxRank(100.0)
-    a = XkorAthlete()
-    a.name, a.nation, a.skill = "Late Entry", "LTE", 50.0
-    # XkorSignupList.generateID() draws from the list's own seeded RNG, so a
-    # fresh list hands out the same ids as the one the bracket was built from
-    a.id = uuid.uuid4()
-    sl.addAthlete(a)
+    sl = make_signup_list(make_athletes(["Late Entry"], nation="LTE", skills=[50.0]), max_rank=100.0)
     widget.setSignupList(sl)
     widget.signupList = sl
     widget.updateButtons()
@@ -829,16 +802,9 @@ def test_two_participants_sharing_a_name_are_told_apart(widget):
     named participants placed the first."""
     from PySide6.QtWidgets import QStyleOptionViewItem
 
-    sl = XkorSignupList()
-    sl.setMinRank(0.0)
-    sl.setMaxRank(100.0)
-    ids = []
-    for _ in range(4):
-        a = XkorAthlete()
-        a.name, a.nation, a.skill = "Same Name", "SAM", 50.0
-        a.id = uuid.uuid4()
-        sl.addAthlete(a)
-        ids.append(a.id)
+    athletes = make_athletes(["Same Name"] * 4, nation="SAM", skills=[50.0] * 4)
+    ids = [a.id for a in athletes]
+    sl = make_signup_list(athletes, max_rank=100.0)
     widget.setSignupList(sl)
     widget.signupList = sl
     widget.setCompetition("singleElimination")

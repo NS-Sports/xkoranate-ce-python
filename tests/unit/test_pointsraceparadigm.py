@@ -1,6 +1,6 @@
 import sys
 
-from paradigm_helpers import make_athlete, make_paradigm, make_sport
+from builders import make_athlete, make_paradigm, make_sport
 
 from xkoranate.paradigms.pointsraceparadigm import XkorPointsRaceParadigm
 

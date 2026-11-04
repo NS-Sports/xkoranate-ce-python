@@ -1,30 +1,11 @@
 import uuid
 
 import pytest
+from builders import make_athlete, make_event
 
-from xkoranate.athlete import XkorAthlete
 from xkoranate.event import XkorEvent
 from xkoranate.group import XkorGroup
 from xkoranate.rplist import XkorRPList
-from xkoranate.signuplist import XkorSignupList
-
-
-def make_athlete(name, nation, skill):
-    a = XkorAthlete()
-    a.name = name
-    a.nation = nation
-    a.skill = skill
-    return a
-
-
-def build_event(athletes, group_athletes=None):
-    sl = XkorSignupList()
-    for a in athletes:
-        sl.addAthlete(a)
-    ev = XkorEvent()
-    ev.setSignupList(sl)
-    ev.addGroup(XkorGroup("Group A", group_athletes or [a.id for a in athletes]))
-    return ev
 
 
 def test_defaults():
@@ -72,7 +53,7 @@ def test_replaceCompetitionOptions_merges_over_existing():
 
 def test_makeStartList_without_rplist_uses_raw_skill():
     a1 = make_athlete("Alice", "AAA", 0.8)
-    ev = build_event([a1])
+    ev = make_event([a1])
 
     startList = ev.makeStartList(None)
 
@@ -85,7 +66,7 @@ def test_makeStartList_without_rplist_uses_raw_skill():
 def test_makeStartList_applies_rank_adjustment():
     a1 = make_athlete("Alice", "AAA", 1.0)
     a2 = make_athlete("Bob", "BBB", 3.0)
-    ev = build_event([a1, a2])
+    ev = make_event([a1, a2])
     ev.signupList().setMinRank(1.0)
     ev.signupList().setMaxRank(3.0)
 
@@ -98,7 +79,7 @@ def test_makeStartList_applies_rank_adjustment():
 
 def test_makeStartList_olympic_style_blends_bonus_and_skill():
     a1 = make_athlete("Alice", "AAA", 0.5)
-    ev = build_event([a1])
+    ev = make_event([a1])
 
     rp = XkorRPList()
     rp.setRPCalculationType("olympic")
@@ -115,7 +96,7 @@ def test_makeStartList_olympic_style_blends_bonus_and_skill():
 def test_makeStartList_wg_style_scales_back_when_over_one():
     a1 = make_athlete("Alice", "AAA", 0.9)
     a2 = make_athlete("Bob", "BBB", 0.1)
-    ev = build_event([a1, a2])
+    ev = make_event([a1, a2])
 
     rp = XkorRPList()
     rp.setRPCalculationType("relative")
@@ -130,9 +111,8 @@ def test_makeStartList_wg_style_scales_back_when_over_one():
 
 
 def test_makeStartList_ignores_group_members_missing_from_signuplist():
-    a1 = make_athlete("Alice", "AAA", 0.5)
-    a1.id = uuid.uuid4()
-    ev = build_event([a1], group_athletes=[a1.id, uuid.uuid4()])
+    a1 = make_athlete("Alice", "AAA", 0.5, athlete_id=uuid.uuid4())
+    ev = make_event([a1], groups=[[a1.id, uuid.uuid4()]])
 
     startList = ev.makeStartList(None)
 

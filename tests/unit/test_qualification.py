@@ -2,6 +2,7 @@ import itertools
 import random
 
 import pytest
+from builders import make_table
 
 from xkoranate.competitions import qualification
 from xkoranate.competitions.qualification import (MODE_OFF, MODE_TOP,
@@ -13,7 +14,6 @@ from xkoranate.competitions.roundrobincompetition import XkorRoundRobinCompetiti
 from xkoranate.competitions.standardcompetition import XkorMassStartCompetition
 from xkoranate.startlist import XkorStartListGroup
 from xkoranate.athlete import XkorAthlete
-from xkoranate.tablegenerator.table import XkorTable
 from xkoranate.tablegenerator.tablecolumn import XkorTableColumn
 
 FOOTBALL = [(3, 0), (0, 3), (1, 1)]  # win / loss / draw, home and away
@@ -63,18 +63,12 @@ def test_off_marks_nothing():
 # --- one group, matches still to play ---------------------------------------
 
 def test_clinch_and_elimination_with_a_round_to_go():
-    # A can't be caught by two teams; D can't reach second
+    # A can't be caught by two teams; D can't reach second. A possible tie on
+    # points counts against the team: B can only be caught by C winning,
+    # which leaves them level on 4, and the tiebreakers aren't known yet, so
+    # no Q for B -- and C, who can draw level with B, isn't out either
     g = group({"A": 6, "B": 4, "C": 1, "D": 0}, [("A", "D"), ("B", "C")])
     assert leagueMarkers([g], top(2)) == [{"A": "Q", "D": "E"}]
-
-
-def test_a_possible_tie_on_points_counts_against_the_team():
-    # B can only be caught by C winning, which leaves them level on 4:
-    # the tiebreakers aren't known yet, so no Q for B
-    g = group({"A": 6, "B": 4, "C": 1, "D": 0}, [("A", "D"), ("B", "C")])
-    assert "B" not in leagueMarkers([g], top(2))[0]
-    # and C, who can draw level with B, isn't out either
-    assert "C" not in leagueMarkers([g], top(2))[0]
 
 
 def test_enumeration_sees_that_rivals_who_meet_cant_both_win(monkeypatch):
@@ -223,12 +217,9 @@ def test_best_of_markers_hold_in_every_completion(monkeypatch, cap):
 # --- the table's marker column -----------------------------------------------
 
 def test_marker_column_has_a_blank_heading_and_sits_after_the_points():
-    t = XkorTable()
+    t = make_table(criteria=["points"], matches=[("Aquilla", "Busby", 2, 0)])
     t.setColumns([XkorTableColumn("position", "", 1), XkorTableColumn("name", "Group A", 10),
                   XkorTableColumn("points", "Pts", 4)])
-    t.setSortCriteria(["points"])
-    t.setPointsForWin(3)
-    t.insertMatch("Aquilla", "Busby", 2, 0)
     t.generate()
     plain = t.toText()
 
@@ -248,9 +239,8 @@ def test_marker_column_goes_before_a_results_grid():
 
 
 def test_a_table_without_the_column_is_unchanged_by_markers():
-    t = XkorTable()
+    t = make_table(matches=[("Aquilla", "Busby", 1, 0)])
     t.setColumns([XkorTableColumn("position", "", 1), XkorTableColumn("name", "G", 10)])
-    t.insertMatch("Aquilla", "Busby", 1, 0)
     t.generate()
     before = t.toText()
     t.setMarkers({"Aquilla": "Q"})
