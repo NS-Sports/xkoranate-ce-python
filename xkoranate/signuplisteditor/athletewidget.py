@@ -1,12 +1,12 @@
 import time
 import uuid
 
-from PySide6.QtCore import QDir, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFileDialog, QHeaderView
 
 from ..athlete import XkorAthlete
 from ..icons import icon_action
-from ..ui.dialogs import resolved_search_path
+from ..ui.dialogs import parent_folder, resolved_search_path
 from ..ui.fonts import column_width_for
 from ..uuids import parseAssignedUuid, uuidToString
 from ..variant import qNumber, toDouble, toString
@@ -113,9 +113,7 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
                                       uuid.UUID(int=self.r._r.getrandbits(128)),
                                       athleteNation, toDouble(athleteSkill), properties)
 
-            path = QDir(filename)
-            path.cdUp()
-            self.signupListDirectoryChanged.emit(path.canonicalPath())
+            self.signupListDirectoryChanged.emit(parent_folder(filename))
 
         self.isInUse = False
         self.listChanged.emit()

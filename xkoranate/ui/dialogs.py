@@ -29,6 +29,14 @@ def resolved_search_path(prefix):
     return d.absolutePath() if d.exists() else QDir.homePath()
 
 
+def parent_folder(filename):
+    """The canonical path of the folder holding filename, as remembered for
+    the next file dialog."""
+    path = QDir(filename)
+    path.cdUp()
+    return path.canonicalPath()
+
+
 def brand_pixmap(widget, size=None):
     """The xkoranate icon, scaled for use as a QMessageBox.setIconPixmap()."""
     iconSize = size or widget.style().pixelMetric(QStyle.PM_MessageBoxIconSize)

@@ -1,4 +1,4 @@
-from PySide6.QtCore import QDir, Qt, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QFileDialog, QGridLayout, QMessageBox, QStackedWidget, QWidget
 
 from .event import XkorEvent
@@ -7,7 +7,7 @@ from .navigationwidget import XkorNavigationWidget
 from .rpeditor.rpeditor import XkorRPEditor
 from .rplist import XkorRPList
 from .thinsplitter import XkorThinSplitter
-from .ui.dialogs import ask_save_changes, resolved_search_path
+from .ui.dialogs import ask_save_changes, parent_folder, resolved_search_path
 
 
 class XkorCentralWidget(QWidget):
@@ -147,9 +147,7 @@ class XkorCentralWidget(QWidget):
                 self.fileChanged.emit(filename)
                 self.setModified(False)
 
-                path = QDir(filename)
-                path.cdUp()
-                self.eventDirectoryChanged.emit(path.canonicalPath())
+                self.eventDirectoryChanged.emit(parent_folder(filename))
 
     def rpList(self):
         self.rpe.updateData()
@@ -170,9 +168,7 @@ class XkorCentralWidget(QWidget):
         self.fileChanged.emit(filename)
         self.setModified(False)
 
-        path = QDir(filename)
-        path.cdUp()
-        self.eventDirectoryChanged.emit(path.canonicalPath())
+        self.eventDirectoryChanged.emit(parent_folder(filename))
 
     def saveFileAs(self):
         self.dialog.setAcceptMode(QFileDialog.AcceptSave)
