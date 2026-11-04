@@ -3,10 +3,10 @@ import sys
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (QButtonGroup, QComboBox, QDoubleSpinBox,
                                QFormLayout, QGridLayout, QHBoxLayout,
-                               QMessageBox, QRadioButton, QVBoxLayout,
-                               QWidget)
+                               QRadioButton, QVBoxLayout, QWidget)
 
-from ..ui.dialogs import message_box
+from ..ui.dialogs import confirm
+from ..ui.widgets import discard
 from ..variant import toString
 from .rpbonuswidgets.olympicrpbonuswidget import XkorOlympicRPBonusWidget
 from .rpbonuswidgets.wc36rpbonuswidget import XkorWC36RPBonusWidget
@@ -21,7 +21,6 @@ class XkorRPEditor(QWidget):
         self.m_data = None
         self.isLoading = False
         self.m_currentRPCalcType = ""
-        self.m_currentFileName = ""
 
         self.m_useTeamBonus = QRadioButton("Teams")
         self.m_useParticipantBonus = QRadioButton("Participants")
@@ -117,20 +116,14 @@ class XkorRPEditor(QWidget):
         newRPCalcType = toString(self.m_rpCalcType.itemData(self.m_rpCalcType.currentIndex()))
         if self.m_currentRPCalcType != newRPCalcType:
             if len(self.m_rpBonus.bonuses()) > 0:
-                warning = message_box(
-                    self, "Are you sure you want to reset all bonuses by changing the bonus formula?",
-                    QMessageBox.Ok | QMessageBox.Cancel,
-                    informativeText="If you change the bonus formula, all of your bonuses will be lost.",
-                    defaultButton=QMessageBox.Cancel, escapeButton=QMessageBox.Cancel,
-                    destructiveButton=QMessageBox.Ok)
-                r = warning.exec()
-                if r == QMessageBox.Cancel:
+                if not confirm(
+                        self, "Are you sure you want to reset all bonuses by changing the bonus formula?",
+                        "If you change the bonus formula, all of your bonuses will be lost.",
+                        destructive=True):
                     self.m_rpCalcType.setCurrentIndex(self.m_rpCalcType.findData(self.m_currentRPCalcType))
                     return
 
-            self.m_bonusLayout.removeWidget(self.m_rpBonus)
-            self.m_rpBonus.setParent(None)  # delete m_rpBonus
-            self.m_rpBonus.deleteLater()
+            discard(self.m_bonusLayout, self.m_rpBonus)
             if newRPCalcType == "wc36":
                 self.m_rpBonus = XkorWC36RPBonusWidget()
             else:

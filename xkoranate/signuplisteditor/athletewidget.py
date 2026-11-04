@@ -1,17 +1,18 @@
 import time
 import uuid
 
-from PySide6.QtCore import QDir, Qt
-from PySide6.QtWidgets import QFileDialog, QHeaderView, QTreeWidgetItemIterator
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QFileDialog, QHeaderView
 
 from ..athlete import XkorAthlete
 from ..icons import icon_action
-from ..ui.dialogs import resolved_search_path
+from ..ui.dialogs import parent_folder, resolved_search_path
 from ..ui.fonts import column_width_for
 from ..uuids import parseAssignedUuid, uuidToString
 from ..variant import qNumber, toDouble, toString
-from .abstractathletewidget import (_AthleteTreeWidgetItem,
-                                    XkorAbstractAthleteWidget, _indexOf)
+from .abstractathletewidget import (_NUMERIC_COLUMN_TYPES, _SPIN_BOX_COLUMN_TYPES,
+                                    _AthleteTreeWidgetItem, XkorAbstractAthleteWidget,
+                                    _indexOf)
 from .athletedelegate import XkorAthleteDelegate
 
 
@@ -37,7 +38,7 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
 
         # set the column widths
         for i in range(len(self.m_columnTypes)):
-            if self.m_columnTypes[i] in ("double", "golfStyle", "skill", "homeAdvantage"):
+            if self.m_columnTypes[i] in _NUMERIC_COLUMN_TYPES:
                 self.treeWidget.header().setSectionResizeMode(i, QHeaderView.Fixed)
                 self.treeWidget.header().resizeSection(i, column_width_for(self.treeWidget, "8888.88"))
             else:
@@ -58,9 +59,7 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
 
     def athletes(self):
         rval = []
-        i = QTreeWidgetItemIterator(self.treeWidget)
-        while i.value():
-            item = i.value()
+        for item in self.iterItems():
             a = XkorAthlete()
             a.name = item.text(_indexOf(self.m_columnKeys, "name"))
             a.id = parseAssignedUuid(item.data(_indexOf(self.m_columnKeys, "name"), Qt.UserRole))
@@ -69,7 +68,6 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
             for j in self.m_columnKeys:
                 a.setProperty(j, item.text(_indexOf(self.m_columnKeys, j)))
             rval.append(a)
-            i += 1
         return rval
 
     def importAthletes(self, filename=None):
@@ -116,9 +114,7 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
                                       uuid.UUID(int=self.r._r.getrandbits(128)),
                                       athleteNation, toDouble(athleteSkill), properties)
 
-            path = QDir(filename)
-            path.cdUp()
-            self.signupListDirectoryChanged.emit(path.canonicalPath())
+            self.signupListDirectoryChanged.emit(parent_folder(filename))
 
         self.isInUse = False
         self.listChanged.emit()
@@ -138,7 +134,7 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
         for i in range(len(self.m_columnTypes)):
             if self.m_columnKeys[i] in properties:
                 item.setText(i, toString(properties[self.m_columnKeys[i]]))
-                if self.m_columnTypes[i] in ("double", "skill", "homeAdvantage"):
+                if self.m_columnTypes[i] in _SPIN_BOX_COLUMN_TYPES:
                     item.setTextAlignment(i, Qt.AlignRight)
             elif self.m_columnTypes[i] == "double":
                 item.setText(i, "0")

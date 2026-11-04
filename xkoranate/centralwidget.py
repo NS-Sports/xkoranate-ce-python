@@ -1,4 +1,4 @@
-from PySide6.QtCore import QDir, QFileInfo, Qt, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QFileDialog, QGridLayout, QMessageBox, QStackedWidget, QWidget
 
 from .event import XkorEvent
@@ -7,7 +7,7 @@ from .navigationwidget import XkorNavigationWidget
 from .rpeditor.rpeditor import XkorRPEditor
 from .rplist import XkorRPList
 from .thinsplitter import XkorThinSplitter
-from .ui.dialogs import message_box, resolved_search_path
+from .ui.dialogs import ask_save_changes, parent_folder, resolved_search_path
 
 
 class XkorCentralWidget(QWidget):
@@ -44,8 +44,8 @@ class XkorCentralWidget(QWidget):
 
         self.ee = XkorEventEditor()
         self.ee.dataChanged.connect(self.setModified)
-        self.ee.resultExportDirectoryChanged.connect(self.setResultExportDirectory)
-        self.ee.signupListDirectoryChanged.connect(self.setSignupListDirectory)
+        self.ee.resultExportDirectoryChanged.connect(self.resultExportDirectoryChanged)
+        self.ee.signupListDirectoryChanged.connect(self.signupListDirectoryChanged)
         self.editor.addWidget(self.ee)
         self.nw.editEvent.connect(self.showEventEditor)
 
@@ -147,9 +147,7 @@ class XkorCentralWidget(QWidget):
                 self.fileChanged.emit(filename)
                 self.setModified(False)
 
-                path = QDir(filename)
-                path.cdUp()
-                self.eventDirectoryChanged.emit(path.canonicalPath())
+                self.eventDirectoryChanged.emit(parent_folder(filename))
 
     def rpList(self):
         self.rpe.updateData()
@@ -170,9 +168,7 @@ class XkorCentralWidget(QWidget):
         self.fileChanged.emit(filename)
         self.setModified(False)
 
-        path = QDir(filename)
-        path.cdUp()
-        self.eventDirectoryChanged.emit(path.canonicalPath())
+        self.eventDirectoryChanged.emit(parent_folder(filename))
 
     def saveFileAs(self):
         self.dialog.setAcceptMode(QFileDialog.AcceptSave)
@@ -184,12 +180,6 @@ class XkorCentralWidget(QWidget):
         if isModified:
             self.fileEdited.emit()
 
-    def setResultExportDirectory(self, dir):
-        self.resultExportDirectoryChanged.emit(dir)
-
-    def setSignupListDirectory(self, dir):
-        self.signupListDirectoryChanged.emit(dir)
-
     def showEventEditor(self, e):
         self.updateCurrentEvent()
         self.currentEvent = e
@@ -200,25 +190,9 @@ class XkorCentralWidget(QWidget):
         self.editor.setCurrentWidget(self.rpe)
 
     def showUnsavedDialog(self):
-        displayFileName = "untitled" if self.currentFileName == "" else QFileInfo(self.currentFileName).fileName()
-        warning = message_box(
-            self, "Do you want to save the changes you made to “%s”?" % displayFileName,
-            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
-            informativeText="Your changes will be lost if you don’t save them.",
-            destructiveButton=QMessageBox.Discard)
-        return warning.exec()
+        return ask_save_changes(self, self.currentFileName)
 
     def updateCurrentEvent(self):
         if self.currentEvent is not None:
             # *currentEvent = ee->data(): copy the value into the existing object
-            d = self.ee.data()  # data() returns a fresh copy
-            e = self.currentEvent
-            e.m_competition = d.m_competition
-            e.m_competitionOptions = d.m_competitionOptions
-            e.m_name = d.m_name
-            e.m_groups = d.m_groups
-            e.m_paradigm = d.m_paradigm
-            e.m_paradigmOptions = d.m_paradigmOptions
-            e.m_results = d.m_results
-            e.m_signupList = d.m_signupList
-            e.m_sport = d.m_sport
+            self.currentEvent.assignFrom(self.ee.data())  # data() returns a fresh copy

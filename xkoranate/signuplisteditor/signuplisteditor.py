@@ -4,21 +4,13 @@ from PySide6.QtWidgets import (QCheckBox, QDoubleSpinBox, QFormLayout, QVBoxLayo
 from ..signuplist import XkorSignupList
 from ..ui.tooltips import wrapped_tooltip
 from ..ui.typography import heading_label
+from ..ui.widgets import discard
 
 # per-athlete skill-entry ceiling used whenever "Maximum skill" isn't a
 # manually-set bound (pinned to participants, or fixed for raw-rank
 # paradigms) -- generous enough that entering a new highest-ranked
 # participant is never blocked by a stale/irrelevant cap
 _ENTRY_SKILL_CEILING = 9999.999
-
-
-def _cloneSignupList(sl):
-    # XkorSignupList is passed/returned by value in the C++
-    rval = XkorSignupList()
-    rval.ath = [a.clone() for a in sl.ath]
-    rval.min = sl.min
-    rval.max = sl.max
-    return rval
 
 
 class XkorSignupListEditor(QWidget):
@@ -80,7 +72,7 @@ class XkorSignupListEditor(QWidget):
 
     def data(self):
         self.updateData()
-        return _cloneSignupList(self.m_data)
+        return self.m_data.clone()
 
     def _maxRankMode(self):
         """"fixed": paradigm calibrates itself (e.g. LISA's refRank) and
@@ -165,7 +157,7 @@ class XkorSignupListEditor(QWidget):
             self.athletes.setMinRank(newMin)
 
     def setData(self, data):
-        data = _cloneSignupList(data)
+        data = data.clone()
 
         self.isLoading = True  # prevent dataChanged from being emitted
 
@@ -200,12 +192,6 @@ class XkorSignupListEditor(QWidget):
         if not self.isLoading:
             self.dataChanged.emit()
 
-    def setItemDeleted(self, id):
-        self.itemDeleted.emit(id)
-
-    def setSignupListDirectory(self, dir):
-        self.signupListDirectoryChanged.emit(dir)
-
     def setSport(self, sport, paradigmOptions):
         # rebuilding for a new paradigm churns through a torn-down athlete
         # widget and re-checks the pin box, and every one of those touches
@@ -224,11 +210,8 @@ class XkorSignupListEditor(QWidget):
     def _setSport(self, sport, paradigmOptions):
         self.updateData()
 
-        if self.athletes:
-            self.layout.removeWidget(self.athletes)
         if self.athletes is not None:  # delete athletes
-            self.athletes.setParent(None)
-            self.athletes.deleteLater()
+            discard(self.layout, self.athletes)
 
         from ..paradigms.paradigmfactory import XkorParadigmFactory
 
@@ -271,8 +254,8 @@ class XkorSignupListEditor(QWidget):
         self.layout.addWidget(self.athletes, 1)
         self.athletes.listChanged.connect(self.setDataChanged)
         self.athletes.listChanged.connect(self._onAthleteListChanged)
-        self.athletes.itemDeleted.connect(self.setItemDeleted)
-        self.athletes.signupListDirectoryChanged.connect(self.setSignupListDirectory)
+        self.athletes.itemDeleted.connect(self.itemDeleted)
+        self.athletes.signupListDirectoryChanged.connect(self.signupListDirectoryChanged)
 
         # re-apply now that a fresh athlete widget/data exist
         self._applyMaxRankMode()

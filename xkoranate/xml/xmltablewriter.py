@@ -1,27 +1,12 @@
-from PySide6.QtCore import QFile, QIODevice, QXmlStreamWriter
-
 from ..variant import qNumber
+from .xmlbasewriter import XkorXmlBaseWriter
 
 
-class XkorXmlTableWriter(QXmlStreamWriter):
+class XkorXmlTableWriter(XkorXmlBaseWriter):
     def __init__(self, filename, t):
         super().__init__()
-        # stream writer settings
-        self.setAutoFormatting(True)
-        self.setAutoFormattingIndent(-1)
-
-        f = QFile(filename)
-        f.open(QIODevice.WriteOnly)
-
-        self.setDevice(f)
-
-        self.writeStartDocument()
-        self.writeStartElement("table")
-        self.writeAttribute("version", "0.3")
-        self.writeTable(t)
-        self.writeEndDocument()
-
-        f.close()
+        with self.document(filename, "table"):
+            self.writeTable(t)
 
     def writeTable(self, t):
         self.writeStartElement("sortCriteria")
@@ -44,9 +29,9 @@ class XkorXmlTableWriter(QXmlStreamWriter):
                 self.writeTextElement(name, qNumber(value))
 
         self.writeTextElement("columnWidth", str(t.getColumnWidth()))
-        self.writeTextElement("showDraws", "true" if t.getShowDraws() else "false")
-        self.writeTextElement("showOvertime", "true" if t.getShowOvertime() else "false")
-        self.writeTextElement("showResultsGrid", "true" if t.getShowResultsGrid() else "false")
+        self.writeBoolElement("showDraws", t.getShowDraws())
+        self.writeBoolElement("showOvertime", t.getShowOvertime())
+        self.writeBoolElement("showResultsGrid", t.getShowResultsGrid())
         self.writeTextElement("goalName", t.getGoalName())
 
         coinFlips = t.getCoinFlips()

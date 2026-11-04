@@ -1,4 +1,4 @@
-from PySide6.QtCore import QDir, QFileInfo, QSettings, Qt
+from PySide6.QtCore import QDir, QFileInfo, Qt
 from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import QApplication, QToolBar
 
@@ -7,9 +7,18 @@ from .centralwidget import XkorCentralWidget
 from .help import help_action
 from .icons import icon, icon_action
 from .mainwindow import XkorMainWindow
-from .paths import sportsDir
+from .paths import appSettings, sportsDir
 from . import theme
 from .variant import toStringList
+
+# (search path prefix, settings key) for each directory the app remembers
+_DIRECTORIES = [
+    ("events", "eventDirectory"),
+    ("resultsExport", "resultExportDirectory"),
+    ("resultsImport", "resultImportDirectory"),
+    ("signupLists", "signupListDirectory"),
+    ("tables", "tableDirectory"),
+]
 
 
 class XkorApplication(QApplication):
@@ -23,7 +32,7 @@ class XkorApplication(QApplication):
         self.tg = None
         self.modified = False
 
-        self.settings = QSettings("thirdgeek.com", "xkoranate")
+        self.settings = appSettings()
 
         self.setDefaultSettings()  # in case we haven’t run the application before
 
@@ -136,27 +145,20 @@ class XkorApplication(QApplication):
     def refreshSearchPaths(self):
         QDir.setSearchPaths("sports", [sportsDir()])
 
-        QDir.setSearchPaths("events", toStringList(self.settings.value("eventDirectory")))
-        QDir.setSearchPaths("resultsExport", toStringList(self.settings.value("resultExportDirectory")))
-        QDir.setSearchPaths("resultsImport", toStringList(self.settings.value("resultImportDirectory")))
-        QDir.setSearchPaths("signupLists", toStringList(self.settings.value("signupListDirectory")))
-        QDir.setSearchPaths("tables", toStringList(self.settings.value("tableDirectory")))
+        for prefix, key in _DIRECTORIES:
+            QDir.setSearchPaths(prefix, toStringList(self.settings.value(key)))
 
     def setDefaultSettings(self):
-        if not self.settings.contains("eventDirectory"):
-            self.setEventDirectory(QDir.homePath())
-        if not self.settings.contains("resultExportDirectory"):
-            self.setResultExportDirectory(QDir.homePath())
-        if not self.settings.contains("resultImportDirectory"):
-            self.setResultImportDirectory(QDir.homePath())
-        if not self.settings.contains("signupListDirectory"):
-            self.setSignupListDirectory(QDir.homePath())
-        if not self.settings.contains("tableDirectory"):
-            self.setTableDirectory(QDir.homePath())
+        for _prefix, key in _DIRECTORIES:
+            if not self.settings.contains(key):
+                self._setDirectory(key, QDir.homePath())
+
+    def _setDirectory(self, key, dir):
+        self.settings.setValue(key, dir)
+        self.refreshSearchPaths()
 
     def setEventDirectory(self, dir):
-        self.settings.setValue("eventDirectory", dir)
-        self.refreshSearchPaths()
+        self._setDirectory("eventDirectory", dir)
 
     def setFileName(self, filename):
         displayName = "untitled"
@@ -175,20 +177,16 @@ class XkorApplication(QApplication):
             action.setChecked(True)
 
     def setResultExportDirectory(self, dir):
-        self.settings.setValue("resultExportDirectory", dir)
-        self.refreshSearchPaths()
+        self._setDirectory("resultExportDirectory", dir)
 
     def setResultImportDirectory(self, dir):
-        self.settings.setValue("resultImportDirectory", dir)
-        self.refreshSearchPaths()
+        self._setDirectory("resultImportDirectory", dir)
 
     def setSignupListDirectory(self, dir):
-        self.settings.setValue("signupListDirectory", dir)
-        self.refreshSearchPaths()
+        self._setDirectory("signupListDirectory", dir)
 
     def setTableDirectory(self, dir):
-        self.settings.setValue("tableDirectory", dir)
-        self.refreshSearchPaths()
+        self._setDirectory("tableDirectory", dir)
 
     def tableGenerator(self):
         from .tablegenerator.tablegeneratorwindow import XkorTableGeneratorWindow
