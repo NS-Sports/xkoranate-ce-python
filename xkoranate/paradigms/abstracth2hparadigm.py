@@ -308,6 +308,16 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
 
         return rval
 
+    @staticmethod
+    def _appendSubScores(home, away, homeScore, awayScore, key="subScores"):
+        """Add one more entry to each side's list of sub-scores."""
+        homeScores = toList(home.result.get(key))
+        awayScores = toList(away.result.get(key))
+        homeScores.append(homeScore)
+        awayScores.append(awayScore)
+        home.result[key] = homeScores
+        away.result[key] = awayScores
+
     def generateConversions(self, count, forceValue=-1):
         rval = 0
 
@@ -370,12 +380,7 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
             away.result[scoreType] = toDouble(away.value(scoreType)) + score2 * toInt(pointValues[i])
 
             # store the sub-score
-            homeScores = toList(home.result.get(subScoreType))
-            awayScores = toList(away.result.get(subScoreType))
-            homeScores.append(score1)
-            awayScores.append(score2)
-            home.result[subScoreType] = homeScores
-            away.result[subScoreType] = awayScores
+            self._appendSubScores(home, away, score1, score2, subScoreType)
 
             if i == 0 and self.opt.get("conversionValues") is not None:
                 home.result[scoreType] = toDouble(home.value(scoreType)) + self.generateConversions(score1)
@@ -416,12 +421,7 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
             aRes.setScore(aRes.score() + score2 * toInt(pointValues[i]))
 
             # store the sub-score
-            hResScores = toList(hRes.result.get("subScores"))
-            aResScores = toList(aRes.result.get("subScores"))
-            hResScores.append(score1)
-            aResScores.append(score2)
-            hRes.result["subScores"] = hResScores
-            aRes.result["subScores"] = aResScores
+            self._appendSubScores(hRes, aRes, score1, score2)
 
             if i == 0 and self.opt.get("conversionValues") is not None:
                 hRes.setScore(hRes.score() + self.generateConversions(score1))

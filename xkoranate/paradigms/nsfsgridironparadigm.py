@@ -2,7 +2,7 @@ import math
 import sys
 
 from ..result import XkorResult
-from ..variant import toDouble, toInt, toList, toString
+from ..variant import toDouble, toInt, toString
 from .abstractparadigm import XkorAbstractParadigm
 from .abstracth2hparadigm import XkorAbstractH2HParadigm
 
@@ -53,12 +53,7 @@ class XkorNSFSGridironParadigm(XkorAbstractH2HParadigm):
                 result = self.generateScorePair(home.rpSkill, away.rpSkill)
                 hRes.setScore(hRes.score() + result[0])
                 aRes.setScore(aRes.score() + result[1])
-                hResScores = toList(hRes.result.get("subScores"))
-                aResScores = toList(aRes.result.get("subScores"))
-                hResScores.append(result[0])
-                aResScores.append(result[1])
-                hRes.result["subScores"] = hResScores
-                aRes.result["subScores"] = aResScores
+                self._appendSubScores(hRes, aRes, result[0], result[1])
         else:
             result = self.generateScorePair(home.rpSkill, away.rpSkill, periods)
             hRes.setScore(result[0])

@@ -76,12 +76,7 @@ class XkorShootingParadigm(XkorScoredParadigm):
             # load up the previous result, if any
             for j in previousResults:
                 if j.athlete == i:
-                    attemptsList = toList(r.result.get("attempts"))
-                    attemptStrings = toList(r.result.get("attemptStrings"))
-                    attemptsList.append(j.score())
-                    attemptStrings.append(j.scoreString())
-                    r.result["attempts"] = attemptsList
-                    r.result["attemptStrings"] = attemptStrings
+                    self._appendAttempt(r, j.score(), j.scoreString())
 
             for j in range(attempts):
                 # generate the result with a modified skill
@@ -91,13 +86,7 @@ class XkorShootingParadigm(XkorScoredParadigm):
                     result = self.individualResult(ath, toString(self.readOptionList(attemptTypes)[j]))
                 else:
                     result = self.individualResult(ath, attemptType, roundingType)
-
-                attemptsList = toList(r.result.get("attempts"))
-                attemptStrings = toList(r.result.get("attemptStrings"))
-                attemptsList.append(result.score())
-                attemptStrings.append(result.scoreString())
-                r.result["attempts"] = attemptsList
-                r.result["attemptStrings"] = attemptStrings
+                self._appendAttempt(r, result.score(), result.scoreString())
             self.calculateTotal(r)
 
             self.res.append(r)

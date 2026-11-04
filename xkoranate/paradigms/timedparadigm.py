@@ -29,6 +29,35 @@ class XkorTimedParadigm(XkorAbstractParadigm):
     def formatScore(self, score):
         return self.timeFormat(score, toInt(self.opt.get("displayDigits")))
 
+    # a result keeps its attempts as two parallel lists, the scores in
+    # "attempts" and their display text in "attemptStrings"
+    @staticmethod
+    def _appendAttempt(r, score, scoreString):
+        attempts = toList(r.result.get("attempts"))
+        attemptStrings = toList(r.result.get("attemptStrings"))
+        attempts.append(score)
+        attemptStrings.append(scoreString)
+        r.result["attempts"] = attempts
+        r.result["attemptStrings"] = attemptStrings
+
+    @staticmethod
+    def _setAttempt(r, i, score, scoreString):
+        attempts = toList(r.result.get("attempts"))
+        attemptStrings = toList(r.result.get("attemptStrings"))
+        attempts[i] = score
+        attemptStrings[i] = scoreString
+        r.result["attempts"] = attempts
+        r.result["attemptStrings"] = attemptStrings
+
+    @staticmethod
+    def _extendAttempts(r, previous):
+        attempts = toList(r.result.get("attempts"))
+        attemptStrings = toList(r.result.get("attemptStrings"))
+        attempts.extend(toList(previous.result.get("attempts")))
+        attemptStrings.extend(toList(previous.result.get("attemptStrings")))
+        r.result["attempts"] = attempts
+        r.result["attemptStrings"] = attemptStrings
+
     def hasOptionsWidget(self):
         return True
 
@@ -187,12 +216,7 @@ class XkorTimedParadigm(XkorAbstractParadigm):
             # load up the previous result, if any
             for j in previousResults:
                 if j.athlete == i:
-                    attempts = toList(r.result.get("attempts"))
-                    attemptStrings = toList(r.result.get("attemptStrings"))
-                    attempts.extend(toList(j.result.get("attempts")))
-                    attemptStrings.extend(toList(j.result.get("attemptStrings")))
-                    r.result["attempts"] = attempts
-                    r.result["attemptStrings"] = attemptStrings
+                    self._extendAttempts(r, j)
 
             priorAttempts = len(toList(r.result.get("attempts")))
             for j in range(priorAttempts, priorAttempts + toInt(self.opt.get("attempts", 1))):
@@ -204,12 +228,7 @@ class XkorTimedParadigm(XkorAbstractParadigm):
                     result = self.individualResult(i, toString(attemptTypes[j]))
                 else:
                     result = self.individualResult(i, "score")
-                attempts = toList(r.result.get("attempts"))
-                attemptStrings = toList(r.result.get("attemptStrings"))
-                attempts.append(result.score())
-                attemptStrings.append(result.scoreString())
-                r.result["attempts"] = attempts
-                r.result["attemptStrings"] = attemptStrings
+                self._appendAttempt(r, result.score(), result.scoreString())
                 if "causesAdvancement" in result.result:
                     r.result["causesAdvancement"] = result.value("causesAdvancement")
                 if (toString(self.opt.get("totalType")) != "best"
@@ -262,12 +281,7 @@ class XkorTimedParadigm(XkorAbstractParadigm):
                 r = self.res[i].clone()
                 for j in range(toInt(self.opt.get("furtherAttempts"))):
                     result = self.individualResult(r.athlete, "score")
-                    attempts = toList(r.result.get("attempts"))
-                    attemptStrings = toList(r.result.get("attemptStrings"))
-                    attempts.append(result.score())
-                    attemptStrings.append(result.scoreString())
-                    r.result["attempts"] = attempts
-                    r.result["attemptStrings"] = attemptStrings
+                    self._appendAttempt(r, result.score(), result.scoreString())
 
                 self.calculateTotal(r)
                 self.res[i] = r

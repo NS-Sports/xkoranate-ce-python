@@ -56,21 +56,11 @@ class XkorPGSParadigm(XkorTimedParadigm):
                 for i in range(toInt(self.opt.get("attempts", 1))):
                     # scorinate the home result
                     result = self.individualResult(home, "score")
-                    attempts = toList(homeResult.result.get("attempts"))
-                    attemptStrings = toList(homeResult.result.get("attemptStrings"))
-                    attempts.append(result.score())
-                    attemptStrings.append(result.scoreString())
-                    homeResult.result["attempts"] = attempts
-                    homeResult.result["attemptStrings"] = attemptStrings
+                    self._appendAttempt(homeResult, result.score(), result.scoreString())
 
                     # scorinate the away result
                     result = self.individualResult(away, "score")
-                    attempts = toList(awayResult.result.get("attempts"))
-                    attemptStrings = toList(awayResult.result.get("attemptStrings"))
-                    attempts.append(result.score())
-                    attemptStrings.append(result.scoreString())
-                    awayResult.result["attempts"] = attempts
-                    awayResult.result["attemptStrings"] = attemptStrings
+                    self._appendAttempt(awayResult, result.score(), result.scoreString())
 
                 # sort out PGS stuff
                 totalHomeScore = 0.0
@@ -81,21 +71,11 @@ class XkorPGSParadigm(XkorTimedParadigm):
                     if toList(homeResult.value("attempts"))[i] == sys.float_info.max:
                         totalHomeScore = maxScore
                         totalAwayScore = 0
-                        attempts = toList(awayResult.result.get("attempts"))
-                        attemptStrings = toList(awayResult.result.get("attemptStrings"))
-                        attempts[i] = 0
-                        attemptStrings[i] = ""
-                        awayResult.result["attempts"] = attempts
-                        awayResult.result["attemptStrings"] = attemptStrings
+                        self._setAttempt(awayResult, i, 0, "")
                     elif toList(awayResult.value("attempts"))[i] == sys.float_info.max:
                         totalAwayScore = maxScore
                         totalHomeScore = 0
-                        attempts = toList(homeResult.result.get("attempts"))
-                        attemptStrings = toList(homeResult.result.get("attemptStrings"))
-                        attempts[i] = 0
-                        attemptStrings[i] = ""
-                        homeResult.result["attempts"] = attempts
-                        homeResult.result["attemptStrings"] = attemptStrings
+                        self._setAttempt(homeResult, i, 0, "")
                     else:
                         totalHomeScore += toDouble(toList(homeResult.value("attempts"))[i])
                         totalAwayScore += toDouble(toList(awayResult.value("attempts"))[i])
@@ -106,19 +86,8 @@ class XkorPGSParadigm(XkorTimedParadigm):
                                 totalHomeScore = maxScore
                             totalAwayScore = 0
 
-                            attempts = toList(homeResult.result.get("attempts"))
-                            attemptStrings = toList(homeResult.result.get("attemptStrings"))
-                            attempts[i] = thisScore
-                            attemptStrings[i] = self.formatScore(thisScore)
-                            homeResult.result["attempts"] = attempts
-                            homeResult.result["attemptStrings"] = attemptStrings
-
-                            attempts = toList(awayResult.result.get("attempts"))
-                            attemptStrings = toList(awayResult.result.get("attemptStrings"))
-                            attempts[i] = 0
-                            attemptStrings[i] = ""
-                            awayResult.result["attempts"] = attempts
-                            awayResult.result["attemptStrings"] = attemptStrings
+                            self._setAttempt(homeResult, i, thisScore, self.formatScore(thisScore))
+                            self._setAttempt(awayResult, i, 0, "")
                         else:
                             totalAwayScore -= totalHomeScore
                             thisScore = totalAwayScore
@@ -126,19 +95,8 @@ class XkorPGSParadigm(XkorTimedParadigm):
                                 totalAwayScore = maxScore
                             totalHomeScore = 0
 
-                            attempts = toList(homeResult.result.get("attempts"))
-                            attemptStrings = toList(homeResult.result.get("attemptStrings"))
-                            attempts[i] = 0
-                            attemptStrings[i] = ""
-                            homeResult.result["attempts"] = attempts
-                            homeResult.result["attemptStrings"] = attemptStrings
-
-                            attempts = toList(awayResult.result.get("attempts"))
-                            attemptStrings = toList(awayResult.result.get("attemptStrings"))
-                            attempts[i] = thisScore
-                            attemptStrings[i] = self.formatScore(thisScore)
-                            awayResult.result["attempts"] = attempts
-                            awayResult.result["attemptStrings"] = attemptStrings
+                            self._setAttempt(homeResult, i, 0, "")
+                            self._setAttempt(awayResult, i, thisScore, self.formatScore(thisScore))
                     print(totalHomeScore, totalAwayScore, file=sys.stderr)
 
                 homeResult.setOutput(self.outputLine(homeResult))
