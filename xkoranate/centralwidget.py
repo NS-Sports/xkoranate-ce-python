@@ -44,8 +44,8 @@ class XkorCentralWidget(QWidget):
 
         self.ee = XkorEventEditor()
         self.ee.dataChanged.connect(self.setModified)
-        self.ee.resultExportDirectoryChanged.connect(self.setResultExportDirectory)
-        self.ee.signupListDirectoryChanged.connect(self.setSignupListDirectory)
+        self.ee.resultExportDirectoryChanged.connect(self.resultExportDirectoryChanged)
+        self.ee.signupListDirectoryChanged.connect(self.signupListDirectoryChanged)
         self.editor.addWidget(self.ee)
         self.nw.editEvent.connect(self.showEventEditor)
 
@@ -183,12 +183,6 @@ class XkorCentralWidget(QWidget):
         self.modified = isModified
         if isModified:
             self.fileEdited.emit()
-
-    def setResultExportDirectory(self, dir):
-        self.resultExportDirectoryChanged.emit(dir)
-
-    def setSignupListDirectory(self, dir):
-        self.signupListDirectoryChanged.emit(dir)
 
     def showEventEditor(self, e):
         self.updateCurrentEvent()

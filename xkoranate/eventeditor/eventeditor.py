@@ -147,12 +147,12 @@ class XkorEventEditor(QWidget):
         self.scorinateWidget = XkorScorinateWidget()
         self.scorinateWidget.resumeFileOptionsSet.connect(self.setResumeFileOptions)
         self.scorinateWidget.resultConfirmed.connect(self.setResult)
-        self.scorinateWidget.resultExportDirectoryChanged.connect(self.setResultExportDirectory)
+        self.scorinateWidget.resultExportDirectoryChanged.connect(self.resultExportDirectoryChanged)
 
     def initSignupListEditor(self):
         self.signupListEditor = XkorSignupListEditor()
         self.signupListEditor.dataChanged.connect(self.updateSignupList)
-        self.signupListEditor.signupListDirectoryChanged.connect(self.setSignupListDirectory)
+        self.signupListEditor.signupListDirectoryChanged.connect(self.signupListDirectoryChanged)
 
     def initSportSelector(self):
         self.sportSelector = XkorSportSelector()
@@ -236,15 +236,9 @@ class XkorEventEditor(QWidget):
         self.m_data.setResult(matchday, result)
         self.setDataChanged()
 
-    def setResultExportDirectory(self, dir):
-        self.resultExportDirectoryChanged.emit(dir)
-
     def setResumeFileOptions(self, options):
         self.m_data.replaceCompetitionOptions(options)
         self.setDataChanged()
-
-    def setSignupListDirectory(self, dir):
-        self.signupListDirectoryChanged.emit(dir)
 
     def updateCompetition(self, competition):
         self.m_data.setCompetition(competition)

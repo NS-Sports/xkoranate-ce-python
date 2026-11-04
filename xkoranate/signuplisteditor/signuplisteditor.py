@@ -192,12 +192,6 @@ class XkorSignupListEditor(QWidget):
         if not self.isLoading:
             self.dataChanged.emit()
 
-    def setItemDeleted(self, id):
-        self.itemDeleted.emit(id)
-
-    def setSignupListDirectory(self, dir):
-        self.signupListDirectoryChanged.emit(dir)
-
     def setSport(self, sport, paradigmOptions):
         # rebuilding for a new paradigm churns through a torn-down athlete
         # widget and re-checks the pin box, and every one of those touches
@@ -260,8 +254,8 @@ class XkorSignupListEditor(QWidget):
         self.layout.addWidget(self.athletes, 1)
         self.athletes.listChanged.connect(self.setDataChanged)
         self.athletes.listChanged.connect(self._onAthleteListChanged)
-        self.athletes.itemDeleted.connect(self.setItemDeleted)
-        self.athletes.signupListDirectoryChanged.connect(self.setSignupListDirectory)
+        self.athletes.itemDeleted.connect(self.itemDeleted)
+        self.athletes.signupListDirectoryChanged.connect(self.signupListDirectoryChanged)
 
         # re-apply now that a fresh athlete widget/data exist
         self._applyMaxRankMode()
