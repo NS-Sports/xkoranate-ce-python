@@ -808,6 +808,146 @@ def test_scorinating_a_round_out_of_order_says_why_it_is_empty(sport_index, rng)
     assert c.matchdayNames()[2] in result
 
 
+def test_switching_away_from_a_knockout_adds_no_stray_group(editor, sport_index, rng):
+    """Leaving a knockout used to plant its empty bracket in the next event.
+
+    Loading an event first empties the editor while it is still in the old
+    event's bracket mode, so the setup page read back one empty pooled group.
+    The switch to the next event's format then turned that into a group of
+    its own, and a stray "Bracket" heading turned up in that event's results.
+    """
+    race, _ = build_event(sport_index, rng, "Athletics—Men’s 00100 m—Round 1")
+    race.m_groups[0].name = "Final"
+    cup, _ = build_event(sport_index, rng, "Association football—LISA formula")
+    cup.setCompetition("singleElimination")
+
+    def groups():
+        return [(g.name, len(g.athletes)) for g in editor.ee.eventSetupWidget.groups()]
+
+    editor.showEventEditor(race)
+    assert groups() == [("Final", 8)]
+
+    editor.showEventEditor(cup)
+    for _ in range(3):
+        editor.ee.goNext()  # through to the scorinate page
+
+    editor.showEventEditor(race)
+    assert groups() == [("Final", 8)]
+    editor.updateCurrentEvent()
+    assert [g.name for g in race.groups()] == ["Final"]
+
+
+def test_an_empty_group_survives_a_trip_through_the_knockout_format(editor):
+    """An empty bracket carries nothing over, but the pools it replaced still come back."""
+    from xkoranate.eventeditor.eventsetupwidget import XkorEventSetupWidget
+
+    w = XkorEventSetupWidget()
+    w.setCompetition("roundRobin")
+    w.setGroups([XkorGroup("Group 1", [])])
+    w.setCompetition("singleElimination")
+    w.setCompetition("roundRobin")
+    assert [(g.name, g.athletes) for g in w.groups()] == [("Group 1", [])]
+
+    # with nothing remembered, an empty bracket leaves nothing behind
+    w.reset()
+    w.setCompetition("singleElimination")
+    w.setGroups([])
+    w.setCompetition("roundRobin")
+    assert w.groups() == []
+
+
+# ------------------------------------------------------ stoppages in tables
+
+
+@pytest.mark.parametrize("sportName", ["Boxing—xkoranate formula", "Taekwondo—xkoranate formula"])
+def test_a_stoppage_counts_as_a_win_for_the_winner_in_a_league_table(sport_index, sportName):
+    """A KO, DSQ and the like used to go into the table as the largest
+    float the wrong way round: the beaten side was credited the win, and
+    the goal difference overflowed to infinity and crashed the table."""
+    import re
+
+    stoppages = 0
+    for seed in range(6):
+        ev, sport = build_event(sport_index, Mt19937(seed), sportName)
+        ev.setCompetition("roundRobin")
+        sl = ev.makeStartList(XkorRPList())
+        opts = {"numberOfLegs": "2"}
+        results = {}
+
+        def build():
+            return XkorCompetitionFactory.newCompetitionFull(
+                "roundRobin", sl, sport, ev.paradigmOptions(), opts, results)
+
+        c = build()
+        for md in range(c.matchdays()):
+            c.scorinate(md)  # used to raise OverflowError on a stoppage
+            results[md] = c.results(md)
+            opts.update(c.resumeFileOptions())
+            c = build()
+
+        stored = {}
+        for line in opts["tableData"][0]:
+            # taekwondo scores can go below zero
+            rx = re.match(r"(\d+): (.+) (-?[0-9.]+)–(-?[0-9.]+) (.+)", line)
+            assert rx, line
+            stored[(int(rx.group(1)), rx.group(2), rx.group(5))] = (float(rx.group(3)), float(rx.group(4)))
+
+        for md, text in results.items():
+            for rx in re.finditer(r"^(.+?) \(\w+\) def\.( by)? (.+?) \(\w+\) \((\w+)\)$", text, re.M):
+                home, by, away = rx.group(1), rx.group(2), rx.group(3)
+                h, a = stored[(md, home, away)]
+                assert (h < a) if by else (h > a), rx.group(0)
+                stoppages += 1
+    assert stoppages > 0  # the seeds actually produced some
+
+
+# ------------------------------------------------------ unbreakable shoot-offs
+
+NO_SHOOTOFF_DATA = [
+    "Shooting—Mixed team 10 m air pistol—Qualification",
+    "Shooting—Mixed team 10 m air pistol—Final (Last series)",
+    "Shooting—Mixed team 10 m air pistol—Final (First six series)",
+    "Shooting—Mixed team 10 m air rifle—Qualification",
+    "Shooting—Mixed team 10 m air rifle—Final (Last series)",
+    "Shooting—Mixed team 10 m air rifle—Final (First six series)",
+    "Shooting—Mixed team trap—Final",
+]
+
+
+@pytest.mark.parametrize("sportName", NO_SHOOTOFF_DATA)
+def test_a_tie_that_no_shoot_off_can_break_stands_instead_of_hanging(sport_index, capfd, sportName):
+    """These sports have no shoot-off data, so every shoot-off shot scored the
+    same and a tie at the cutoff or on the podium re-shot forever."""
+    import signal
+
+    def hang(signum, frame):
+        raise AssertionError("scorination never finished")
+
+    old = signal.signal(signal.SIGALRM, hang)
+    try:
+        for seed in [6450, 6510] + list(range(40)):
+            ev, sport = build_event(sport_index, Mt19937(seed), sportName)
+            athletes = list(ev.groups()[0].athletes)
+            ev.setGroups([XkorGroup("Group A", athletes[:4]), XkorGroup("Group B", athletes[4:])])
+            ev.setCompetition("shooting")
+            sl = ev.makeStartList(XkorRPList())
+            opts, results = {}, {}
+            for md in range(2):
+                c = XkorCompetitionFactory.newCompetitionFull(
+                    "shooting", sl, sport, ev.paradigmOptions(), opts, results)
+                signal.alarm(10)
+                c.scorinate(md)
+                signal.alarm(0)
+                results[md] = c.results(md)
+                opts.update(c.resumeFileOptions())
+                assert results[md].strip()
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old)
+    # the seeds did produce a tie the sport couldn't break
+    assert "can't break a tie by shoot-off" in capfd.readouterr().err
+
+
 # ------------------------------------------------------ inter-conference play
 
 

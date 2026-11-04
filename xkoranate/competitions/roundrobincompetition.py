@@ -5,8 +5,9 @@ from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
 from xkoranate.variant import qNumber, toDouble, toInt, toList, toString, toUInt
 
 # a saved result: “3: Aquilla 3–1 Busby”, with an optional “OT”/“SO” decider
-# marker before the away team, e.g. “3: Aquilla 3–1 OT Busby”
-_STORED_MATCH = re.compile("([0-9]+): (.+) ([0-9.]+)–([0-9.]+)(?: (OT|SO))? (.+)")
+# marker before the away team, e.g. “3: Aquilla 3–1 OT Busby”. A score can be
+# negative (taekwondo deducts penalty points), e.g. “3: Aquilla 6–-1 Busby”
+_STORED_MATCH = re.compile("([0-9]+): (.+) (-?[0-9.]+)–(-?[0-9.]+)(?: (OT|SO))? (.+)")
 
 
 def parseStoredMatch(line):
@@ -253,7 +254,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         for idx in range(len(tableData)):
             groupData = toList(tableData[idx])
             for j in range(len(groupData)):
-                rx = re.search("([0-9]+): (.+ [0-9.]+–[0-9.]+ .+)", toString(groupData[j]))  # find out what matchday the score is from
+                rx = re.search("([0-9]+): (.+ -?[0-9.]+–-?[0-9.]+ .+)", toString(groupData[j]))  # find out what matchday the score is from
                 if rx is not None and toDouble(rx.group(1)) >= matchday:  # if it’s on “matchday” or later…
                     groupData[j] = ""  # …blank the value
             # actually delete the blanked values
@@ -309,12 +310,8 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
                     score1 = p.findResult(i.athletes[j[0]].id)
                     score2 = p.findResult(i.athletes[j[1]].id)
 
-                    # with draws allowed a tie is a result in its own right,
-                    # so the tiebreaker stages don't come into the table
-                    if toString(self.userOpt.get("allowDraws")) == "false":
-                        scoreValue1, scoreValue2, decider = self.effectiveScores(p, score1, score2)
-                    else:
-                        scoreValue1, scoreValue2, decider = score1.score(), score2.score(), None
+                    scoreValue1, scoreValue2, decider = self.tableScores(
+                        p, score1, score2, toString(self.userOpt.get("allowDraws")) != "false")
                     self.tables[groupNo].insertMatch(i.athletes[j[0]].name, i.athletes[j[1]].name, scoreValue1, scoreValue2, decider)
 
                     # insert into the resume options
