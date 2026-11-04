@@ -18,14 +18,6 @@ from ..signuplist import XkorSignupList
 from .eventsetupdelegate import XkorEventSetupDelegate
 
 
-def _cloneSignupList(sl):
-    rval = XkorSignupList()
-    rval.ath = [a.clone() for a in sl.ath]
-    rval.min = sl.min
-    rval.max = sl.max
-    return rval
-
-
 class XkorEventSetupWidget(XkorAbstractTreeWidget):
     slChanged = Signal()
     viewScheduleRequested = Signal()
@@ -672,7 +664,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.listChanged.emit()
 
     def setSignupList(self, l):
-        self.sl = _cloneSignupList(l)
+        self.sl = l.clone()
         self._availableDirty = True  # names and ids may both have changed
         self.slChanged.emit()
 

@@ -16,65 +16,12 @@ from ..event import XkorEvent
 from ..icons import icon_action
 from ..rng import Mt19937
 from ..rplist import XkorRPList
-from ..signuplist import XkorSignupList
 from ..sport import XkorSport
 from ..startlist import XkorStartList
 from ..ui.dialogs import message_box, resolved_search_path
 from ..ui.fonts import monospace_font, widen_combo_popup
 from ..ui.tooltips import wrapped_tooltip
 from ..ui.typography import heading_label
-
-
-# Value-semantics helpers: these classes are passed by value in the C++ code,
-# so we copy them at the call boundaries (see PORTING.md).
-
-def _cloneSignupList(sl):
-    rval = XkorSignupList()
-    rval.ath = [a.clone() for a in sl.ath]
-    rval.min = sl.min
-    rval.max = sl.max
-    return rval
-
-
-def _cloneSport(s):
-    rval = XkorSport()
-    rval.m_name = s.m_name
-    rval.m_alphaName = s.m_alphaName
-    rval.m_discipline = s.m_discipline
-    rval.m_event = s.m_event
-    rval.m_scorinator = s.m_scorinator
-    rval.m_paradigm = s.m_paradigm
-    rval.m_paradigmOptions = dict(s.m_paradigmOptions)
-    rval.m_dataPoints = {k: dict(v) for k, v in s.m_dataPoints.items()}
-    rval.r = s.r
-    return rval
-
-
-def _cloneRPList(rp):
-    rval = XkorRPList()
-    rval.m_competitionName = rp.m_competitionName
-    rval.bon = {k: dict(v) for k, v in rp.bon.items()}
-    rval.rpCalcType = rp.rpCalcType
-    rval.rpOpts = dict(rp.rpOpts)
-    rval.max = rp.max
-    rval.min = rp.min
-    rval.eff = rp.eff
-    rval.teams = rp.teams
-    return rval
-
-
-def _cloneEvent(e):
-    rval = XkorEvent()
-    rval.m_competition = e.m_competition
-    rval.m_competitionOptions = dict(e.m_competitionOptions)
-    rval.m_name = e.m_name
-    rval.m_groups = [g.clone() for g in e.m_groups]
-    rval.m_paradigm = e.m_paradigm
-    rval.m_paradigmOptions = dict(e.m_paradigmOptions)
-    rval.m_results = dict(e.m_results)
-    rval.m_signupList = _cloneSignupList(e.m_signupList)
-    rval.m_sport = e.m_sport
-    return rval
 
 
 class XkorScorinateWidget(QWidget):
@@ -355,9 +302,9 @@ class XkorScorinateWidget(QWidget):
 
     def setEvent(self, event, rpList, sport):
         # XkorEvent, XkorRPList and XkorSport are passed by value in the C++
-        event = _cloneEvent(event)
-        rpList = _cloneRPList(rpList)
-        sport = _cloneSport(sport)
+        event = event.clone()
+        rpList = rpList.clone()
+        sport = sport.clone()
 
         sport.setPRNG(self.r)
 

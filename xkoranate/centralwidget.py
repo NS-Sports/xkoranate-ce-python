@@ -211,14 +211,4 @@ class XkorCentralWidget(QWidget):
     def updateCurrentEvent(self):
         if self.currentEvent is not None:
             # *currentEvent = ee->data(): copy the value into the existing object
-            d = self.ee.data()  # data() returns a fresh copy
-            e = self.currentEvent
-            e.m_competition = d.m_competition
-            e.m_competitionOptions = d.m_competitionOptions
-            e.m_name = d.m_name
-            e.m_groups = d.m_groups
-            e.m_paradigm = d.m_paradigm
-            e.m_paradigmOptions = d.m_paradigmOptions
-            e.m_results = d.m_results
-            e.m_signupList = d.m_signupList
-            e.m_sport = d.m_sport
+            self.currentEvent.assignFrom(self.ee.data())  # data() returns a fresh copy

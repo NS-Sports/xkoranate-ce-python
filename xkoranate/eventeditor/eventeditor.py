@@ -11,8 +11,7 @@ from .. import theme
 from ..ui.dialogs import message_box, text_preview_dialog
 from .competitionselector import XkorCompetitionSelector
 from .eventsetupwidget import XkorEventSetupWidget
-from .scorinatewidget import (XkorScorinateWidget, _cloneEvent, _cloneRPList,
-                              _cloneSport)
+from .scorinatewidget import XkorScorinateWidget
 from .sportselector import XkorSportSelector
 
 _STEP_NAMES = ["Sport", "Signups", "Competition", "Groups", "Scorinate"]
@@ -165,12 +164,12 @@ class XkorEventEditor(QWidget):
 
     def data(self):
         self.updateData()
-        return _cloneEvent(self.m_data)  # XkorEvent is returned by value in the C++
+        return self.m_data.clone()  # XkorEvent is returned by value in the C++
 
     def setData(self, data, rpList):
         # XkorEvent and XkorRPList are passed by value in the C++
-        data = _cloneEvent(data)
-        rpList = _cloneRPList(rpList)
+        data = data.clone()
+        rpList = rpList.clone()
 
         self.isLoading = True  # prevent dataChanged from being emitted
 
@@ -281,7 +280,7 @@ class XkorEventEditor(QWidget):
         self.setDataChanged()
 
     def updateSport(self, s):
-        self.sport = _cloneSport(s)  # XkorSport is passed by value in the C++
+        self.sport = s.clone()  # XkorSport is passed by value in the C++
         self.m_data.setSport(self.sport.name(), self.sport.paradigm())
         if self.sport.name() != "":
             self.next.setEnabled(True)

@@ -12,15 +12,6 @@ from ..ui.typography import heading_label
 _ENTRY_SKILL_CEILING = 9999.999
 
 
-def _cloneSignupList(sl):
-    # XkorSignupList is passed/returned by value in the C++
-    rval = XkorSignupList()
-    rval.ath = [a.clone() for a in sl.ath]
-    rval.min = sl.min
-    rval.max = sl.max
-    return rval
-
-
 class XkorSignupListEditor(QWidget):
     dataChanged = Signal()
     itemDeleted = Signal(object)  # QUuid
@@ -80,7 +71,7 @@ class XkorSignupListEditor(QWidget):
 
     def data(self):
         self.updateData()
-        return _cloneSignupList(self.m_data)
+        return self.m_data.clone()
 
     def _maxRankMode(self):
         """"fixed": paradigm calibrates itself (e.g. LISA's refRank) and
@@ -165,7 +156,7 @@ class XkorSignupListEditor(QWidget):
             self.athletes.setMinRank(newMin)
 
     def setData(self, data):
-        data = _cloneSignupList(data)
+        data = data.clone()
 
         self.isLoading = True  # prevent dataChanged from being emitted
 

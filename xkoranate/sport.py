@@ -23,6 +23,20 @@ class XkorSport:
         else:
             return self.m_name
 
+    def clone(self):
+        # passed by value in the C++; the copy shares the PRNG
+        rval = XkorSport()
+        rval.m_name = self.m_name
+        rval.m_alphaName = self.m_alphaName
+        rval.m_discipline = self.m_discipline
+        rval.m_event = self.m_event
+        rval.m_scorinator = self.m_scorinator
+        rval.m_paradigm = self.m_paradigm
+        rval.m_paradigmOptions = dict(self.m_paradigmOptions)
+        rval.m_dataPoints = {k: dict(v) for k, v in self.m_dataPoints.items()}
+        rval.r = self.r
+        return rval
+
     def countValues(self):
         return len(self.m_dataPoints)
 

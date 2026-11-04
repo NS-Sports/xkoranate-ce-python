@@ -16,6 +16,32 @@ class XkorEvent:
         self.m_signupList = XkorSignupList()
         self.m_sport = ""
 
+    def assignFrom(self, other):
+        """Overwrite this event's fields with other's, sharing their values."""
+        self.m_competition = other.m_competition
+        self.m_competitionOptions = other.m_competitionOptions
+        self.m_name = other.m_name
+        self.m_groups = other.m_groups
+        self.m_paradigm = other.m_paradigm
+        self.m_paradigmOptions = other.m_paradigmOptions
+        self.m_results = other.m_results
+        self.m_signupList = other.m_signupList
+        self.m_sport = other.m_sport
+
+    def clone(self):
+        # passed by value in the C++
+        rval = XkorEvent()
+        rval.m_competition = self.m_competition
+        rval.m_competitionOptions = dict(self.m_competitionOptions)
+        rval.m_name = self.m_name
+        rval.m_groups = [g.clone() for g in self.m_groups]
+        rval.m_paradigm = self.m_paradigm
+        rval.m_paradigmOptions = dict(self.m_paradigmOptions)
+        rval.m_results = dict(self.m_results)
+        rval.m_signupList = self.m_signupList.clone()
+        rval.m_sport = self.m_sport
+        return rval
+
     def competition(self):
         return self.m_competition
 

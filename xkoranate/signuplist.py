@@ -29,6 +29,14 @@ class XkorSignupList:
     def athletes(self):
         return list(self.ath)
 
+    def clone(self):
+        # passed by value in the C++; the copy gets a fresh generator
+        rval = XkorSignupList()
+        rval.ath = [a.clone() for a in self.ath]
+        rval.min = self.min
+        rval.max = self.max
+        return rval
+
     def generateID(self):
         return uuid.UUID(int=self.r._r.getrandbits(128))
 

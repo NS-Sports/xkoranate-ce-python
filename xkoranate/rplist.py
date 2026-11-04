@@ -19,6 +19,19 @@ class XkorRPList:
     def bonuses(self):
         return dict(self.bon)
 
+    def clone(self):
+        # passed by value in the C++
+        rval = XkorRPList()
+        rval.m_competitionName = self.m_competitionName
+        rval.bon = {k: dict(v) for k, v in self.bon.items()}
+        rval.rpCalcType = self.rpCalcType
+        rval.rpOpts = dict(self.rpOpts)
+        rval.max = self.max
+        rval.min = self.min
+        rval.eff = self.eff
+        rval.teams = self.teams
+        return rval
+
     def competitionName(self):
         return self.m_competitionName
 
