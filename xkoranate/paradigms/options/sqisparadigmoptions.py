@@ -2,10 +2,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QButtonGroup, QFormLayout, QLabel, QRadioButton, QWidget
 
 from xkoranate.abstractoptionswidget import XkorAbstractOptionsWidget
-from xkoranate.variant import toDouble, toString
+from xkoranate.variant import toString
 
 from .collapsiblesection import XkorCollapsibleSection
-from .constantspinbox import XkorConstantSpinBox
 
 _DEFAULT_HOME_ADVANTAGE_MAGNITUDE = 4.0 / 3.0
 _DEFAULT_CONSTANT_A = 0.1
@@ -23,33 +22,20 @@ class XkorSQISParadigmOptions(XkorAbstractOptionsWidget):
                                                 self._optionIsTrue("homeAdvantage"))
 
         self.homeAdvantageMagnitudeLabel = QLabel("Home advantage magnitude:")
-        self.homeAdvantageMagnitude = XkorConstantSpinBox(
-            toDouble(self.options.get("homeAdvantageMagnitude", defaultHomeAdvantageMagnitude)),
-            defaultHomeAdvantageMagnitude, decimals=3, minimum=0, maximum=5, step=0.05)
-        self.homeAdvantageMagnitude.valueChanged.connect(self.setHomeAdvantageMagnitude)
-        self.setHomeAdvantageMagnitude(self.homeAdvantageMagnitude.value())
+        self.homeAdvantageMagnitude = self._constantSpinBox(
+            "homeAdvantageMagnitude", defaultHomeAdvantageMagnitude,
+            decimals=3, minimum=0, maximum=5, step=0.05)
 
         self._updateHomeAdvantageMagnitudeEnabled(self.homeAdvantage.checkState())
         self.homeAdvantage.stateChanged.connect(self._updateHomeAdvantageMagnitudeEnabled)
 
         # SQIS formula constants: always active, no enable/disable toggle.
-        self.constantA = XkorConstantSpinBox(
-            toDouble(self.options.get("constantA", defaultConstantA)), defaultConstantA,
-            decimals=3, minimum=-5.0, maximum=5.0, step=0.01)
-        self.constantA.valueChanged.connect(self.setConstantA)
-        self.setConstantA(self.constantA.value())
-
-        self.constantB = XkorConstantSpinBox(
-            toDouble(self.options.get("constantB", defaultConstantB)), defaultConstantB,
-            decimals=3, minimum=-5.0, maximum=5.0, step=0.01)
-        self.constantB.valueChanged.connect(self.setConstantB)
-        self.setConstantB(self.constantB.value())
-
-        self.attacks = XkorConstantSpinBox(
-            toDouble(self.options.get("attacks", defaultAttacks)), defaultAttacks,
-            decimals=0, minimum=1.0, maximum=100.0, step=1.0)
-        self.attacks.valueChanged.connect(self.setAttacks)
-        self.setAttacks(self.attacks.value())
+        self.constantA = self._constantSpinBox(
+            "constantA", defaultConstantA, decimals=3, minimum=-5.0, maximum=5.0, step=0.01)
+        self.constantB = self._constantSpinBox(
+            "constantB", defaultConstantB, decimals=3, minimum=-5.0, maximum=5.0, step=0.01)
+        self.attacks = self._constantSpinBox(
+            "attacks", defaultAttacks, decimals=0, minimum=1.0, maximum=100.0, step=1.0)
 
         self.showTLAs = self._flagCheckBox("showTLAs", "Show team names",
                                            self._optionIsTrue("showTLAs", True))
@@ -96,26 +82,10 @@ class XkorSQISParadigmOptions(XkorAbstractOptionsWidget):
         form.addRow("", self.showTLAs)
         form.addRow(self.advancedSection)
 
-    def setHomeAdvantageMagnitude(self, x):
-        self.options["homeAdvantageMagnitude"] = x
-        self.optionsChanged.emit(self.options)
-
     def _updateHomeAdvantageMagnitudeEnabled(self, x):
         enabled = Qt.CheckState(x) == Qt.Checked
         self.homeAdvantageMagnitudeLabel.setEnabled(enabled)
         self.homeAdvantageMagnitude.setEnabled(enabled)
-
-    def setConstantA(self, x):
-        self.options["constantA"] = x
-        self.optionsChanged.emit(self.options)
-
-    def setConstantB(self, x):
-        self.options["constantB"] = x
-        self.optionsChanged.emit(self.options)
-
-    def setAttacks(self, x):
-        self.options["attacks"] = x
-        self.optionsChanged.emit(self.options)
 
     def setStyleMods(self):
         checkedButton = self.styleMods.checkedButton()

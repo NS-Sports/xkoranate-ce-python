@@ -12,33 +12,33 @@ class XkorAutoRacingParadigmOptions(XkorAbstractOptionsWidget):
         self.laps = QSpinBox()
         self.laps.setRange(1, 999)
         self.laps.setValue(toInt(self.options.get("laps", 50)))
-        self.laps.valueChanged.connect(self.setLaps)
+        self.laps.valueChanged.connect(lambda x: self._setOption("laps", x))
 
         self.lapRecord = QDoubleSpinBox()
         self.lapRecord.setDecimals(3)
         self.lapRecord.setRange(0.001, 999.999)
         self.lapRecord.setValue(toDouble(self.options.get("lapRecord", 90)))
-        self.lapRecord.valueChanged.connect(self.setLapRecord)
+        self.lapRecord.valueChanged.connect(lambda x: self._setOption("lapRecord", x))
 
         self.lapVariance = QDoubleSpinBox()
         self.lapVariance.setDecimals(1)
         self.lapVariance.setRange(1, 99)
         self.lapVariance.setValue(toDouble(self.options.get("lapVariance", 15)))
-        self.lapVariance.valueChanged.connect(self.setLapVariance)
+        self.lapVariance.valueChanged.connect(lambda x: self._setOption("lapVariance", x))
 
         self.trackAcceleration = QDoubleSpinBox()
         self.trackAcceleration.setDecimals(1)
         self.trackAcceleration.setRange(0, 10)
         self.trackAcceleration.setValue(toDouble(self.options.get("trackAcceleration", 5)))
         self.trackAcceleration.setEnabled(False)
-        self.trackAcceleration.valueChanged.connect(self.setTrackAcceleration)
+        self.trackAcceleration.valueChanged.connect(lambda x: self._setOption("trackAcceleration", x))
 
         self.trackCornering = QDoubleSpinBox()
         self.trackCornering.setDecimals(1)
         self.trackCornering.setRange(0, 10)
         self.trackCornering.setValue(toDouble(self.options.get("trackCornering", 5)))
         self.trackCornering.setEnabled(False)
-        self.trackCornering.valueChanged.connect(self.setTrackCornering)
+        self.trackCornering.valueChanged.connect(lambda x: self._setOption("trackCornering", x))
 
         self.showTLAs = self._flagCheckBox("showTLAs", "Show team names",
                                            self._optionIsTrue("showTLAs", True))
@@ -91,18 +91,6 @@ class XkorAutoRacingParadigmOptions(XkorAbstractOptionsWidget):
         form.addRow("", self.useStartingGrid)
         form.addRow("", self.showTLAs)
 
-    def setLaps(self, x):
-        self.options["laps"] = x
-        self.optionsChanged.emit(self.options)
-
-    def setLapRecord(self, x):
-        self.options["lapRecord"] = x
-        self.optionsChanged.emit(self.options)
-
-    def setLapVariance(self, x):
-        self.options["lapVariance"] = x
-        self.optionsChanged.emit(self.options)
-
     def setSkillType(self):
         checkedButton = self.skillType.checkedButton()
         if checkedButton is self.useSkill:
@@ -114,12 +102,4 @@ class XkorAutoRacingParadigmOptions(XkorAbstractOptionsWidget):
             self.trackAcceleration.setEnabled(True)
             self.trackCornering.setEnabled(True)
 
-        self.optionsChanged.emit(self.options)
-
-    def setTrackAcceleration(self, x):
-        self.options["trackAcceleration"] = x
-        self.optionsChanged.emit(self.options)
-
-    def setTrackCornering(self, x):
-        self.options["trackCornering"] = x
         self.optionsChanged.emit(self.options)

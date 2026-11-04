@@ -15,7 +15,7 @@ class XkorPGSParadigmOptions(XkorAbstractOptionsWidget):
         self.maxScore.setRange(0, 1.5)
         self.maxScore.setSingleStep(0.01)
         self.maxScore.setValue(toDouble(self.options.get("maxScore", 1.5)))
-        self.maxScore.valueChanged.connect(self.setMaxScore)
+        self.maxScore.valueChanged.connect(lambda x: self._setOption("maxScore", x))
 
         form = QFormLayout()
         form.addRow("Maximum score after first run:", self.maxScore)
@@ -23,7 +23,3 @@ class XkorPGSParadigmOptions(XkorAbstractOptionsWidget):
         layout = QGridLayout(self)
         layout.addWidget(self.showTLAs, 0, 0, self._formAlignment())
         layout.addLayout(form, 1, 0)
-
-    def setMaxScore(self, x):
-        self.options["maxScore"] = x
-        self.optionsChanged.emit(self.options)

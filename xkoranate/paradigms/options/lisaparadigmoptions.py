@@ -3,10 +3,9 @@ from PySide6.QtWidgets import QButtonGroup, QFormLayout, QLabel, QRadioButton, Q
 
 from xkoranate.abstractoptionswidget import XkorAbstractOptionsWidget
 from xkoranate.ui.tooltips import wrapped_tooltip
-from xkoranate.variant import toDouble, toString
+from xkoranate.variant import toString
 
 from .collapsiblesection import XkorCollapsibleSection
-from .constantspinbox import XkorConstantSpinBox
 
 _DEFAULT_HOME_ADVANTAGE_EAR = 100.0
 _DEFAULT_POWER_SCALAR = 1.984
@@ -32,11 +31,8 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
                                                 self._optionIsTrue("homeAdvantage"))
 
         self.homeAdvantageEARLabel = QLabel("Home advantage (EAR):")
-        self.homeAdvantageEAR = XkorConstantSpinBox(
-            toDouble(self.options.get("homeAdvantageEAR", defaultHomeAdvantageEAR)),
-            defaultHomeAdvantageEAR, decimals=1, minimum=0, maximum=500, step=5)
-        self.homeAdvantageEAR.valueChanged.connect(self.setHomeAdvantageEAR)
-        self.setHomeAdvantageEAR(self.homeAdvantageEAR.value())
+        self.homeAdvantageEAR = self._constantSpinBox(
+            "homeAdvantageEAR", defaultHomeAdvantageEAR, decimals=1, minimum=0, maximum=500, step=5)
 
         self._updateHomeAdvantageEAREnabled(self.homeAdvantage.checkState())
         self.homeAdvantage.stateChanged.connect(self._updateHomeAdvantageEAREnabled)
@@ -93,29 +89,15 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         # LISA formula constants: rank/EAR conversion (power scalar, reference
         # rank, REAR) and margin shaping (margin divisor). These are always
         # active (no enable/disable toggle like home advantage has).
-        self.powerScalar = XkorConstantSpinBox(
-            toDouble(self.options.get("powerScalar", defaultPowerScalar)), defaultPowerScalar,
-            decimals=3, minimum=0.1, maximum=5.0, step=0.01)
-        self.powerScalar.valueChanged.connect(self.setPowerScalar)
-        self.setPowerScalar(self.powerScalar.value())
-
-        self.refRank = XkorConstantSpinBox(
-            toDouble(self.options.get("refRank", defaultRefRank)), defaultRefRank,
-            decimals=2, minimum=0.01, maximum=1000.0, step=0.1)
-        self.refRank.valueChanged.connect(self.setRefRank)
-        self.setRefRank(self.refRank.value())
-
-        self.rear = XkorConstantSpinBox(
-            toDouble(self.options.get("REAR", defaultREAR)), defaultREAR,
-            decimals=1, minimum=1.0, maximum=2000.0, step=5.0)
-        self.rear.valueChanged.connect(self.setREAR)
-        self.setREAR(self.rear.value())
-
-        self.marginDivisor = XkorConstantSpinBox(
-            toDouble(self.options.get("marginDivisor", defaultMarginDivisor)), defaultMarginDivisor,
+        self.powerScalar = self._constantSpinBox(
+            "powerScalar", defaultPowerScalar, decimals=3, minimum=0.1, maximum=5.0, step=0.01)
+        self.refRank = self._constantSpinBox(
+            "refRank", defaultRefRank, decimals=2, minimum=0.01, maximum=1000.0, step=0.1)
+        self.rear = self._constantSpinBox(
+            "REAR", defaultREAR, decimals=1, minimum=1.0, maximum=2000.0, step=5.0)
+        self.marginDivisor = self._constantSpinBox(
+            "marginDivisor", defaultMarginDivisor,
             decimals=1, minimum=1.0, maximum=5000.0, step=10.0)
-        self.marginDivisor.valueChanged.connect(self.setMarginDivisor)
-        self.setMarginDivisor(self.marginDivisor.value())
 
         self.showTLAs = self._flagCheckBox("showTLAs", "Show team names",
                                            self._optionIsTrue("showTLAs", True))
@@ -138,10 +120,6 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         self.form.addRow("", self.showTLAs)
         self.form.addRow(self.advancedSection)
 
-    def setHomeAdvantageEAR(self, x):
-        self.options["homeAdvantageEAR"] = x
-        self.optionsChanged.emit(self.options)
-
     def _updateHomeAdvantageEAREnabled(self, x):
         enabled = Qt.CheckState(x) == Qt.Checked
         self.homeAdvantageEARLabel.setEnabled(enabled)
@@ -163,19 +141,3 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         self.homeAdvantageModeFixed.setEnabled(enabled)
         self.homeAdvantageModeAdversarial.setEnabled(enabled)
         self.homeAdvantageModeIndividual.setEnabled(enabled)
-
-    def setPowerScalar(self, x):
-        self.options["powerScalar"] = x
-        self.optionsChanged.emit(self.options)
-
-    def setRefRank(self, x):
-        self.options["refRank"] = x
-        self.optionsChanged.emit(self.options)
-
-    def setREAR(self, x):
-        self.options["REAR"] = x
-        self.optionsChanged.emit(self.options)
-
-    def setMarginDivisor(self, x):
-        self.options["marginDivisor"] = x
-        self.optionsChanged.emit(self.options)
