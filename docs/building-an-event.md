@@ -332,7 +332,8 @@ sense.
 
 ### Qualification markers
 
-Round-robin and mass-start events have a **Format qualifications** box.
+Round-robin, inter-conference and mass-start events have a **Format
+qualifications** box.
 Tick it to mark a **Q** next to everyone who has qualified and an **E**
 next to everyone who has been knocked out. In a league table the marker
 goes in a column after the points. In heats it goes after each result.
@@ -351,8 +352,11 @@ is complete. A tie that sits across the cut stays unmarked.
 
 The markers are added to what you see and export, not to the saved
 results, so you can change the setting at any time without scorinating
-again. The setting is saved with the event. Inter-conference events don't
-have the box yet.
+again. The setting is saved with the event.
+
+In an inter-conference event, each conference counts as a group, and its
+games against other conferences count towards it, at their own points if
+you set any. The overall table shows each team's mark from its conference.
 
 ### Posting your results
 

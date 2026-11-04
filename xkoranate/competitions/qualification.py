@@ -87,7 +87,10 @@ class QualificationGroup:
     teams      every entrant that can still be placed
     current    metric earned so far (teams missing count as 0); None when
                the table's first sort criterion can't be projected forward
-    remaining  fixtures still to play, as (home, away) team pairs
+    remaining  fixtures still to play, as (home, away) team pairs, or
+               (home, away, outcomes) for one that scores differently (a
+               game against another conference). One side may be a team
+               from outside the group: only the side in it is counted
     outcomes   what each side of one match can add to its metric, as
                (home, away) pairs; None when the metric is unknown
     order      final standings as tie bins (best first) — only read once
@@ -107,8 +110,13 @@ class QualificationGroup:
     def isComplete(self):
         return not self.remaining
 
+    def fixtures(self):
+        """(home, away, outcomes) for every remaining fixture; outcomes is
+        None where neither the fixture nor the group says."""
+        return [(f[0], f[1], f[2] if len(f) > 2 else self.outcomes) for f in self.remaining]
+
     def metricKnown(self):
-        return self.current is not None and (self.isComplete() or self.outcomes is not None)
+        return self.current is not None and all(o for _h, _a, o in self.fixtures())
 
 
 @dataclass
@@ -285,35 +293,48 @@ def _analyse(group, places):
 
 def _integerise(group, teams):
     """The metric as integers over a common denominator, so the enumeration
-    below hashes and compares plain ints rather than Fractions."""
+    below hashes and compares plain ints rather than Fractions. Returns the
+    starting values, each fixture as (home index, away index, gains) with an
+    index None for a team outside the group, and the denominator."""
+    index = {t: i for i, t in enumerate(teams)}
     values = [Fraction(group.current.get(t, 0)) for t in teams]
-    deltas = [(Fraction(h), Fraction(w)) for h, w in group.outcomes]
+    fixtures = [(index.get(h), index.get(a), [(Fraction(x), Fraction(y)) for x, y in o])
+                for h, a, o in group.fixtures()]
+    fixtures = [f for f in fixtures if f[0] is not None or f[1] is not None]
     denominator = 1
-    for v in values + [x for pair in deltas for x in pair]:
+    for v in values + [x for f in fixtures for pair in f[2] for x in pair]:
         denominator = denominator * v.denominator // math.gcd(denominator, v.denominator)
     start = tuple(int(v * denominator) for v in values)
-    outcomes = sorted({(int(h * denominator), int(w * denominator)) for h, w in deltas})
-    return start, outcomes, denominator
+
+    def scaled(i, j, outcomes):
+        gains = {(int(x * denominator), int(y * denominator)) for x, y in outcomes}
+        # a side outside the group doesn't count: keep only distinct gains
+        # for the side that does
+        if i is None:
+            gains = {(0, y) for _x, y in gains}
+        if j is None:
+            gains = {(x, 0) for x, _y in gains}
+        return i, j, sorted(gains)
+
+    return start, [scaled(*f) for f in fixtures], denominator
 
 
 def _scenarioAnalysis(group, teams, places):
     """Every reachable final standing, enumerated; (None, None) if there are
     too many."""
     n = len(teams)
-    index = {t: i for i, t in enumerate(teams)}
-    start, outcomes, denominator = _integerise(group, teams)
+    start, fixtures, denominator = _integerise(group, teams)
 
     states = {start}
-    for home, away in group.remaining:
-        i, j = index.get(home), index.get(away)
-        if i is None or j is None:
-            continue
+    for i, j, outcomes in fixtures:
         following = set()
         for s in states:
             for dh, da in outcomes:
                 t = list(s)
-                t[i] += dh
-                t[j] += da
+                if i is not None:
+                    t[i] += dh
+                if j is not None:
+                    t[j] += da
                 following.add(tuple(t))
         if len(following) > SCENARIO_CAP:
             return None, None
@@ -357,17 +378,14 @@ def _boundsAnalysis(group, teams, places):
     Treats every rival as free to hit either extreme at once, which overstates
     what's possible (two rivals can't both win their match against each
     other), so it calls a clinch later than enumeration would — never wrongly."""
-    games = {t: 0 for t in teams}
-    for home, away in group.remaining:
-        if home in games:
-            games[home] += 1
-        if away in games:
-            games[away] += 1
-    gains = [Fraction(x) for pair in group.outcomes for x in pair] or [Fraction(0)]
-    most, fewest = max(gains), min(gains)
-
-    low = {t: Fraction(group.current.get(t, 0)) + games[t] * fewest for t in teams}
-    high = {t: Fraction(group.current.get(t, 0)) + games[t] * most for t in teams}
+    low = {t: Fraction(group.current.get(t, 0)) for t in teams}
+    high = dict(low)
+    for home, away, outcomes in group.fixtures():
+        for team, side in ((home, 0), (away, 1)):
+            if team in low:
+                gains = [Fraction(o[side]) for o in outcomes]
+                low[team] += min(gains)
+                high[team] += max(gains)
 
     outlook = {}
     for t in teams:

@@ -328,3 +328,58 @@ def test_unsorted_mass_start_has_nothing_to_mark():
     c.userOpt = {"sortResults": "false"}
     assert not c.supportsQualifications()
     assert c.formatQualifications(HEATS, 0, top(1)) == HEATS
+
+
+# --- conferences: games against other groups, with their own points --------
+
+def test_a_game_against_another_conference_counts_for_one_side_only():
+    # A's last game is against an outsider worth 2 a win; B's is in-conference
+    crossWin = [(2, 0), (0, 2), (1, 1)]
+    g = QualificationGroup(teams=["A", "B", "C"], current={"A": 6, "B": 3, "C": 3},
+                           remaining=[("A", "Z9", crossWin), ("B", "C")], outcomes=FOOTBALL)
+    # B or C can reach 6 at most: level with A, so A isn't clear of both
+    assert leagueMarkers([g], top(1))[0] == {}
+    g.current["A"] = 7
+    assert leagueMarkers([g], top(1))[0] == {"A": "Q", "B": "E", "C": "E"}
+
+
+def conferenceCompletions(groups, fixtures):
+    """Every outcome of the shared fixture list, as one final dict per group."""
+    for results in itertools.product(*[o for _h, _a, o in fixtures]):
+        totals = {t: v for g in groups for t, v in g.current.items()}
+        for (home, away, _o), (dh, da) in zip(fixtures, results):
+            totals[home] += dh
+            totals[away] += da
+        yield [{t: totals[t] for t in g.teams} for g in groups]
+
+
+@pytest.mark.parametrize("cap", [qualification.SCENARIO_CAP, 0])
+def test_conference_markers_hold_in_every_completion(monkeypatch, cap):
+    monkeypatch.setattr(qualification, "SCENARIO_CAP", cap)
+    rng = random.Random(24)
+    crossOutcomes = [(2, 0), (0, 2), (1, 1)]
+    for _ in range(40):
+        confs = [["%s%d" % (p, i) for i in range(3)] for p in "AB"]
+        everyone = confs[0] + confs[1]
+        pairs = list(itertools.combinations(everyone, 2))
+        rng.shuffle(pairs)
+        fixtures = [(h, a, crossOutcomes if h[0] != a[0] else FOOTBALL)
+                    for h, a in pairs[:rng.randint(1, 5)]]
+        groups = [QualificationGroup(
+            teams=c, current={t: rng.choice([0, 1, 3, 4, 6]) for t in c},
+            remaining=[f for f in fixtures if f[0] in c or f[1] in c], outcomes=FOOTBALL)
+            for c in confs]
+        settings = QualificationSettings(MODE_TOP_PLUS_BEST, 1, 1)
+        markers = leagueMarkers(groups, settings)
+        for finals in conferenceCompletions(groups, fixtures):
+            nextValues = [sorted(f.values(), reverse=True)[1] for f in finals]
+            for groupNo, (final, m) in enumerate(zip(finals, markers)):
+                other = nextValues[1 - groupNo]
+                for team, marker in m.items():
+                    v = final[team]
+                    ahead = sum(1 for o, w in final.items() if o != team and w > v)
+                    levelOrAhead = sum(1 for o, w in final.items() if o != team and w >= v)
+                    if marker == "Q":
+                        assert levelOrAhead < 1 or (levelOrAhead == 1 and other < v)
+                    else:
+                        assert ahead >= 1 and (ahead > 1 or other > v)

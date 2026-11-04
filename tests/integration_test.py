@@ -1313,17 +1313,28 @@ def test_conference_tables_count_stoppages_and_negative_scores(sport_index, spor
         assert negatives > 0
 
 
-def test_inter_conference_events_have_no_qualification_box(editor, sport_index, rng):
-    """Conference tables count cross-conference games the markers don't model
-    yet: the box stays hidden, even with a setting saved from round robin."""
+def test_inter_conference_markers_count_cross_games(editor, sport_index, rng):
+    """Conferences are the groups; their tables include games against other
+    conferences. The overall table repeats each team's mark."""
     from xkoranate.competitions.qualification import QualificationSettings
 
     ev, sport, c = playGroups(sport_index, rng, "Association football—SQIS formula",
-                              "interConference", 2, 4)
-    ev.replaceCompetitionOptions(QualificationSettings("topPlusBest", 2, 1).toOptions())
+                              "interConference", 3, 4)
+    last = c.matchdays() - 1
+    text = c.results(last)
+    marked = c.formatQualifications(text, last, QualificationSettings("topPlusBest", 2, 1))
+    # three conference tables and the overall one: 7 through, 5 out, twice
+    assert markerCounts(marked) == (14, 10)
+    assert c.formatQualifications(text, last, QualificationSettings()) == text
+
+    # with crossover games worth more, still sound at every matchday
+    ev.replaceCompetitionOptions({"crossPointsForWin": "4", "crossPointsForDraw": "2"})
+    c = XkorCompetitionFactory.newCompetitionFull(
+        "interConference", ev.makeStartList(XkorRPList()), sport, ev.paradigmOptions(),
+        ev.competitionOptions(), ev.results())
+    for md in range(c.matchdays()):
+        c.formatQualifications(c.results(md), md, QualificationSettings("topPlusBest", 2, 1))
+
     editor.ee.setData(ev, XkorRPList())
     w = editor.ee.scorinateWidget
-    assert w.qualificationBox.isHidden()
-    for md in range(w.matchday.count()):
-        w.matchday.setCurrentIndex(md)
-        assert w.textedit.toPlainText() == w.c.results(md)
+    assert not w.qualificationBox.isHidden()

@@ -353,34 +353,42 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         # the standings as they stood after `matchday`, rebuilt from the
         # saved matches — the same way scorinate() built them
         groups = self.startList.groups
-        tables = []
-        for groupNo, g in enumerate(groups):
-            t = self._groupTable(g.name, self.retrieveMatches(groupNo, upTo=matchday))
-            if "coinFlip" in t.getSortCriteria():
-                # league tables don't save their coin flips, so rebuilding
-                # one re-rolls any tie a flip decided; take the flips from
-                # the order the stored table shows instead
-                t.setCoinFlips(self._storedFlips(text, t))
-            t.generate()
-            tables.append(t)
+        tables = [self._rebuilt(text, self._groupTable(g.name, self.retrieveMatches(groupNo, upTo=matchday)))
+                  for groupNo, g in enumerate(groups)]
 
         markers = leagueMarkers(
             [self._qualificationGroup(g, t, matchday) for g, t in zip(groups, tables)],
             settings, crossRank=lambda candidates: self._rankNextPlaced(candidates, tables))
 
-        rval = text
-        if any(markers):
-            for t, m in zip(tables, markers):
-                plain = t.toText()
-                if plain not in rval:
-                    # the stored table isn't the one these matches give (saved
-                    # by an older version, or a coin flip re-rolled): leave it
-                    continue
-                t.setColumns(self._withQualificationColumn(t.getColumns()))
-                t.setMarkers(m)
-                rval = rval.replace(plain, t.toText(), 1)
+        rval = self._markTables(text, list(zip(tables, markers)))
         self._qualificationCache[key] = rval
         return rval
+
+    def _rebuilt(self, text, t):
+        """Generate a table rebuilt for formatQualifications()."""
+        if "coinFlip" in t.getSortCriteria():
+            # league tables don't save their coin flips, so rebuilding
+            # one re-rolls any tie a flip decided; take the flips from
+            # the order the stored table shows instead
+            t.setCoinFlips(self._storedFlips(text, t))
+        t.generate()
+        return t
+
+    def _markTables(self, text, tablesAndMarkers):
+        """Swap each table's plain text in `text` for one with a marker
+        column. Every table gets the column once any team has a marker."""
+        if not any(m for _t, m in tablesAndMarkers):
+            return text
+        for t, m in tablesAndMarkers:
+            plain = t.toText()
+            if plain not in text:
+                # the stored table isn't the one these matches give (saved
+                # by an older version, or edited): leave it
+                continue
+            t.setColumns(self._withQualificationColumn(t.getColumns()))
+            t.setMarkers(m)
+            text = text.replace(plain, t.toText(), 1)
+        return text
 
     @staticmethod
     def _storedFlips(text, table):
@@ -419,49 +427,73 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
                 if home < size and away < size:
                     remaining.append((names[home], names[away]))
 
-        rows = [r for b in table.data for r in b]
-        metric, outcomes, scale = self._qualificationMetric(table, size)
-        current = None if metric is None else {r.name(): metric(r) for r in rows}
+        legs = toInt(self.userOpt.get("numberOfLegs")) if "numberOfLegs" in self.userOpt else 1
+        metric, outcomes, scale = self._qualificationMetric(table, (size - 1) * legs)
         return QualificationGroup(
-            teams=names, current=current, remaining=remaining,
-            outcomes=outcomes, order=[[r.name() for r in b] for b in table.data if b],
-            scale=scale)
+            teams=names, current=self._currentMetric(table, metric), remaining=remaining,
+            outcomes=None if outcomes is None else outcomes(False),
+            order=[[r.name() for r in b] for b in table.data if b], scale=scale)
 
-    def _qualificationMetric(self, table, groupSize):
-        """How the table's first sort criterion is earned, as (value of a row,
-        what one match can add to each side, scale), or Nones when it can't
-        be projected forward. Win percentages are compared as totals within
-        a group and divided by games played across groups."""
+    @staticmethod
+    def _currentMetric(table, metric):
+        if metric is None:
+            return None
+        return {r.name(): metric(r) for b in table.data for r in b}
+
+    def _qualificationMetric(self, table, gamesPerTeam):
+        """How the table's first sort criterion is earned, as (value of a
+        row, outcomes(cross) giving what one match can add to each side,
+        scale), or Nones when it can't be projected forward. `cross` asks
+        about a game against another conference, which can score its own
+        points. Win percentages are compared as totals within a group and
+        divided by games per team across groups (`gamesPerTeam`, None if it
+        isn't the same for everyone)."""
         from fractions import Fraction
 
         criteria = self.tableSortCriteria()
         first = criteria[0] if criteria else ""
         draws = (toString(self.sport.paradigmOptions().get("forceTieBreak")) != "1"
                  and toString(self.userOpt.get("allowDraws")) != "false")
-        legs = toInt(self.userOpt.get("numberOfLegs")) if "numberOfLegs" in self.userOpt else 1
-        perGame = Fraction(1, max(1, (groupSize - 1) * legs))
+        perGame = None if not gamesPerTeam else Fraction(1, gamesPerTeam)
         win = [(1, 0), (0, 1)]  # one side wins, the other loses
 
         if first == "points":
-            w, d, l = table.getPointsForWin(), table.getPointsForDraw(), table.getPointsForLoss()
-            outcomes = [(w, l), (l, w)]
-            if draws:
-                outcomes.append((d, d))
-            else:  # a level match goes to extra time or a shootout instead
-                for winPts, lossPts in ((table.getPointsForOTWin(), table.getPointsForOTLoss()),
-                                        (table.getPointsForSOWin(), table.getPointsForSOLoss())):
-                    outcomes += [(winPts, lossPts), (lossPts, winPts)]
+            def outcomes(cross):
+                w, d, l = table.getPointsForWin(), table.getPointsForDraw(), table.getPointsForLoss()
+                cross = cross and table.crossPoints is not None
+                if cross:
+                    w, d, l = table.crossPoints
+                rval = [(w, l), (l, w)]
+                if draws:
+                    rval.append((d, d))
+                    return rval
+                # a level match goes to extra time or a shootout instead; in
+                # a cross game those follow the cross points unless set
+                for winRaw, winPts, lossRaw, lossPts in (
+                        (table.getRawPointsForOTWin(), table.getPointsForOTWin(),
+                         table.getRawPointsForOTLoss(), table.getPointsForOTLoss()),
+                        (table.getRawPointsForSOWin(), table.getPointsForSOWin(),
+                         table.getRawPointsForSOLoss(), table.getPointsForSOLoss())):
+                    winPts = w if cross and winRaw is None else winPts
+                    lossPts = l if cross and lossRaw is None else lossPts
+                    rval += [(winPts, lossPts), (lossPts, winPts)]
+                return rval
             return (lambda r: Fraction(table.getPoints(r))), outcomes, Fraction(1)
+
+        plain = win + ([(0, 0)] if draws else [])
         if first == "wins":
-            return (lambda r: Fraction(r.wins())), win + ([(0, 0)] if draws else []), Fraction(1)
+            return (lambda r: Fraction(r.wins())), (lambda cross: plain), Fraction(1)
+        if perGame is None:
+            return None, None, Fraction(1)
         if first == "winPercent":
             half = Fraction(1, 2)
+            withHalves = win + ([(half, half)] if draws else [])
             return ((lambda r: Fraction(r.wins()) + Fraction(r.draws()) / 2),
-                    win + ([(half, half)] if draws else []), perGame)
+                    (lambda cross: withHalves), perGame)
         if first == "winPercentPure":
-            return (lambda r: Fraction(r.wins())), win + ([(0, 0)] if draws else []), perGame
+            return (lambda r: Fraction(r.wins())), (lambda cross: plain), perGame
         if first == "winPercentNFL" and not draws:
-            return (lambda r: Fraction(r.wins())), win, perGame
+            return (lambda r: Fraction(r.wins())), (lambda cross: win), perGame
         return None, None, Fraction(1)
 
     def _rankNextPlaced(self, candidates, tables):
