@@ -1,5 +1,7 @@
+import functools
 import importlib.util
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -31,22 +33,37 @@ _ensureQtPluginPath()
 import pytest
 
 
+@functools.lru_cache(maxsize=None)
+def _canCreateQApplication():
+    """Whether a QApplication can be constructed here at all.
+
+    Qt aborts the process outright when no platform plugin will load, which
+    would take the whole test session down with it rather than failing one
+    test — and an installation can advertise a plugin directory holding an
+    offscreen plugin it still can't load. So find out in a throwaway
+    subprocess, where an abort costs nothing."""
+    return subprocess.run(
+        [sys.executable, "-c",
+         "from PySide6.QtWidgets import QApplication; QApplication([])"],
+        capture_output=True).returncode == 0
+
+
 @pytest.fixture(scope="session")
 def qapp():
     """One application object for every widget test in the session.
 
     An XkorApplication rather than a bare QApplication: it is what registers
-    the "sports:" search path, and only one QApplication may exist per
-    process. Building a plain one here left whichever test ran first to
-    decide whether sports could be looked up at all.
+    the "sports:" search path and builds the main window, and only one
+    QApplication may exist per process. Test files that built a plain one
+    of their own left whichever ran first to decide what every later test
+    got.
     """
-    from PySide6.QtWidgets import QApplication
-
     from xkoranate.application import XkorApplication
 
-    app = QApplication.instance()
+    app = XkorApplication.instance()
     if app is None:
+        if not _canCreateQApplication():
+            pytest.skip("no usable Qt platform plugin for this interpreter")
         app = XkorApplication([])
-    if isinstance(app, XkorApplication):
-        app.refreshSearchPaths()
+    app.refreshSearchPaths()
     return app

@@ -1,12 +1,7 @@
-import functools
 import os
 import re
-import subprocess
-import sys
 
-import pytest
 from PySide6.QtCore import QRegularExpression
-from PySide6.QtWidgets import QApplication
 
 from xkoranate.tablegenerator.decider import (MATCH_RESULT_PATTERN, classify,
                                               parseMatchLine,
@@ -538,30 +533,6 @@ def test_coin_flip_result_survives_an_xml_save_and_reload(tmp_path):
     reloaded.generate()
 
     assert [row[0].name() for row in reloaded.data] == originalOrder
-
-
-@functools.lru_cache(maxsize=None)
-def _canCreateQApplication():
-    """Whether a QApplication can be constructed here at all.
-
-    Qt aborts the process outright when no platform plugin will load, which
-    would take the whole test session down with it rather than failing one
-    test — and an installation can advertise a plugin directory holding an
-    offscreen plugin it still can't load. So find out in a throwaway
-    subprocess, where an abort costs nothing."""
-    return subprocess.run(
-        [sys.executable, "-c",
-         "from PySide6.QtWidgets import QApplication; QApplication([])"],
-        capture_output=True).returncode == 0
-
-
-@pytest.fixture(scope="module")
-def qapp():
-    # conftest.py sets QT_QPA_PLATFORM=offscreen, so the real widget can be
-    # built here rather than having the test re-implement its behaviour
-    if QApplication.instance() is None and not _canCreateQApplication():
-        pytest.skip("no usable Qt platform plugin for this interpreter")
-    return QApplication.instance() or QApplication([])
 
 
 def _generator(qapp):

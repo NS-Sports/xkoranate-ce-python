@@ -1,22 +1,16 @@
 """End-to-end integration test: app boot, event creation, scorination, save/load."""
 
 import os
-import sys
 import uuid
 
 import pytest
 
-from PySide6.QtCore import QDir
-from PySide6.QtWidgets import QApplication
-
-from xkoranate.application import XkorApplication
 from xkoranate.athlete import BYE_ID, XkorAthlete
 from xkoranate.competitions.competitionfactory import XkorCompetitionFactory
 from xkoranate.event import XkorEvent
 from xkoranate.eventeditor.eventeditor import XkorEventEditor
 from xkoranate.group import XkorGroup
 from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
-from xkoranate.paths import sportsDir
 from xkoranate.rng import Mt19937
 from xkoranate.rplist import XkorRPList
 from xkoranate.signuplist import XkorSignupList
@@ -38,12 +32,8 @@ SCORINATE_CASES = [
 
 
 @pytest.fixture(scope="module")
-def sport_index():
-    # the "sports:" search path is registered by the application object, so
-    # make sure one exists — otherwise this fixture only works when the
-    # app-boot test happens to have run first
-    app = XkorApplication.instance() or XkorApplication(sys.argv)
-    app.refreshSearchPaths()
+def sport_index(qapp):
+    # the "sports:" search path is registered by the application object
     index = XkorXmlIndex()
     index.traverse("sports:")
     return index
@@ -101,10 +91,9 @@ def scorinate(index, rng, sportName, competition=None):
     return outputs
 
 
-def test_app_boots_and_loads_sports():
-    app = XkorApplication(sys.argv)
-    app.loadSports()
-    assert app.cw is not None
+def test_app_boots_and_loads_sports(qapp):
+    qapp.loadSports()
+    assert qapp.cw is not None
 
 
 @pytest.mark.parametrize("sportName,competition", SCORINATE_CASES)
@@ -416,11 +405,10 @@ def test_schedule_fills_in_real_names_as_rounds_are_played(sport_index, rng):
 
 
 @pytest.fixture(scope="module")
-def editor(sport_index):
+def editor(qapp):
     """The real event editor, with the sport list loaded."""
-    app = XkorApplication.instance() or XkorApplication(sys.argv)
-    app.loadSports()
-    return app.cw
+    qapp.loadSports()
+    return qapp.cw
 
 
 def selectedCompetition(cw):
@@ -647,13 +635,6 @@ def test_a_bracket_too_small_to_play_says_so(sport_index, rng):
     assert "at least two participants" in schedule
 
 
-@pytest.fixture(scope="module")
-def qt_app():
-    app = QApplication.instance() or XkorApplication(sys.argv)
-    QDir.setSearchPaths("sports", [sportsDir()])
-    return app
-
-
 @pytest.mark.parametrize("sportName", [
     # paradigms that don't use a maximum skill: loading one used to re-check
     # the "pin to max participant" box mid-rebuild, whose dataChanged wrote
@@ -663,7 +644,7 @@ def qt_app():
     # a paradigm that does use a maximum skill, as a control
     "Association football—NSFS formula",
 ])
-def test_loading_saved_event_keeps_participants(qt_app, sport_index, rng, tmp_path, sportName):
+def test_loading_saved_event_keeps_participants(qapp, sport_index, rng, tmp_path, sportName):
     ev, _ = build_event(sport_index, rng, sportName)
     ev.setResult(0, "some result text")
 
@@ -1032,7 +1013,7 @@ def test_heat_markers_with_the_best_next_placed(sport_index, rng):
     assert markerCounts(c.formatQualifications(text, 0, best)) == (6, 6)
 
 
-def test_scorinate_step_box_loads_quietly_and_saves_changes(qt_app, sport_index, rng):
+def test_scorinate_step_box_loads_quietly_and_saves_changes(qapp, sport_index, rng):
     from xkoranate.competitions.qualification import QualificationSettings
     from xkoranate.eventeditor.scorinatewidget import XkorScorinateWidget
 
