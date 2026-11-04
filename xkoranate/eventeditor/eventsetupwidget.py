@@ -301,28 +301,47 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
             return
         previous = self.groups()  # read the tree in its old shape
         wasBracket = self.isBracket()
+        if wasBracket and not self.bracketEntrants():
+            # groups() always reports a bracket's pooled group, even when the
+            # bracket is empty. Carried into another format, that would turn
+            # into an empty group of its own.
+            previous = []
         self.competition = competition
         self._availableDirty = True  # the filter only applies inside a bracket
         if self.headingLabel is not None:
             self.headingLabel.setText(self.headingText())
         self.updateBracketActions()
-        if previous:
-            # re-render: groups become matches, or matches pool back together
-            restore = None
-            if not wasBracket and self.isBracket():
+        # re-render: groups become matches, or matches pool back together
+        restore = None
+        if not wasBracket and self.isBracket():
+            if previous:
                 # a bracket is one pooled group, so the group structure is
                 # about to be flattened. Hold on to it: an organiser who
                 # clicks the format dropdown to see what a cup would look
                 # like should get their pools back, not eight of them merged
                 # into one with only the first name kept.
                 self._groupsBeforeBracket = previous
-            elif wasBracket and not self.isBracket():
-                if self._sameParticipants(self._groupsBeforeBracket, previous):
-                    restore = self._groupsBeforeBracket
-                self._groupsBeforeBracket = None
+        elif wasBracket and not self.isBracket():
+            if self._sameParticipants(self._groupsBeforeBracket, previous):
+                restore = self._groupsBeforeBracket
+            self._groupsBeforeBracket = None
+        if previous or restore is not None:
             self.clear()
             self.setGroups(restore if restore is not None else previous)
         self.updateButtons()
+
+    def reset(self):
+        """Empty the page and forget the last event's bracket state.
+
+        Called when the editor loads another event. Without it, the pools
+        remembered for a format switch and the bracket's group name carried
+        over from one event to the next.
+        """
+        self.clear()
+        self._groupsBeforeBracket = None
+        self.bracketGroupName = "Bracket"
+        self.bracketSlotCount = 0
+        self._lastLaidSlots = []
 
     @staticmethod
     def _sameParticipants(groups, other):
@@ -332,7 +351,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         or lost entrants while it was a bracket, the old pools no longer
         describe the field.
         """
-        if not groups or not other:
+        if not groups:
             return False
 
         def ids(gs):

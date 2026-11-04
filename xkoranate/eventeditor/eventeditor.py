@@ -175,7 +175,7 @@ class XkorEventEditor(QWidget):
         self.m_rpList = rpList
 
         # hit the reset button
-        self.eventSetupWidget.clear()
+        self.eventSetupWidget.reset()
         self.sportSelector.setSelectedSport("")
         self.signupListEditor.setData(XkorSignupList())
         self.competitionSelector.setSport(XkorSport(), {})
