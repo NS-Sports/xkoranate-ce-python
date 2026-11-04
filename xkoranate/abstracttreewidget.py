@@ -1,7 +1,7 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (QAbstractItemView, QGridLayout, QLabel, QStackedLayout,
-                               QTreeWidgetItem, QWidget)
+                               QTreeWidgetItem, QTreeWidgetItemIterator, QWidget)
 
 from . import theme
 from .icons import icon_action
@@ -107,6 +107,16 @@ class XkorAbstractTreeWidget(QWidget):
             self.moveUpAction.trigger()
         elif event.key() == Qt.Key_Down and event.modifiers() & Qt.ControlModifier:
             self.moveDownAction.trigger()
+
+    def iterItems(self):
+        """Yield every item in the tree, parents before their children.
+
+        Don't add or remove items while iterating; collect them first.
+        """
+        i = QTreeWidgetItemIterator(self.treeWidget)
+        while i.value():
+            yield i.value()
+            i += 1
 
     def listIsEdited(self):
         if not self.isInUse:

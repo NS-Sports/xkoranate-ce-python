@@ -1,6 +1,5 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QFormLayout, QGridLayout, QHeaderView, QSpinBox,
-                               QTreeWidgetItemIterator)
+from PySide6.QtWidgets import QFormLayout, QGridLayout, QHeaderView, QSpinBox
 
 from ...ui.fonts import column_width_for
 from ...ui.toolbars import small_icon_toolbar
@@ -43,9 +42,7 @@ class XkorWC36RPBonusWidget(XkorAbstractRPBonusWidget):
 
     def bonuses(self):
         rval = {}
-        i = QTreeWidgetItemIterator(self.treeWidget)
-        while i.value():
-            item = i.value()
+        for item in self.iterItems():
             properties = {}
             bestRPLevel = toDouble(item.data(1, 1093))
             quantity = toDouble(item.text(2))
@@ -53,7 +50,6 @@ class XkorWC36RPBonusWidget(XkorAbstractRPBonusWidget):
             properties["quantity"] = quantity
             properties["bonus"] = self.calculateBonus(bestRPLevel, quantity)
             rval[item.text(0)] = properties
-            i += 1
         return rval
 
     def calculateBonus(self, bestRPLevel, quantity):

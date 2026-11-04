@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QHeaderView, QTreeWidgetItemIterator
+from PySide6.QtWidgets import QHeaderView
 
 from ...ui.fonts import column_width_for
 from ...variant import qNumber, toDouble
@@ -33,12 +33,9 @@ class XkorOlympicRPBonusWidget(XkorAbstractRPBonusWidget):
 
     def bonuses(self):
         rval = {}
-        i = QTreeWidgetItemIterator(self.treeWidget)
-        while i.value():
-            item = i.value()
+        for item in self.iterItems():
             properties = {"bonus": toDouble(item.text(1))}
             rval[item.text(0)] = properties
-            i += 1
         return rval
 
     def initItem(self, item, nation="", bonus=0):

@@ -2,7 +2,7 @@ import time
 import uuid
 
 from PySide6.QtCore import QDir, Qt
-from PySide6.QtWidgets import QFileDialog, QHeaderView, QTreeWidgetItemIterator
+from PySide6.QtWidgets import QFileDialog, QHeaderView
 
 from ..athlete import XkorAthlete
 from ..icons import icon_action
@@ -58,9 +58,7 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
 
     def athletes(self):
         rval = []
-        i = QTreeWidgetItemIterator(self.treeWidget)
-        while i.value():
-            item = i.value()
+        for item in self.iterItems():
             a = XkorAthlete()
             a.name = item.text(_indexOf(self.m_columnKeys, "name"))
             a.id = parseAssignedUuid(item.data(_indexOf(self.m_columnKeys, "name"), Qt.UserRole))
@@ -69,7 +67,6 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
             for j in self.m_columnKeys:
                 a.setProperty(j, item.text(_indexOf(self.m_columnKeys, j)))
             rval.append(a)
-            i += 1
         return rval
 
     def importAthletes(self, filename=None):

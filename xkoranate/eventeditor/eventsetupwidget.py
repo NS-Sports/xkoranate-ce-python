@@ -1,20 +1,20 @@
 
 from PySide6.QtCore import QItemSelectionModel, Qt, QTimer, Signal
 from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QGridLayout, QHBoxLayout,
-                               QTreeWidgetItem, QTreeWidgetItemIterator, QWidget)
+                               QTreeWidgetItem, QWidget)
 
 from ..uuids import parseAssignedUuid, uuidToString
 from ..abstracttreewidget import XkorAbstractTreeWidget
 from ..ui.toolbars import small_icon_toolbar
 from ..ui.typography import heading_label
-from ..athlete import BYE_ID, BYE_NAME, XkorAthlete
+from ..athlete import BYE_ID, XkorAthlete
 from ..exceptions import XkorSearchFailedException
 from ..competitions import bracket
 from ..group import XkorGroup
 from ..icons import icon_action
 from ..rng import Mt19937
 from ..signuplist import XkorSignupList
-from .eventsetupdelegate import XkorEventSetupDelegate
+from .eventsetupdelegate import BYE_LABEL, XkorEventSetupDelegate
 
 
 class XkorEventSetupWidget(XkorAbstractTreeWidget):
@@ -239,8 +239,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         """Keep the match labels in step with their positions and contents."""
         for i in range(self.treeWidget.topLevelItemCount()):
             match = self.treeWidget.topLevelItem(i)
-            ids = [parseAssignedUuid(match.child(j).data(0, Qt.UserRole))
-                   for j in range(match.childCount())]
+            ids = [self._slotId(match.child(j)) for j in range(match.childCount())]
             # a match of nothing but byes has nobody to send to the next round
             empty = bool(ids) and all(id is None or id == BYE_ID for id in ids)
             match.setText(0, self.matchLabel(i) + ("  (nobody in this match)" if empty else ""))
@@ -256,7 +255,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         for i in range(self.treeWidget.topLevelItemCount()):
             match = self.treeWidget.topLevelItem(i)
             for j in range(match.childCount()):
-                rval.append(parseAssignedUuid(match.child(j).data(0, Qt.UserRole)))
+                rval.append(self._slotId(match.child(j)))
         return rval
 
     def realBracketEntrants(self):
@@ -268,11 +267,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.isInUse = True
         self.treeWidget.clear()
         for m in range(len(slots) // 2):
-            match = self.createItem()
-            match.setExpanded(True)
-            self.initItem(match, self.matchLabel(m))
-            for slot in (slots[2 * m], slots[2 * m + 1]):
-                self.initAthlete(self.createAthlete(match), slot)
+            self._addGroup(self.matchLabel(m), (slots[2 * m], slots[2 * m + 1]), keepByes=True)
         self.isInUse = False
         # the last arrangement we put there ourselves: a drag mutates the tree
         # directly, so this is the state to go back to if the user declines to
@@ -403,15 +398,9 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         return item
 
     def deleteAthlete(self, id):
-        toDelete = []
-        i = QTreeWidgetItemIterator(self.treeWidget)
-        while i.value():
-            item = i.value()
-            # if this is an athlete, look up its ID
-            if item.parent():
-                if parseAssignedUuid(item.data(0, Qt.UserRole)) == id:
-                    toDelete.append(item)
-            i += 1
+        # collected first: taking items out would upset the iteration
+        toDelete = [item for item in self.iterItems()
+                    if item.parent() and self._slotId(item) == id]
         for item in toDelete:
             parent = item.parent()
             parent.takeChild(parent.indexOfChild(item))
@@ -442,21 +431,28 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
             group = XkorGroup()
             group.name = self.treeWidget.topLevelItem(i).text(0)
             for j in range(self.treeWidget.topLevelItem(i).childCount()):
-                group.athletes.append(parseAssignedUuid(self.treeWidget.topLevelItem(i).child(j).data(0, Qt.UserRole)))
+                group.athletes.append(self._slotId(self.treeWidget.topLevelItem(i).child(j)))
             rval.append(group)
         return rval
 
-    def initAthlete(self, athlete, id=None):
-        if id == BYE_ID:
-            athlete.setText(0, "— %s —" % BYE_NAME)
-        else:
-            # get the actual athlete so we can display its name
-            try:
-                a = self.getAthleteByID(id)
-                athlete.setText(0, a.name + " (" + a.nation + ")")
-            except XkorSearchFailedException:
-                athlete.setText(0, "<unknown participant>")
+    @staticmethod
+    def _slotId(item):
+        """The participant id a slot item holds."""
+        return parseAssignedUuid(item.data(0, Qt.UserRole))
 
+    def _athleteLabel(self, id):
+        """The text a slot holding id shows."""
+        if id == BYE_ID:
+            return BYE_LABEL
+        # get the actual athlete so we can display its name
+        try:
+            a = self.getAthleteByID(id)
+            return a.name + " (" + a.nation + ")"
+        except XkorSearchFailedException:
+            return "<unknown participant>"
+
+    def initAthlete(self, athlete, id=None):
+        athlete.setText(0, self._athleteLabel(id))
         athlete.setFlags(athlete.flags() & ~Qt.ItemIsDropEnabled)
         athlete.setData(0, Qt.UserRole, uuidToString(id))
 
@@ -651,16 +647,20 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
 
         self.isInUse = True
         for i in g:
-            group = self.createItem()
-            group.setExpanded(True)
-            self.initItem(group, i.name)
-            for j in i.athletes:
-                if j == BYE_ID:
-                    continue  # a bye only means anything inside a bracket
-                athlete = self.createAthlete(group)
-                self.initAthlete(athlete, j)
+            # a bye only means anything inside a bracket
+            self._addGroup(i.name, i.athletes, keepByes=False)
         self.isInUse = False
         self.listChanged.emit()
+
+    def _addGroup(self, name, ids, keepByes):
+        """Append a group (or match) holding ids, dropping byes unless keepByes."""
+        group = self.createItem()
+        group.setExpanded(True)
+        self.initItem(group, name)
+        for id in ids:
+            if id == BYE_ID and not keepByes:
+                continue
+            self.initAthlete(self.createAthlete(group), id)
 
     def setSignupList(self, l):
         self.sl = l.clone()
@@ -721,14 +721,11 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
     def placedAthletes(self):
         """Ids already sitting in the tree, so they aren't offered twice."""
         rval = []
-        i = QTreeWidgetItemIterator(self.treeWidget)
-        while i.value():
-            item = i.value()
+        for item in self.iterItems():
             if item.parent():
-                id = parseAssignedUuid(item.data(0, Qt.UserRole))
+                id = self._slotId(item)
                 if id is not None and id != BYE_ID:
                     rval.append(id)
-            i += 1
         return rval
 
     def recomputeAvailableAthletes(self):
@@ -764,19 +761,11 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
     def updateAvailableAthletes(self):
         self.recomputeAvailableAthletes()
 
-        i = QTreeWidgetItemIterator(self.treeWidget)
-        while i.value():
-            item = i.value()
+        for item in self.iterItems():
             # if this is an athlete, look up its ID
             if item.parent():
-                id = parseAssignedUuid(item.data(0, Qt.UserRole))
+                id = self._slotId(item)
                 if id == BYE_ID:
-                    i += 1
                     continue  # a bye has no participant to look up
-                try:
-                    temp = self.getAthleteByID(id)
-                    item.setText(0, temp.name + " (" + temp.nation + ")")
-                except XkorSearchFailedException:
-                    item.setText(0, "<unknown participant>")
-            i += 1
+                item.setText(0, self._athleteLabel(id))
         self.listChanged.emit()
