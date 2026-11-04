@@ -128,6 +128,27 @@ class XkorAbstractCompetition:
 
         return (value1, value2, decider)
 
+    def tableScores(self, paradigm, score1, score2, allowDraws=True):
+        """The scores a league table records for a match, and an "OT"/"SO" tag.
+
+        A stoppage (KO, DSQ, RSC, …) has no real score: the paradigm marks
+        the beaten side with a status and parks the largest float on each
+        side, the wrong way round for a table, which counts the higher score
+        as the win. Adding those up also overflows to infinity. So a
+        stoppage goes in as 1–0 to the winner, the way a shootout winner is
+        credited one goal (see nudgeForShootout).
+
+        With draws allowed a tie is a result in its own right, so the
+        tiebreaker stages don't come into the table.
+        """
+        if toString(score1.value("status")) != "":
+            return (0.0, 1.0, None)
+        if toString(score2.value("status")) != "":
+            return (1.0, 0.0, None)
+        if allowDraws:
+            return (score1.score(), score2.score(), None)
+        return self.effectiveScores(paradigm, score1, score2)
+
     def _formatAthleteName(self, athlete):
         showTLAs = toString(self.paradigmOpt.get("showTLAs", "true")) == "true"
         if showTLAs and athlete.nation:

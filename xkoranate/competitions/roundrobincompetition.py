@@ -287,12 +287,8 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
                     score1 = p.findResult(i.athletes[j[0]].id)
                     score2 = p.findResult(i.athletes[j[1]].id)
 
-                    # with draws allowed a tie is a result in its own right,
-                    # so the tiebreaker stages don't come into the table
-                    if toString(self.userOpt.get("allowDraws")) == "false":
-                        scoreValue1, scoreValue2, decider = self.effectiveScores(p, score1, score2)
-                    else:
-                        scoreValue1, scoreValue2, decider = score1.score(), score2.score(), None
+                    scoreValue1, scoreValue2, decider = self.tableScores(
+                        p, score1, score2, toString(self.userOpt.get("allowDraws")) != "false")
                     self.tables[groupNo].insertMatch(i.athletes[j[0]].name, i.athletes[j[1]].name, scoreValue1, scoreValue2, decider)
 
                     # insert into the resume options
