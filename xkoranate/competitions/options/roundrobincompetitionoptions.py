@@ -9,6 +9,7 @@ class XkorRoundRobinCompetitionOptions(XkorAbstractOptionsWidget):
     def __init__(self, opts, parent=None):
         super().__init__(opts, parent)
 
+        from xkoranate.competitions.roundrobincompetition import tablePoints
         from xkoranate.tablegenerator.sortcriteriawidget import XkorSortCriteriaWidget
 
         # set up basic options
@@ -29,9 +30,7 @@ class XkorRoundRobinCompetitionOptions(XkorAbstractOptionsWidget):
         self.allowDraws.stateChanged.connect(self.setAllowDraws)
 
         # set up table options
-        pointsForWin = toInt(self.options.get("pointsForWin")) if "pointsForWin" in self.options else 3
-        pointsForDraw = toInt(self.options.get("pointsForDraw")) if "pointsForDraw" in self.options else 1
-        pointsForLoss = toInt(self.options.get("pointsForLoss")) if "pointsForLoss" in self.options else 0
+        pointsForWin, pointsForDraw, pointsForLoss = tablePoints(self.options)
 
         if "sortCriteria" in self.options:
             sortCriteria = []

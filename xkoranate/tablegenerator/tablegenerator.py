@@ -43,19 +43,15 @@ class XkorTableGenerator(QWidget):
         self.importDialog.setAcceptMode(QFileDialog.AcceptOpen)
 
         self.pointsForWin = QSpinBox()
-        self.pointsForWin.valueChanged.connect(lambda: self.setFileModified())
         self.pointsForDraw = QSpinBox()
-        self.pointsForDraw.valueChanged.connect(lambda: self.setFileModified())
         self.pointsForLoss = QSpinBox()
-        self.pointsForLoss.valueChanged.connect(lambda: self.setFileModified())
         self.pointsForOTWin = QSpinBox()
-        self.pointsForOTWin.valueChanged.connect(lambda: self.setFileModified())
         self.pointsForSOWin = QSpinBox()
-        self.pointsForSOWin.valueChanged.connect(lambda: self.setFileModified())
         self.pointsForOTLoss = QSpinBox()
-        self.pointsForOTLoss.valueChanged.connect(lambda: self.setFileModified())
         self.pointsForSOLoss = QSpinBox()
-        self.pointsForSOLoss.valueChanged.connect(lambda: self.setFileModified())
+        for spin in (self.pointsForWin, self.pointsForDraw, self.pointsForLoss, self.pointsForOTWin,
+                     self.pointsForSOWin, self.pointsForOTLoss, self.pointsForSOLoss):
+            spin.valueChanged.connect(lambda: self.setFileModified())
 
         # each OT/SO box follows the plain win or loss box until the user sets
         # it themselves; only then does it become an override that's saved to
@@ -91,6 +87,9 @@ class XkorTableGenerator(QWidget):
         self.showOvertime.stateChanged.connect(lambda: self.setFileModified())
         self.showResultsGrid = QCheckBox("Results grid")
         self.showResultsGrid.stateChanged.connect(lambda: self.setFileModified())
+        # each box and the XkorTable property it shows
+        self.showColumns = ((self.showDraws, "ShowDraws"), (self.showOvertime, "ShowOvertime"),
+                            (self.showResultsGrid, "ShowResultsGrid"))
 
         self.goalName = QComboBox()
         self.goalName.addItem("Goals (G)", "G")
@@ -232,9 +231,13 @@ class XkorTableGenerator(QWidget):
         self.matches.appendPlainText(data.decode("utf-8", errors="replace"))
         self.generateTable()
 
+        self.resultImportDirectoryChanged.emit(self._parentFolder(filename))
+
+    @staticmethod
+    def _parentFolder(filename):
         path = QDir(filename)
         path.cdUp()
-        self.resultImportDirectoryChanged.emit(path.canonicalPath())
+        return path.canonicalPath()
 
     def okayToLoad(self):
         if self.fileModified:
@@ -265,12 +268,8 @@ class XkorTableGenerator(QWidget):
             self.setOTPointsFromTable()
             self.columnWidth.setValue(self.t.getColumnWidth())
             self.scw.setSortCriteria(self.t.getSortCriteria())
-            self.showDraws.setCheckState(
-                Qt.Checked if self.t.getShowDraws() else Qt.Unchecked)
-            self.showOvertime.setCheckState(
-                Qt.Checked if self.t.getShowOvertime() else Qt.Unchecked)
-            self.showResultsGrid.setCheckState(
-                Qt.Checked if self.t.getShowResultsGrid() else Qt.Unchecked)
+            for box, name in self.showColumns:
+                box.setCheckState(Qt.Checked if getattr(self.t, "get" + name)() else Qt.Unchecked)
             self.goalName.setCurrentIndex(
                 self.goalName.findData(self.t.getGoalName()))
 
@@ -280,9 +279,7 @@ class XkorTableGenerator(QWidget):
             self.fileChanged.emit(filename)
             self.setFileModified(False)
 
-            path = QDir(filename)
-            path.cdUp()
-            self.tableDirectoryChanged.emit(path.canonicalPath())
+            self.tableDirectoryChanged.emit(self._parentFolder(filename))
 
     def reset(self):
         if self.okayToLoad():
@@ -324,9 +321,7 @@ class XkorTableGenerator(QWidget):
         self.fileChanged.emit(filename)
         self.setFileModified(False)
 
-        path = QDir(filename)
-        path.cdUp()
-        self.tableDirectoryChanged.emit(path.canonicalPath())
+        self.tableDirectoryChanged.emit(self._parentFolder(filename))
 
     def saveFileAs(self):
         self.dialog.setAcceptMode(QFileDialog.AcceptSave)
@@ -398,6 +393,5 @@ class XkorTableGenerator(QWidget):
         self.t.setColumnWidth(self.columnWidth.value())
         self.t.setGoalName(toString(
             self.goalName.itemData(self.goalName.currentIndex())))
-        self.t.setShowDraws(self.showDraws.checkState() == Qt.Checked)
-        self.t.setShowOvertime(self.showOvertime.checkState() == Qt.Checked)
-        self.t.setShowResultsGrid(self.showResultsGrid.checkState() == Qt.Checked)
+        for box, name in self.showColumns:
+            getattr(self.t, "set" + name)(box.checkState() == Qt.Checked)

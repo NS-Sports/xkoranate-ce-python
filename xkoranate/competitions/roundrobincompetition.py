@@ -27,6 +27,20 @@ _TABLE_HEADINGS = {
 }
 
 
+# the points a round robin awards when its options don't say
+DEFAULT_POINTS = (("pointsForWin", 3), ("pointsForDraw", 1), ("pointsForLoss", 0))
+
+
+def intOption(options, key, default):
+    """options[key] as an int, or `default` if it isn't set."""
+    return toInt(options.get(key)) if key in options else default
+
+
+def tablePoints(options):
+    """(win, draw, loss) points from competition options."""
+    return tuple(intOption(options, key, default) for key, default in DEFAULT_POINTS)
+
+
 def parseStoredMatch(line):
     """(matchday, XkorTableMatch) from a saved result line, or None."""
     from xkoranate.tablegenerator.tablematch import XkorTableMatch
@@ -151,19 +165,15 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
             len(self.startList.groups) > 1))
 
     def setTablePoints(self, t):
-        t.setPointsForWin(toInt(self.userOpt.get("pointsForWin")) if "pointsForWin" in self.userOpt else 3)
-        t.setPointsForDraw(toInt(self.userOpt.get("pointsForDraw")) if "pointsForDraw" in self.userOpt else 1)
-        t.setPointsForLoss(toInt(self.userOpt.get("pointsForLoss")) if "pointsForLoss" in self.userOpt else 0)
+        win, draw, loss = tablePoints(self.userOpt)
+        t.setPointsForWin(win)
+        t.setPointsForDraw(draw)
+        t.setPointsForLoss(loss)
         # OT/SO points are left unset (falling back to win/loss) unless the
         # competition explicitly overrides them, so existing events score unchanged
-        if "pointsForOTWin" in self.userOpt:
-            t.setPointsForOTWin(toInt(self.userOpt.get("pointsForOTWin")))
-        if "pointsForSOWin" in self.userOpt:
-            t.setPointsForSOWin(toInt(self.userOpt.get("pointsForSOWin")))
-        if "pointsForOTLoss" in self.userOpt:
-            t.setPointsForOTLoss(toInt(self.userOpt.get("pointsForOTLoss")))
-        if "pointsForSOLoss" in self.userOpt:
-            t.setPointsForSOLoss(toInt(self.userOpt.get("pointsForSOLoss")))
+        for name in ("OTWin", "SOWin", "OTLoss", "SOLoss"):
+            if "pointsFor" + name in self.userOpt:
+                getattr(t, "setPointsFor" + name)(toInt(self.userOpt.get("pointsFor" + name)))
 
     def generateTableColumns(self, groupName, teamCount=None):
         from xkoranate.tablegenerator.tablecolumn import standingsColumns
@@ -195,10 +205,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         return rval
 
     def matchdays(self):
-        if "numberOfLegs" in self.userOpt:
-            return toInt(self.userOpt.get("numberOfLegs")) * (self.largestGroupSize(self.startList) - 1)
-        else:
-            return self.largestGroupSize(self.startList) - 1
+        return intOption(self.userOpt, "numberOfLegs", 1) * (self.largestGroupSize(self.startList) - 1)
 
     def matchdayNames(self):
         rval = []
@@ -394,7 +401,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
             for home, away in self.groupPairs(self.generateFixtures(md, groupSize), size):
                 remaining.append((names[home], names[away]))
 
-        legs = toInt(self.userOpt.get("numberOfLegs")) if "numberOfLegs" in self.userOpt else 1
+        legs = intOption(self.userOpt, "numberOfLegs", 1)
         metric, outcomes, scale = self._qualificationMetric(table, (size - 1) * legs)
         return QualificationGroup(
             teams=names, current=self._currentMetric(table, metric), remaining=remaining,

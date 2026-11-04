@@ -1,7 +1,7 @@
 from xkoranate.competitions.conference import conferenceSchedule
 from xkoranate.competitions.roundrobincompetition import (
-    XkorRoundRobinCompetition, formatStoredMatch, parseStoredMatch)
-from xkoranate.variant import toInt, toList, toString
+    XkorRoundRobinCompetition, formatStoredMatch, intOption, parseStoredMatch, tablePoints)
+from xkoranate.variant import toList, toString
 
 OVERALL_TABLE_NAME = "Overall"
 
@@ -39,10 +39,10 @@ class XkorInterConferenceCompetition(XkorRoundRobinCompetition):
     # options
 
     def ownLegs(self):
-        return toInt(self.userOpt.get("numberOfLegs")) if "numberOfLegs" in self.userOpt else 2
+        return intOption(self.userOpt, "numberOfLegs", 2)
 
     def otherLegs(self):
-        return toInt(self.userOpt.get("interConferenceLegs")) if "interConferenceLegs" in self.userOpt else 1
+        return intOption(self.userOpt, "interConferenceLegs", 1)
 
     def crossPoints(self):
         """(win, draw, loss) for games between conferences, or None when
@@ -50,11 +50,7 @@ class XkorInterConferenceCompetition(XkorRoundRobinCompetition):
         keys = ("crossPointsForWin", "crossPointsForDraw", "crossPointsForLoss")
         if not any(k in self.userOpt for k in keys):
             return None
-        defaults = (toInt(self.userOpt.get("pointsForWin")) if "pointsForWin" in self.userOpt else 3,
-                    toInt(self.userOpt.get("pointsForDraw")) if "pointsForDraw" in self.userOpt else 1,
-                    toInt(self.userOpt.get("pointsForLoss")) if "pointsForLoss" in self.userOpt else 0)
-        return tuple(toInt(self.userOpt.get(k)) if k in self.userOpt else d
-                     for k, d in zip(keys, defaults))
+        return tuple(intOption(self.userOpt, k, d) for k, d in zip(keys, tablePoints(self.userOpt)))
 
     def showOverallTable(self):
         return toString(self.userOpt.get("showOverallTable")) != "false"
@@ -123,10 +119,8 @@ class XkorInterConferenceCompetition(XkorRoundRobinCompetition):
 
         t = XkorTable()
         t.setColumns(self.generateTableColumns(heading, len(teams)))
-        t.setSortCriteria(self.tableSortCriteria())
-        self.setTablePoints(t)
+        self._configureTable(t, self.tableSortCriteria())
         t.setConferences({a.name: n for n, g in enumerate(self.startList.groups) for a in g.athletes})
-        t.setCrossPoints(self.crossPoints())
         t.setMatches(matches)
         t.setTeams(teams)
         # list every team from the start, even one yet to play
