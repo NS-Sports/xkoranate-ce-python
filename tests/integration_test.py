@@ -805,3 +805,51 @@ def test_scorinating_a_round_out_of_order_says_why_it_is_empty(sport_index, rng)
     result = c.results(2)
     assert "hasn't been played yet" in result
     assert c.matchdayNames()[2] in result
+
+
+def test_switching_away_from_a_knockout_adds_no_stray_group(editor, sport_index, rng):
+    """Leaving a knockout used to plant its empty bracket in the next event.
+
+    Loading an event first empties the editor while it is still in the old
+    event's bracket mode, so the setup page read back one empty pooled group.
+    The switch to the next event's format then turned that into a group of
+    its own, and a stray "Bracket" heading turned up in that event's results.
+    """
+    race, _ = build_event(sport_index, rng, "Athletics—Men’s 00100 m—Round 1")
+    race.m_groups[0].name = "Final"
+    cup, _ = build_event(sport_index, rng, "Association football—LISA formula")
+    cup.setCompetition("singleElimination")
+
+    def groups():
+        return [(g.name, len(g.athletes)) for g in editor.ee.eventSetupWidget.groups()]
+
+    editor.showEventEditor(race)
+    assert groups() == [("Final", 8)]
+
+    editor.showEventEditor(cup)
+    for _ in range(3):
+        editor.ee.goNext()  # through to the scorinate page
+
+    editor.showEventEditor(race)
+    assert groups() == [("Final", 8)]
+    editor.updateCurrentEvent()
+    assert [g.name for g in race.groups()] == ["Final"]
+
+
+def test_an_empty_group_survives_a_trip_through_the_knockout_format(editor):
+    """An empty bracket carries nothing over, but the pools it replaced still come back."""
+    from xkoranate.eventeditor.eventsetupwidget import XkorEventSetupWidget
+
+    w = XkorEventSetupWidget()
+    w.setCompetition("roundRobin")
+    w.setGroups([XkorGroup("Group 1", [])])
+    w.setCompetition("singleElimination")
+    w.setCompetition("roundRobin")
+    assert [(g.name, g.athletes) for g in w.groups()] == [("Group 1", [])]
+
+    # with nothing remembered, an empty bracket leaves nothing behind
+    w.reset()
+    w.setCompetition("singleElimination")
+    w.setGroups([])
+    w.setCompetition("roundRobin")
+    assert w.groups() == []
