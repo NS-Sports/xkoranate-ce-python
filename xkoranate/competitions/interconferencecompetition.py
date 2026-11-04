@@ -189,12 +189,7 @@ class XkorInterConferenceCompetition(XkorRoundRobinCompetition):
                 score1 = p.findResult(homeAthlete.id)
                 score2 = p.findResult(awayAthlete.id)
 
-                # with draws allowed a tie is a result in its own right,
-                # so the tiebreaker stages don't come into the table
-                if allowDraws:
-                    value1, value2, decider = score1.score(), score2.score(), None
-                else:
-                    value1, value2, decider = self.effectiveScores(p, score1, score2)
+                value1, value2, decider = self.tableScores(p, score1, score2, allowDraws)
 
                 match = XkorTableMatch(homeAthlete.name, awayAthlete.name, value1, value2, decider)
                 for t in self.tables:

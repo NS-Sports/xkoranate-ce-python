@@ -1067,3 +1067,27 @@ def test_round_robin_is_still_the_default_for_a_new_head_to_head_event(editor, s
     editor.showEventEditor(ev)
     assert selectedCompetition(editor) == "roundRobin"
     assert ev.competition() == "roundRobin" or editor.ee.m_data.competition() == "roundRobin"
+
+
+@pytest.mark.parametrize("sportName", ["Boxing—xkoranate formula", "Taekwondo—xkoranate formula"])
+def test_conference_tables_count_stoppages_and_negative_scores(sport_index, sportName):
+    """Stoppages (KO, DSQ, …) and taekwondo's below-zero scores both used to
+    break conference tables, as they did round robin's: a stoppage
+    overflowed the table, and a negative score dropped out of it."""
+    sizes = [4, 4, 3]
+    total = sum(sizes)
+    stoppages = negatives = 0
+    for seed in range(4):
+        ev, sport = buildConferences(sport_index, Mt19937(seed), sizes, sportName=sportName)
+        c, opts, results = playConferences(ev, sport)
+        final = results[c.matchdays() - 1]
+        played = tableRows(final, "Overall")
+        for n, size in enumerate(sizes):
+            for team, games in tableRows(final, "Conf %d" % (n + 1)).items():
+                assert games == 2 * (size - 1) + (total - size) == played[team], team
+        text = "\n".join(results.values())
+        stoppages += text.count(" def. ")
+        negatives += sum("–-" in line for line in opts["conferenceTableData"])
+    assert stoppages > 0
+    if sportName.startswith("Taekwondo"):
+        assert negatives > 0
