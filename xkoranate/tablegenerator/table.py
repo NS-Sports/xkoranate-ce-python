@@ -27,6 +27,10 @@ class XkorTable:
         self.showResultsGrid = False
         self.showOvertime = False
         self.goalName = ""
+        # None shows every team that has played; a list limits the table to
+        # those teams, e.g. one conference's standings built from matches
+        # that include its games against other conferences
+        self.teams = None
 
     def addMatchToData(self, m):
         i = self.findTeam(m.team1)
@@ -48,14 +52,16 @@ class XkorTable:
     def generate(self):
         self.data = []
 
+        shown = [name for name in self.unsortedData
+                 if self.teams is None or name in self.teams]
         oldData = []
-        for i in self.unsortedData.values():
-            oldData.append(i.clone())
+        for name in shown:
+            oldData.append(self.unsortedData[name].clone())
 
-        if self.unsortedData:
+        if shown:
             # guarded: generating an empty table (no results entered yet)
             # shouldn't throw away the flips of a table that has them
-            self.sorter.pruneCoinFlips(self.unsortedData.keys())
+            self.sorter.pruneCoinFlips(shown)
 
         self.collapse(self.data, self.sortTable(oldData))
 
@@ -185,6 +191,10 @@ class XkorTable:
     def setPointsForSOLoss(self, pts):
         self.pointsForSOLoss = pts
         self.sorter.setPointsForSOLoss(pts)
+
+    def setTeams(self, names):
+        """Limit the table to these teams; None shows everyone."""
+        self.teams = None if names is None else set(names)
 
     def setShowDraws(self, value):
         self.showDraws = value

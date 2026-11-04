@@ -41,6 +41,13 @@ the sport's paradigm, and include:
 
 - **Mass start** — everyone races at once; results are times or placements.
 - **Round robin** — every participant/team plays every other one.
+- **Inter-conference round robin** — a league split into conferences, one per
+  group. Teams play a round robin within their own conference ("Legs in
+  conference") and also meet every team in each other conference ("Legs v
+  others"). Cross-conference matchdays are spread evenly through the season,
+  and conferences of different sizes are fine: teams sit out the odd matchday.
+  Each conference's table counts all of its teams' games, and an optional
+  overall table ranks everyone together.
 - **Individual matches** — a fixed set of head-to-head matchups.
 - **Single elimination** — a knockout bracket: losers go out, and each round's
   fixtures come from the winners of the round before it. Offered for any sport

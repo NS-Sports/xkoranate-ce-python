@@ -42,7 +42,7 @@ Tracked as issues in this repo (each links back to the original upstream
 report):
 
 - [#23](https://github.com/NS-Sports/xkoranate-ce-python/issues/23) New paradigms (boxing, MMA, quidditch, 3×3; Baseinator-style additive mods) — multiple new scoring engines. (upstream #11)
-- [#24](https://github.com/NS-Sports/xkoranate-ce-python/issues/24) Inter-conference play — new competition type + options file. (upstream #18)
+- [#24](https://github.com/NS-Sports/xkoranate-ce-python/issues/24) Inter-conference play — new competition type + options file. Basic format done (round robins within and across conferences); NFL-style formats still open. (upstream #18)
 - [#25](https://github.com/NS-Sports/xkoranate-ce-python/issues/25) Sailing multi-round Olympic automation — domain-heavy. (upstream #5)
 - [#26](https://github.com/NS-Sports/xkoranate-ce-python/issues/26) Auto-racing multiclass / timed races — new options + paradigm work. (upstream #37)
 - [#27](https://github.com/NS-Sports/xkoranate-ce-python/issues/27) In-app formula/XML editor for sports — substantial new editor subsystem. (upstream #35)

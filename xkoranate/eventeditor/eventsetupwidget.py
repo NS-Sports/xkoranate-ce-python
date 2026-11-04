@@ -294,6 +294,8 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         # the page is named for what the user is actually arranging
         if self.competition == "singleElimination":
             return "Set bracket"
+        if self.competition == "interConference":
+            return "Set up conferences"
         return "Set up groups"
 
     def setCompetition(self, competition):

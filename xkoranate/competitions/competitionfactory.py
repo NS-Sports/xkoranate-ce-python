@@ -1,4 +1,5 @@
 from xkoranate.competitions.archerycompetition import XkorArcheryCompetition
+from xkoranate.competitions.interconferencecompetition import XkorInterConferenceCompetition
 from xkoranate.competitions.matchescompetition import XkorMatchesCompetition
 from xkoranate.competitions.multipleruncompetition import XkorMultipleRunCompetition
 from xkoranate.competitions.roundrobincompetition import XkorRoundRobinCompetition
@@ -20,6 +21,8 @@ class XkorCompetitionFactory:
             rval = XkorMultipleRunCompetition()
         elif type == "roundRobin":
             rval = XkorRoundRobinCompetition()
+        elif type == "interConference":
+            rval = XkorInterConferenceCompetition()
         elif type == "shooting":
             rval = XkorShootingCompetition()
         elif type == "singleElimination":
@@ -44,4 +47,5 @@ class XkorCompetitionFactory:
         rval["singleElimination"] = "Single elimination"
         rval["standard"] = "Mass start"
         rval["roundRobin"] = "Round robin"
+        rval["interConference"] = "Inter-conference round robin"
         return rval

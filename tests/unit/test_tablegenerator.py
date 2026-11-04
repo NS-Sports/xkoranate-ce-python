@@ -631,3 +631,57 @@ def test_the_match_results_box_parses_through_the_shared_parser(qapp):
         ("Charlie", "OTtawa", 1.0, 0.0, None),
     ]
     assert "OTtawa" in w.teamsList
+
+
+def _conferenceTable(teams=None):
+    """A and B share a conference; X is from another one. A and B are level
+    on points, but A won the head-to-head."""
+    t = XkorTable()
+    t.setPointsForWin(3)
+    t.setPointsForDraw(1)
+    t.setPointsForLoss(0)
+    t.setSortCriteria(["points", "h2hPoints", "goalDifference"])
+    t.setMatches([
+        XkorTableMatch("A", "X", 0, 3),
+        XkorTableMatch("B", "X", 3, 0),
+        XkorTableMatch("A", "B", 1, 0),
+        XkorTableMatch("B", "X", 0, 5),
+    ])
+    t.setTeams(teams)
+    t.generate()
+    return [row.name() for tier in t.data for row in tier]
+
+
+def test_a_team_filter_keeps_only_those_teams_in_the_table():
+    assert _conferenceTable(["A", "B"]) == ["A", "B"]
+
+
+def test_a_team_filter_still_counts_games_against_teams_outside_it():
+    t = XkorTable()
+    t.setMatches([XkorTableMatch("A", "X", 2, 0), XkorTableMatch("A", "B", 1, 1)])
+    t.setTeams(["A", "B"])
+    t.generate()
+    rows = {row.name(): row for tier in t.data for row in tier}
+    assert set(rows) == {"A", "B"}
+    assert rows["A"].played() == 2
+    assert rows["B"].played() == 1
+
+
+def test_head_to_head_breaks_a_tie_inside_a_filtered_table():
+    # level on points and goal difference; A won the meeting
+    t = XkorTable()
+    t.setPointsForWin(3)
+    t.setSortCriteria(["points", "h2hPoints"])
+    t.setMatches([
+        XkorTableMatch("A", "X", 0, 1),
+        XkorTableMatch("B", "X", 1, 0),
+        XkorTableMatch("B", "A", 0, 1),
+    ])
+    t.setTeams(["B", "A"])
+    t.generate()
+    assert [row.name() for tier in t.data for row in tier] == ["A", "B"]
+
+
+def test_an_unfiltered_table_shows_every_team():
+    assert sorted(_conferenceTable()) == ["A", "B", "X"]
+    assert sorted(_conferenceTable(None)) == ["A", "B", "X"]

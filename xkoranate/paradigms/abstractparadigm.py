@@ -110,6 +110,11 @@ class XkorAbstractParadigm:
         if competition == "singleElimination" \
                 and "singleElimination" not in self.supportedCompetitions:
             competition = "matches"
+        # likewise a conference league is round robins played across groups
+        # as well as within them, so it needs nothing a round robin doesn't
+        if competition == "interConference" \
+                and "interConference" not in self.supportedCompetitions:
+            competition = "roundRobin"
         return self.supportedCompetitions.get(competition, False)
 
     # protected:
