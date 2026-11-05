@@ -91,11 +91,15 @@ class XkorGolfinatorParadigmOptions(XkorAbstractOptionsWidget):
         elif column == 5:
             columnName = "narrow"
         elif column == 6:
-            columnName = "grass"  # sic — matches the C++ (column 6 is labelled "Green" but stored as "grass")
+            # the C++ stored this as "grass", which the paradigm never reads
+            columnName = "green"
         else:
             print("non-existent column edited in XkorGolfinatorParadigmOptions::updateData(int, int)", file=sys.stderr)
 
         columnValues = toList(self.options.get(columnName, self.defaultValue(columnName)))
-        columnValues.insert(row, toDouble(self.course.item(row, column).text()))
+        # a short saved list takes the holes it lacks from the defaults
+        columnValues += self.defaultValue(columnName)[len(columnValues):row + 1]
+        # the C++ inserted here, pushing every later hole down one
+        columnValues[row] = toDouble(self.course.item(row, column).text())
         self.options[columnName] = columnValues
         self.optionsChanged.emit(self.options)
