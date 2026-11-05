@@ -65,10 +65,12 @@ class XkorTimedParadigm(XkorAbstractParadigm):
             sum_ = 0.0
             attempts = toList(r.result.get("attempts"))
 
-            # check if any of the scores are failures
+            # check if any of the scores are failures: the C++ compared with
+            # numeric_limits<double>::min(), the smallest positive double,
+            # which missed every failure in a descending sport
             for i in range(len(attempts)):
                 if (toDouble(toList(r.result.get("attempts"))[i]) == sys.float_info.max
-                        or toDouble(toList(r.result.get("attempts"))[i]) == sys.float_info.min):
+                        or toDouble(toList(r.result.get("attempts"))[i]) == -sys.float_info.max):
                     r.setScore(toDouble(toList(r.result.get("attempts"))[i]))
                     r.setScoreString(toString(toList(r.result.get("attemptStrings"))[i]))
                     r.setOutput(self.outputLine(r))
@@ -126,19 +128,19 @@ class XkorTimedParadigm(XkorAbstractParadigm):
             c = toDouble(self.opt.get("decathlonC"))
             multiplier = toDouble(self.opt.get("decathlonMultiplier", 1))
 
-            roundedValue = (int(r.score() * math.pow(10.0, toDouble(self.opt.get("displayDigits"))) + 1)
-                            * math.pow(10.0, -toDouble(self.opt.get("displayDigits"))))
-
-            if toString(self.opt.get("sortOrder", "ascending")) == "ascending":
-                if r.score() == sys.float_info.max:
-                    decathlonPoints = 0
-                else:
-                    decathlonPoints = int(math.floor(a * math.pow(b - multiplier * roundedValue, c)))
+            if r.score() == self._worstScore():
+                # a failure; rounding its score would overflow
+                decathlonPoints = 0
             else:
-                if r.score() == -sys.float_info.max:
-                    decathlonPoints = 0
+                roundedValue = (int(r.score() * math.pow(10.0, toDouble(self.opt.get("displayDigits"))) + 1)
+                                * math.pow(10.0, -toDouble(self.opt.get("displayDigits"))))
+                if toString(self.opt.get("sortOrder", "ascending")) == "ascending":
+                    margin = b - multiplier * roundedValue
                 else:
-                    decathlonPoints = int(math.floor(a * math.pow(multiplier * roundedValue - b, c)))
+                    margin = multiplier * roundedValue - b
+                # a performance no better than B scores nothing, as in the
+                # scoring tables; pow() of a negative margin is undefined
+                decathlonPoints = int(math.floor(a * math.pow(margin, c))) if margin > 0 else 0
 
             rval += str(decathlonPoints).rjust(resultWidth)
 
@@ -249,7 +251,9 @@ class XkorTimedParadigm(XkorAbstractParadigm):
 
         if "furtherAttempts" in self.opt:
             self.comparisonFunction().sort(self.res)
-            for i in range(toInt(self.opt.get("furtherAttemptCutoff"))):
+            # the cutoff (eight, in the field events) can be more than the
+            # group holds
+            for i in range(min(toInt(self.opt.get("furtherAttemptCutoff")), len(self.res))):
                 r = self.res[i].clone()
                 for j in range(toInt(self.opt.get("furtherAttempts"))):
                     result = self.individualResult(r.athlete, "score")

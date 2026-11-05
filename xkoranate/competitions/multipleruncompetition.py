@@ -5,7 +5,6 @@ from xkoranate.result import XkorResult
 from xkoranate.variant import toDouble, toInt, toList, toString
 
 DBL_MAX = sys.float_info.max  # numeric_limits<double>::max()
-DBL_MIN = sys.float_info.min  # numeric_limits<double>::min()
 
 # the resume options carrying the runs so far: the athletes still in, their
 # scores and score strings, then the same for the disqualified, plus their
@@ -154,7 +153,10 @@ class XkorMultipleRunCompetition(XkorAbstractCompetition):
         disqualifiedScoreStrings = []
         disqualifiedOutputs = []
         for i in range(len(results)):
-            if results[i].score() != DBL_MAX and results[i].score() != DBL_MIN:
+            # a failure scores DBL_MAX, or -DBL_MAX in a descending sport; the
+            # C++ tested numeric_limits<double>::min(), the smallest positive
+            # double, so a failure in a descending sport went on to the next run
+            if results[i].score() != DBL_MAX and results[i].score() != -DBL_MAX:
                 qualifiedAthletes.append(toString(results[i].athlete.id))
                 qualifyingScores.append(results[i].result.get("attempts"))
                 qualifyingScoreStrings.append(results[i].result.get("attemptStrings"))

@@ -65,7 +65,11 @@ class XkorNSFSBaseballParadigm(XkorNSFSGridironParadigm):
         extraScoringProb = toDouble(self.opt.get("extraScoringProb"))
         extraScoringCoeff = toDouble(self.opt.get("extraScoringCoeff"))
 
-        rankDiff = oppSkill - skill
+        # skills run from 0 to 1, so no two differ by more than 1. A wider
+        # gap means skills that were never scaled, and it pushes the
+        # probabilities below out of [0, 1): the runs loop then never ends,
+        # and math.pow overflows.
+        rankDiff = max(-1.0, min(1.0, oppSkill - skill))
 
         # calculate base probability and multiplier
         homeP = baseScoringProb + baseScoringCoeff * rankDiff

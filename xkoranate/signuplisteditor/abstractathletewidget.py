@@ -46,6 +46,8 @@ class _AthleteTreeWidgetItem(QTreeWidgetItem):
 class XkorAbstractAthleteWidget(XkorAbstractTreeWidget):
     itemDeleted = Signal(object)  # QUuid
     signupListDirectoryChanged = Signal(str)
+    # a file's participants went in; sent before listChanged
+    athletesImported = Signal()
 
     def __init__(self, columnKeys, columnNames, columnTypes, minDouble, maxDouble, doubleStep):
         self.r = Mt19937()  # std::tr1::mt19937 member

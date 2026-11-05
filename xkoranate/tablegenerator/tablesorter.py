@@ -88,7 +88,10 @@ def _winPercentPure(r):
 
 
 def _winPercentNFL(r):
-    return 0 if r.played() == 0 else r.wins() / (r.wins() + r.losses())
+    # draws are left out altogether, so a side that has only drawn has no
+    # percentage; it ranks with the sides that have not played
+    decided = r.wins() + r.losses()
+    return 0 if decided == 0 else r.wins() / decided
 
 
 def _coinFlip(sorter, rows):

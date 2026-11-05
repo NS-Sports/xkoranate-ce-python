@@ -136,6 +136,13 @@ class XkorSignupListEditor(QWidget):
         if self._maxRankMode() == "pinned":
             self._updatePinnedMax()
 
+    def _onAthletesImported(self):
+        # typing a skill above the ceiling can't happen (the delegate clamps
+        # it), but a file can hold anything. A new event's ceiling is 1, so a
+        # field ranked 0-100 was otherwise scorinated on its raw ranks.
+        if self._maxRankMode() == "manual":
+            self._raiseMaxAboveParticipants()
+
     def _pinMaxToParticipantsChanged(self, _state):
         self._applyMaxRankMode()
 
@@ -254,6 +261,7 @@ class XkorSignupListEditor(QWidget):
         self.layout.addWidget(self.athletes, 1)
         self.athletes.listChanged.connect(self.setDataChanged)
         self.athletes.listChanged.connect(self._onAthleteListChanged)
+        self.athletes.athletesImported.connect(self._onAthletesImported)
         self.athletes.itemDeleted.connect(self.itemDeleted)
         self.athletes.signupListDirectoryChanged.connect(self.signupListDirectoryChanged)
 
