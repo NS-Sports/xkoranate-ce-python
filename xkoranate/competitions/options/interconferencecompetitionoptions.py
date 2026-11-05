@@ -1,7 +1,7 @@
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QCheckBox, QGridLayout, QLabel, QSpinBox
+from PySide6.QtWidgets import QSpinBox
 
 from xkoranate.competitions.options.roundrobincompetitionoptions import XkorRoundRobinCompetitionOptions
+from xkoranate.tablegenerator.pointsrow import pointsRowLayout
 from xkoranate.variant import toBool, toInt
 
 
@@ -33,14 +33,15 @@ class XkorInterConferenceCompetitionOptions(XkorRoundRobinCompetitionOptions):
         self.interConferenceLegs.setToolTip(
             "How many times each team plays every team in each other conference. "
             "0 keeps the conferences apart.")
-        self.setInterConferenceLegs(self.interConferenceLegs.value())
-        self.interConferenceLegs.valueChanged.connect(self.setInterConferenceLegs)
+        self._setOption("interConferenceLegs", str(self.interConferenceLegs.value()))
+        self.interConferenceLegs.valueChanged.connect(
+            lambda value: self._setOption("interConferenceLegs", str(value)))
 
-        self.showOverallTable = QCheckBox("Overall table")
-        self.showOverallTable.setChecked(toBool(self.options.get("showOverallTable", True)))
+        self.showOverallTable = self._flagCheckBox(
+            "showOverallTable", "Overall table", toBool(self.options.get("showOverallTable", True)),
+            storeNow=False)
         self.showOverallTable.setToolTip(
             "After the conference tables, also rank every team in one combined table.")
-        self.showOverallTable.stateChanged.connect(self.setShowOverallTable)
 
         layout.insertRow(1, "Legs v others:", self.interConferenceLegs)
         layout.insertRow(3, "", self.showOverallTable)
@@ -57,18 +58,12 @@ class XkorInterConferenceCompetitionOptions(XkorRoundRobinCompetitionOptions):
         self.crossFollows = not any(k in self.options for k in crossKeys)
         own = (self.ptsWin.value(), self.ptsDraw.value(), self.ptsLoss.value())
         self.crossWin, self.crossDraw, self.crossLoss = QSpinBox(), QSpinBox(), QSpinBox()
-        crossLayout = QGridLayout()
-        for n, (box, key, ownValue) in enumerate(zip((self.crossWin, self.crossDraw, self.crossLoss), crossKeys, own)):
+        for box, key, ownValue in zip((self.crossWin, self.crossDraw, self.crossLoss), crossKeys, own):
             box.setValue(toInt(self.options.get(key, ownValue)))
             box.setToolTip("Points for a win, draw or loss against a team in another conference. "
                            "Matches the row above until you change it.")
             box.valueChanged.connect(self.setCrossPoints)
-            crossLayout.addWidget(box, 0, 2 * n)
-            crossLayout.setColumnStretch(2 * n, 1)
-        crossLayout.addWidget(QLabel("Draw:"), 0, 1)
-        crossLayout.addWidget(QLabel("Loss:"), 0, 3)
-        crossLayout.setContentsMargins(0, 0, 0, 0)
-        layout.addRow("Win v others:", crossLayout)
+        layout.addRow("Win v others:", pointsRowLayout(self.crossWin, self.crossDraw, self.crossLoss))
 
         for box in (self.ptsWin, self.ptsDraw, self.ptsLoss):
             box.valueChanged.connect(self.followOwnPoints)
@@ -96,12 +91,3 @@ class XkorInterConferenceCompetitionOptions(XkorRoundRobinCompetitionOptions):
         self.showResultsGrid.setEnabled(False)
         self.options["showResultsGrid"] = "false"
 
-    def setInterConferenceLegs(self, value):
-        self.options["interConferenceLegs"] = str(value)
-        self.optionsChanged.emit(self.options)
-
-    def setShowOverallTable(self, value):
-        if isinstance(value, Qt.CheckState):
-            value = value.value
-        self.options["showOverallTable"] = "true" if value == Qt.CheckState.Checked.value else "false"
-        self.optionsChanged.emit(self.options)

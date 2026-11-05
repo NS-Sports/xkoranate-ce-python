@@ -1,56 +1,145 @@
 import functools
+import locale
+import random
+import sys
+from operator import methodcaller
 
-from .sortrules.sortalpha import XkorSortAlphaEq, XkorSortAlphaGr
-from .sortrules.sortawaygoals import XkorSortAwayGoalsEq, XkorSortAwayGoalsGr
-from .sortrules.sortawaywins import XkorSortAwayWinsEq, XkorSortAwayWinsGr
-from .sortrules.sortcoinflip import (XkorSortCoinFlipEq, XkorSortCoinFlipGr,
-                                     assignCoinFlips, pruneCoinFlips)
-from .sortrules.sortgoalaverage import (XkorSortGoalAverageEq,
-                                        XkorSortGoalAverageGr)
-from .sortrules.sortgoaldifference import (XkorSortGoalDiffEq,
-                                           XkorSortGoalDiffGr)
-from .sortrules.sortgoalsagainst import (XkorSortGoalsAgainstEq,
-                                         XkorSortGoalsAgainstGr)
-from .sortrules.sortgoalsfor import XkorSortGoalsForEq, XkorSortGoalsForGr
-from .sortrules.sorth2hawaygoals import (XkorSortH2HAwayGoalsEq,
-                                         XkorSortH2HAwayGoalsGr)
-from .sortrules.sorth2hgoaldifference import (XkorSortH2HGoalDiffEq,
-                                              XkorSortH2HGoalDiffGr)
-from .sortrules.sorth2hgoalsagainst import (XkorSortH2HGoalsAgainstEq,
-                                            XkorSortH2HGoalsAgainstGr)
-from .sortrules.sorth2hgoalsfor import (XkorSortH2HGoalsForEq,
-                                        XkorSortH2HGoalsForGr)
-from .sortrules.sorth2hpoints import XkorSortH2HPointsEq, XkorSortH2HPointsGr
-from .sortrules.sorth2hwins import XkorSortH2HWinsEq, XkorSortH2HWinsGr
-from .sortrules.sorthomegoalsagainst import (XkorSortHomeGoalsAgainstEq,
-                                             XkorSortHomeGoalsAgainstGr)
-from .sortrules.sorthomelosses import (XkorSortHomeLossesEq,
-                                       XkorSortHomeLossesGr)
-from .sortrules.sortlosses import XkorSortLossesEq, XkorSortLossesGr
-from .sortrules.sortotwins import XkorSortOTWinsEq, XkorSortOTWinsGr
-from .sortrules.sortpoints import XkorSortPointsEq, XkorSortPointsGr
-from .sortrules.sortregulationwins import (XkorSortRegulationWinsEq,
-                                           XkorSortRegulationWinsGr)
-from .sortrules.sortwinpercent import (XkorSortWinPercentEq,
-                                       XkorSortWinPercentGr)
-from .sortrules.sortwinpercentnfl import (XkorSortWinPercentNFLEq,
-                                          XkorSortWinPercentNFLGr)
-from .sortrules.sortwinpercentpure import (XkorSortWinPercentPureEq,
-                                           XkorSortWinPercentPureGr)
-from .sortrules.sortwins import XkorSortWinsEq, XkorSortWinsGr
+from .pointsscheme import XkorPointsAccessors, XkorPointsScheme
+
+# a flip is saved through qNumber(), which writes 6 significant digits — so it
+# has to be a whole number below a million to reload as the value that was
+# written. Two teams sharing a value would tie in the sort that's meant to be
+# the last resort, so values are drawn without repeats rather than trusted to
+# be distinct by luck.
+_MAX_FLIP = 999999
 
 
-class XkorTableSorter:
-    def __init__(self):
-        self.pointsForWin = 0.0
-        self.pointsForDraw = 0.0
-        self.pointsForLoss = 0.0
-        self.pointsForOTWin = None
-        self.pointsForSOWin = None
-        self.pointsForOTLoss = None
-        self.pointsForSOLoss = None
-        self.crossPoints = None  # (win, draw, loss) v other conferences
-        self.h2hTeams = []
+def assignCoinFlips(rows, coinFlips):
+    """Give every row in `rows` a coin-flip value in `coinFlips` (keyed by
+    team name), flipping a fresh one only the first time a team is seen.
+    `coinFlips` is mutated in place and is expected to be the table's own
+    persisted store, so a team's flip result — once made — sticks for as
+    long as the table file does, surviving regenerating the table or
+    relaunching the app, the same way a real coin toss wouldn't be redone
+    just because someone looked at the standings again."""
+    taken = set(coinFlips.values())
+    for r in rows:
+        if r.name() not in coinFlips:
+            value = random.randint(0, _MAX_FLIP)
+            while value in taken:
+                value = random.randint(0, _MAX_FLIP)
+            coinFlips[r.name()] = value
+            taken.add(value)
+
+
+def pruneCoinFlips(teamNames, coinFlips):
+    """Drop flips for teams the table no longer has, so renaming a team over
+    and over doesn't grow the saved file without bound. Mutates in place."""
+    teamNames = set(teamNames)
+    for name in [n for n in coinFlips if n not in teamNames]:
+        del coinFlips[name]
+
+
+# A sort rule takes the sorter and the rows being sorted and returns the
+# (gr, eq) pair privateSort() ranks them with.
+
+LOWER = True  # for rules where fewer ranks higher
+
+
+def _ranked(value, lowerIsBetter=False):
+    if lowerIsBetter:
+        return (lambda a, b: value(a) < value(b)), (lambda a, b: value(a) == value(b))
+    return (lambda a, b: value(a) > value(b)), (lambda a, b: value(a) == value(b))
+
+
+def _rule(value, lowerIsBetter=False):
+    """Rank rows on value(row); a string names an XkorTableRow method."""
+    if isinstance(value, str):
+        value = methodcaller(value)
+    return lambda sorter, rows: _ranked(value, lowerIsBetter)
+
+
+def _h2hRule(method, lowerIsBetter=False):
+    """Rank rows on an XkorTableRow h2h method, which counts only the games
+    between the rows being sorted."""
+    def rule(sorter, rows):
+        teams = [r.name() for r in rows]
+        return _ranked(methodcaller(method, teams), lowerIsBetter)
+    return rule
+
+
+def _goalAverage(r):
+    return sys.float_info.max if r.goalsAgainst() == 0 else r.goalsFor() / r.goalsAgainst()
+
+
+def _otAndSOWins(r):
+    # despite its name "otWins" counts shootout wins too; a league that wants
+    # them apart ranks on "Regulation wins" instead. It keeps the key because
+    # that string is what already-saved table files store.
+    return r.otWins() + r.soWins()
+
+
+def _winPercent(r):
+    return 0 if r.played() == 0 else (r.wins() + r.draws() / 2) / r.played()
+
+
+def _winPercentPure(r):
+    return 0 if r.played() == 0 else r.wins() / r.played()
+
+
+def _winPercentNFL(r):
+    return 0 if r.played() == 0 else r.wins() / (r.wins() + r.losses())
+
+
+def _coinFlip(sorter, rows):
+    assignCoinFlips(rows, sorter.coinFlips)
+    flips = sorter.coinFlips
+    return _ranked(lambda r: flips[r.name()])
+
+
+def _points(sorter, rows):
+    return _ranked(sorter.points.pointsFor)
+
+
+def _alphabetical(sorter, rows):
+    # QString::localeAwareCompare(a.name(), b.name()) < 0; if we're sorting
+    # on alphabetical order, the teams are tied!
+    return (lambda a, b: locale.strcoll(a.name(), b.name()) < 0), (lambda a, b: True)
+
+
+# id -> (label, rule), in the order the sort criteria widget offers them.
+# The ids are what table files and events store.
+SORT_RULES = {
+    "awayGoals": ("Away goals", _rule("awayGoals")),
+    "awayWins": ("Away wins", _rule("awayWins")),
+    "coinFlip": ("Coin flip", _coinFlip),
+    "goalAverage": ("Goal average", _rule(_goalAverage)),
+    "goalDifference": ("Goal difference", _rule("goalDifference")),
+    "goalsAgainst": ("Goals against", _rule("goalsAgainst", LOWER)),
+    "goalsFor": ("Goals for", _rule("goalsFor")),
+    "h2hAwayGoals": ("Head-to-head away goals", _h2hRule("h2hAwayGoals")),
+    "h2hGoalDifference": ("Head-to-head goal difference", _h2hRule("h2hGoalDifference")),
+    "h2hGoalsAgainst": ("Head-to-head goals against", _h2hRule("h2hGoalsAgainst", LOWER)),
+    "h2hGoalsFor": ("Head-to-head goals for", _h2hRule("h2hGoalsFor")),
+    "h2hPoints": ("Head-to-head points", _h2hRule("h2hPoints")),
+    "h2hWins": ("Head-to-head wins", _h2hRule("h2hWins")),
+    "homeGoalsAgainst": ("Home goals conceded", _rule("homeGoalsAgainst", LOWER)),
+    "homeLosses": ("Home losses", _rule("homeLosses", LOWER)),
+    "losses": ("Losses", _rule("losses", LOWER)),
+    "otWins": ("Overtime/shootout wins", _rule(_otAndSOWins)),
+    "points": ("Points", _points),
+    "regulationWins": ("Regulation wins", _rule("regulationWins")),
+    "winPercent": ("Win percentage (draws count 50%)", _rule(_winPercent)),
+    "winPercentPure": ("Win percentage (draws count 0%)", _rule(_winPercentPure)),
+    "winPercentNFL": ("Win percentage (draws ignored)", _rule(_winPercentNFL)),
+    "wins": ("Wins", _rule("wins")),
+}
+
+
+class XkorTableSorter(XkorPointsAccessors):
+    def __init__(self, points=None):
+        # a table passes its own scheme, so the two always agree
+        self.points = points if points is not None else XkorPointsScheme()
         # team name -> coin-flip value; a team's flip sticks once made, so
         # regenerating the table (or reloading it after a save) doesn't
         # re-roll it — see XkorTable.getCoinFlips()/setCoinFlips()
@@ -65,115 +154,15 @@ class XkorTableSorter:
     def setCoinFlips(self, flips):
         self.coinFlips = flips
 
-    def _rawOverrides(self):
-        return (self.pointsForOTWin, self.pointsForSOWin, self.pointsForOTLoss, self.pointsForSOLoss)
-
-    def setCrossPoints(self, points):
-        self.crossPoints = points
-
-    def setH2HTeams(self, teams):
-        self.h2hTeams = teams
-
-    def setPointsForWin(self, pts):
-        self.pointsForWin = pts
-
-    def setPointsForDraw(self, pts):
-        self.pointsForDraw = pts
-
-    def setPointsForLoss(self, pts):
-        self.pointsForLoss = pts
-
-    def setPointsForOTWin(self, pts):
-        self.pointsForOTWin = pts
-
-    def setPointsForSOWin(self, pts):
-        self.pointsForSOWin = pts
-
-    def setPointsForOTLoss(self, pts):
-        self.pointsForOTLoss = pts
-
-    def setPointsForSOLoss(self, pts):
-        self.pointsForSOLoss = pts
-
-    def getPointsForOTWin(self):
-        return self.pointsForOTWin if self.pointsForOTWin is not None else self.pointsForWin
-
-    def getPointsForSOWin(self):
-        return self.pointsForSOWin if self.pointsForSOWin is not None else self.pointsForWin
-
-    def getPointsForOTLoss(self):
-        return self.pointsForOTLoss if self.pointsForOTLoss is not None else self.pointsForLoss
-
-    def getPointsForSOLoss(self):
-        return self.pointsForSOLoss if self.pointsForSOLoss is not None else self.pointsForLoss
-
     def sort(self, rows, sortType):
-        # h2h team list
-        l = []
-        if sortType[:3] == "h2h":
-            for i in rows:
-                l.append(i.name())
-
         if sortType == "alphabetical":
-            rval = self.privateSort(rows, XkorSortAlphaGr(), XkorSortAlphaEq())
-        elif sortType == "awayGoals":
-            rval = self.privateSort(rows, XkorSortAwayGoalsGr(), XkorSortAwayGoalsEq())
-        elif sortType == "awayWins":
-            rval = self.privateSort(rows, XkorSortAwayWinsGr(), XkorSortAwayWinsEq())
-        elif sortType == "coinFlip":
-            assignCoinFlips(rows, self.coinFlips)
-            rval = self.privateSort(rows, XkorSortCoinFlipGr(self.coinFlips), XkorSortCoinFlipEq(self.coinFlips))
-        elif sortType == "goalAverage":
-            rval = self.privateSort(rows, XkorSortGoalAverageGr(), XkorSortGoalAverageEq())
-        elif sortType == "goalDifference":
-            rval = self.privateSort(rows, XkorSortGoalDiffGr(), XkorSortGoalDiffEq())
-        elif sortType == "goalsAgainst":
-            rval = self.privateSort(rows, XkorSortGoalsAgainstGr(), XkorSortGoalsAgainstEq())
-        elif sortType == "goalsFor":
-            rval = self.privateSort(rows, XkorSortGoalsForGr(), XkorSortGoalsForEq())
-        elif sortType == "h2hAwayGoals":
-            rval = self.privateSort(rows, XkorSortH2HAwayGoalsGr(l), XkorSortH2HAwayGoalsEq(l))
-        elif sortType == "h2hGoalDifference":
-            rval = self.privateSort(rows, XkorSortH2HGoalDiffGr(l), XkorSortH2HGoalDiffEq(l))
-        elif sortType == "h2hGoalsAgainst":
-            rval = self.privateSort(rows, XkorSortH2HGoalsAgainstGr(l), XkorSortH2HGoalsAgainstEq(l))
-        elif sortType == "h2hGoalsFor":
-            rval = self.privateSort(rows, XkorSortH2HGoalsForGr(l), XkorSortH2HGoalsForEq(l))
-        elif sortType == "h2hPoints":
-            rval = self.privateSort(rows, XkorSortH2HPointsGr(l), XkorSortH2HPointsEq(l))
-        elif sortType == "h2hWins":
-            rval = self.privateSort(rows, XkorSortH2HWinsGr(l), XkorSortH2HWinsEq(l))
-        elif sortType == "homeGoalsAgainst":
-            rval = self.privateSort(rows, XkorSortHomeGoalsAgainstGr(), XkorSortHomeGoalsAgainstEq())
-        elif sortType == "homeLosses":
-            rval = self.privateSort(rows, XkorSortHomeLossesGr(), XkorSortHomeLossesEq())
-        elif sortType == "losses":
-            rval = self.privateSort(rows, XkorSortLossesGr(), XkorSortLossesEq())
-        elif sortType == "otWins":
-            rval = self.privateSort(rows, XkorSortOTWinsGr(), XkorSortOTWinsEq())
-        elif sortType == "points":
-            gr = XkorSortPointsGr(self.pointsForWin, self.pointsForDraw, self.pointsForLoss,
-                                  self.getPointsForOTWin(), self.getPointsForSOWin(),
-                                  self.getPointsForOTLoss(), self.getPointsForSOLoss(),
-                                  self.crossPoints, self._rawOverrides())
-            eq = XkorSortPointsEq(self.pointsForWin, self.pointsForDraw, self.pointsForLoss,
-                                  self.getPointsForOTWin(), self.getPointsForSOWin(),
-                                  self.getPointsForOTLoss(), self.getPointsForSOLoss(),
-                                  self.crossPoints, self._rawOverrides())
-            rval = self.privateSort(rows, gr, eq)
-        elif sortType == "regulationWins":
-            rval = self.privateSort(rows, XkorSortRegulationWinsGr(), XkorSortRegulationWinsEq())
-        elif sortType == "winPercent":
-            rval = self.privateSort(rows, XkorSortWinPercentGr(), XkorSortWinPercentEq())
-        elif sortType == "winPercentNFL":
-            rval = self.privateSort(rows, XkorSortWinPercentNFLGr(), XkorSortWinPercentNFLEq())
-        elif sortType == "winPercentPure":
-            rval = self.privateSort(rows, XkorSortWinPercentPureGr(), XkorSortWinPercentPureEq())
-        elif sortType == "wins":
-            rval = self.privateSort(rows, XkorSortWinsGr(), XkorSortWinsEq())
+            rule = _alphabetical
+        elif sortType in SORT_RULES:
+            rule = SORT_RULES[sortType][1]
         else:
-            rval = [list(rows)]
-        return rval
+            return [list(rows)]
+        gr, eq = rule(self, rows)
+        return self.privateSort(rows, gr, eq)
 
     def privateSort(self, rows, gr, eq):
         rval = []

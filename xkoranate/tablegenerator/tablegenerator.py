@@ -9,9 +9,10 @@ from ..ui.dialogs import message_box, resolved_search_path
 from ..ui.fonts import monospace_font
 from ..variant import toString
 from .decider import parseMatchLine
+from .pointsrow import pointsRowLayout
 from .sortcriteriawidget import XkorSortCriteriaWidget
 from .table import XkorTable
-from .tablecolumn import XkorTableColumn
+from .tablecolumn import standingsColumns
 from .tablematch import XkorTableMatch
 
 
@@ -43,19 +44,15 @@ class XkorTableGenerator(QWidget):
         self.importDialog.setAcceptMode(QFileDialog.AcceptOpen)
 
         self.pointsForWin = QSpinBox()
-        self.pointsForWin.valueChanged.connect(lambda: self.setFileModified())
         self.pointsForDraw = QSpinBox()
-        self.pointsForDraw.valueChanged.connect(lambda: self.setFileModified())
         self.pointsForLoss = QSpinBox()
-        self.pointsForLoss.valueChanged.connect(lambda: self.setFileModified())
         self.pointsForOTWin = QSpinBox()
-        self.pointsForOTWin.valueChanged.connect(lambda: self.setFileModified())
         self.pointsForSOWin = QSpinBox()
-        self.pointsForSOWin.valueChanged.connect(lambda: self.setFileModified())
         self.pointsForOTLoss = QSpinBox()
-        self.pointsForOTLoss.valueChanged.connect(lambda: self.setFileModified())
         self.pointsForSOLoss = QSpinBox()
-        self.pointsForSOLoss.valueChanged.connect(lambda: self.setFileModified())
+        for spin in (self.pointsForWin, self.pointsForDraw, self.pointsForLoss, self.pointsForOTWin,
+                     self.pointsForSOWin, self.pointsForOTLoss, self.pointsForSOLoss):
+            spin.valueChanged.connect(lambda: self.setFileModified())
 
         # each OT/SO box follows the plain win or loss box until the user sets
         # it themselves; only then does it become an override that's saved to
@@ -91,6 +88,9 @@ class XkorTableGenerator(QWidget):
         self.showOvertime.stateChanged.connect(lambda: self.setFileModified())
         self.showResultsGrid = QCheckBox("Results grid")
         self.showResultsGrid.stateChanged.connect(lambda: self.setFileModified())
+        # each box and the XkorTable property it shows
+        self.showColumns = ((self.showDraws, "ShowDraws"), (self.showOvertime, "ShowOvertime"),
+                            (self.showResultsGrid, "ShowResultsGrid"))
 
         self.goalName = QComboBox()
         self.goalName.addItem("Goals (G)", "G")
@@ -111,18 +111,7 @@ class XkorTableGenerator(QWidget):
         self.table.setFont(monospace_font())
         self.table.setReadOnly(True)
 
-        pointsLayout = QGridLayout()
-        pointsLayout.addWidget(self.pointsForWin, 0, 0)
-        pointsLayout.addWidget(QLabel("Draw:"), 0, 1)
-        pointsLayout.addWidget(self.pointsForDraw, 0, 2)
-        pointsLayout.addWidget(QLabel("Loss:"), 0, 3)
-        pointsLayout.addWidget(self.pointsForLoss, 0, 4)
-        pointsLayout.setContentsMargins(0, 0, 0, 0)
-        pointsLayout.setColumnStretch(0, 1)
-        pointsLayout.setColumnStretch(1, 0)  # don't stretch the labels
-        pointsLayout.setColumnStretch(2, 1)
-        pointsLayout.setColumnStretch(3, 0)  # don't stretch the labels
-        pointsLayout.setColumnStretch(4, 1)
+        pointsLayout = pointsRowLayout(self.pointsForWin, self.pointsForDraw, self.pointsForLoss)
 
         otPointsLayout = QGridLayout()
         otPointsLayout.addWidget(self.pointsForOTWin, 0, 0)
@@ -200,65 +189,26 @@ class XkorTableGenerator(QWidget):
         self.matchesModified = False
 
     def generateTableColumns(self):
-        columns = []
-
         nameWidth = 20
         for i in self.teamsList:
             if len(i) > nameWidth:
                 nameWidth = len(i)
-        matchdayWidth = self.columnWidth.value()
         teams = len(self.teamsList)
         # C++: int positionWidth = log10(teams) + 1; log10(0) is undefined
         # behaviour there — guard against it here
         positionWidth = int(math.log10(teams) + 1) if teams > 0 else 1
-        chosenGoalName = toString(
-            self.goalName.itemData(self.goalName.currentIndex()))
+        goal = toString(self.goalName.itemData(self.goalName.currentIndex()))
+        headings = {"played": "Pld", "wins": "W", "draws": "D", "losses": "L",
+                    "otWins": "OTW", "soWins": "SOW", "otLosses": "OTL", "soLosses": "SOL",
+                    "goalsFor": goal + "F", "goalsAgainst": goal + "A", "goalAverage": "Avg",
+                    "goalDifference": goal + "D", "winPercent": "Win %", "winPercentPure": "Win %",
+                    "winPercentNFL": "Win %", "points": "Pts"}
 
-        sortCriteria = self.scw.sortCriteria()
-        usesGoalAverage = "goalAverage" in sortCriteria
-        usesGoalDifference = "goalDifference" in sortCriteria
-        usesGoalsAgainst = "goalsAgainst" in sortCriteria
-        usesGoalsFor = "goalsFor" in sortCriteria
-        usesWinPercent = "winPercent" in sortCriteria
-        usesWinPercentPure = "winPercentPure" in sortCriteria
-        usesWinPercentNFL = "winPercentNFL" in sortCriteria
-        usesPoints = "points" in sortCriteria
-
-        columns.append(XkorTableColumn("position", "", positionWidth))
-        columns.append(XkorTableColumn("name", "", nameWidth))
-        columns.append(XkorTableColumn("played", "Pld", matchdayWidth + 2))
-        columns.append(XkorTableColumn("wins", "W", matchdayWidth + 2))
-        if self.showDraws.checkState() == Qt.Checked:
-            columns.append(XkorTableColumn("draws", "D", matchdayWidth + 1))
-        columns.append(XkorTableColumn("losses", "L", matchdayWidth + 1))
-        if self.showOvertime.checkState() == Qt.Checked:
-            columns.append(XkorTableColumn("otWins", "OTW", matchdayWidth + 2))
-            columns.append(XkorTableColumn("soWins", "SOW", matchdayWidth + 2))
-            columns.append(XkorTableColumn("otLosses", "OTL", matchdayWidth + 2))
-            columns.append(XkorTableColumn("soLosses", "SOL", matchdayWidth + 2))
-        if usesGoalAverage or usesGoalDifference or usesGoalsAgainst or usesGoalsFor:
-            columns.append(XkorTableColumn("goalsFor", chosenGoalName + "F",
-                                           matchdayWidth + 3))
-            columns.append(XkorTableColumn("goalsAgainst", chosenGoalName + "A",
-                                           matchdayWidth + 2))
-        if usesGoalAverage:
-            columns.append(XkorTableColumn("goalAverage", "Avg", 7))
-        if usesGoalDifference:
-            columns.append(XkorTableColumn("goalDifference",
-                                           chosenGoalName + "D",
-                                           matchdayWidth + 2))
-        if usesWinPercent:
-            columns.append(XkorTableColumn("winPercent", "Win %", 8))
-        if usesWinPercentPure:
-            columns.append(XkorTableColumn("winPercentPure", "Win %", 8))
-        if usesWinPercentNFL:
-            columns.append(XkorTableColumn("winPercentNFL", "Win %", 8))
-        if usesPoints:
-            columns.append(XkorTableColumn("points", "Pts", matchdayWidth + 3))
-        if self.showResultsGrid.checkState() == Qt.Checked:
-            columns.append(XkorTableColumn("resultsGrid", "", teams * 5))
-
-        return columns
+        return standingsColumns(
+            self.scw.sortCriteria(), headings.get, "", nameWidth, positionWidth,
+            self.columnWidth.value(), draws=self.showDraws.checkState() == Qt.Checked,
+            overtime=self.showOvertime.checkState() == Qt.Checked,
+            gridWidth=teams * 5 if self.showResultsGrid.checkState() == Qt.Checked else None)
 
     def importResults(self, filename=None):
         if filename is None:
@@ -271,9 +221,13 @@ class XkorTableGenerator(QWidget):
         self.matches.appendPlainText(data.decode("utf-8", errors="replace"))
         self.generateTable()
 
+        self.resultImportDirectoryChanged.emit(self._parentFolder(filename))
+
+    @staticmethod
+    def _parentFolder(filename):
         path = QDir(filename)
         path.cdUp()
-        self.resultImportDirectoryChanged.emit(path.canonicalPath())
+        return path.canonicalPath()
 
     def okayToLoad(self):
         if self.fileModified:
@@ -304,12 +258,8 @@ class XkorTableGenerator(QWidget):
             self.setOTPointsFromTable()
             self.columnWidth.setValue(self.t.getColumnWidth())
             self.scw.setSortCriteria(self.t.getSortCriteria())
-            self.showDraws.setCheckState(
-                Qt.Checked if self.t.getShowDraws() else Qt.Unchecked)
-            self.showOvertime.setCheckState(
-                Qt.Checked if self.t.getShowOvertime() else Qt.Unchecked)
-            self.showResultsGrid.setCheckState(
-                Qt.Checked if self.t.getShowResultsGrid() else Qt.Unchecked)
+            for box, name in self.showColumns:
+                box.setCheckState(Qt.Checked if getattr(self.t, "get" + name)() else Qt.Unchecked)
             self.goalName.setCurrentIndex(
                 self.goalName.findData(self.t.getGoalName()))
 
@@ -319,9 +269,7 @@ class XkorTableGenerator(QWidget):
             self.fileChanged.emit(filename)
             self.setFileModified(False)
 
-            path = QDir(filename)
-            path.cdUp()
-            self.tableDirectoryChanged.emit(path.canonicalPath())
+            self.tableDirectoryChanged.emit(self._parentFolder(filename))
 
     def reset(self):
         if self.okayToLoad():
@@ -363,9 +311,7 @@ class XkorTableGenerator(QWidget):
         self.fileChanged.emit(filename)
         self.setFileModified(False)
 
-        path = QDir(filename)
-        path.cdUp()
-        self.tableDirectoryChanged.emit(path.canonicalPath())
+        self.tableDirectoryChanged.emit(self._parentFolder(filename))
 
     def saveFileAs(self):
         self.dialog.setAcceptMode(QFileDialog.AcceptSave)
@@ -437,6 +383,5 @@ class XkorTableGenerator(QWidget):
         self.t.setColumnWidth(self.columnWidth.value())
         self.t.setGoalName(toString(
             self.goalName.itemData(self.goalName.currentIndex())))
-        self.t.setShowDraws(self.showDraws.checkState() == Qt.Checked)
-        self.t.setShowOvertime(self.showOvertime.checkState() == Qt.Checked)
-        self.t.setShowResultsGrid(self.showResultsGrid.checkState() == Qt.Checked)
+        for box, name in self.showColumns:
+            getattr(self.t, "set" + name)(box.checkState() == Qt.Checked)

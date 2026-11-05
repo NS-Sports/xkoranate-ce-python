@@ -8,48 +8,30 @@ class XkorTableMatch:
         # overtime/extra time; "SO" for one decided by shootout/penalties
         self.decider = decider
 
-    def goalDifference(self, team):
-        rval = 0
+    def _scores(self, team):
+        """(team's score, its opponent's), or None if it didn't play."""
         if team == self.team1:
-            rval = self.score1 - self.score2
-        elif team == self.team2:
-            rval = self.score2 - self.score1
-        return rval
+            return (self.score1, self.score2)
+        if team == self.team2:
+            return (self.score2, self.score1)
+        return None
+
+    def goalDifference(self, team):
+        s = self._scores(team)
+        return 0 if s is None else s[0] - s[1]
 
     def goalsAgainst(self, team):
-        rval = 0
-        if team == self.team1:
-            rval = self.score2
-        elif team == self.team2:
-            rval = self.score1
-        return rval
+        s = self._scores(team)
+        return 0 if s is None else s[1]
 
     def goalsFor(self, team):
-        rval = 0
-        if team == self.team1:
-            rval = self.score1
-        elif team == self.team2:
-            rval = self.score2
-        return rval
-
-    def opponent(self, team):
-        rval = ""
-        if team == self.team1:
-            rval = self.team2
-        elif team == self.team2:
-            rval = self.team1
-        return rval
+        s = self._scores(team)
+        return 0 if s is None else s[0]
 
     def points(self, team):
-        rval = 0
-        if team == self.team1:
-            if self.score1 > self.score2:
-                rval = 3
-            elif self.score1 == self.score2:
-                rval = 1
-        elif team == self.team2:
-            if self.score2 > self.score1:
-                rval = 3
-            elif self.score1 == self.score2:
-                rval = 1
-        return rval
+        s = self._scores(team)
+        if s is None:
+            return 0
+        if s[0] > s[1]:
+            return 3
+        return 1 if s[0] == s[1] else 0

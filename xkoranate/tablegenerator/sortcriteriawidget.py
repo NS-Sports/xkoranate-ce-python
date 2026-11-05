@@ -3,32 +3,14 @@ from PySide6.QtWidgets import QAbstractItemView, QTreeWidgetItemIterator
 from ..abstracttreewidget import XkorAbstractTreeWidget
 from ..variant import toString
 from .sortcriteriadelegate import XkorSortCriteriaDelegate
+from .tablesorter import SORT_RULES
 
 
 class XkorSortCriteriaWidget(XkorAbstractTreeWidget):
     def __init__(self):
         super().__init__()
-        self.sortTypes = ["awayGoals", "awayWins", "coinFlip", "goalAverage",
-                          "goalDifference", "goalsAgainst", "goalsFor",
-                          "h2hAwayGoals", "h2hGoalDifference",
-                          "h2hGoalsAgainst", "h2hGoalsFor", "h2hPoints",
-                          "h2hWins", "homeGoalsAgainst", "homeLosses",
-                          "losses", "otWins", "points", "regulationWins",
-                          "winPercent", "winPercentPure", "winPercentNFL",
-                          "wins"]
-        self.sortNames = ["Away goals", "Away wins", "Coin flip",
-                          "Goal average", "Goal difference",
-                          "Goals against", "Goals for",
-                          "Head-to-head away goals",
-                          "Head-to-head goal difference",
-                          "Head-to-head goals against",
-                          "Head-to-head goals for", "Head-to-head points",
-                          "Head-to-head wins", "Home goals conceded",
-                          "Home losses", "Losses", "Overtime/shootout wins",
-                          "Points", "Regulation wins",
-                          "Win percentage (draws count 50%)",
-                          "Win percentage (draws count 0%)",
-                          "Win percentage (draws ignored)", "Wins"]
+        self.sortTypes = list(SORT_RULES)
+        self.sortNames = [label for label, _rule in SORT_RULES.values()]
 
         self.treeWidget.setColumnCount(1)
         # C++ allocates the delegate without a parent; pass the tree widget as

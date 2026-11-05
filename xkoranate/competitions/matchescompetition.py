@@ -1,5 +1,4 @@
 from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
-from xkoranate.variant import toString
 
 
 class XkorMatchesCompetition(XkorAbstractCompetition):
@@ -17,17 +16,18 @@ class XkorMatchesCompetition(XkorAbstractCompetition):
 
         return XkorMatchesCompetitionOptions(competitionOptions)
 
+    def _pairings(self):
+        """(group name, fixtures) for each group, its entrants paired off
+        in order."""
+        rval = []
+        for g in self.startList.groups:
+            size = len(g.athletes) - (len(g.athletes) % 2)
+            rval.append((g.name, [(g.athletes[h], g.athletes[h + 1]) for h in range(0, size, 2)]))
+        return rval
+
     def schedule(self):
-        lines = []
-        for i in self.startList.groups:
-            size = len(i.athletes) - (len(i.athletes) % 2)
-            if size == 0:
-                continue
-            if len(self.startList.groups) > 1:
-                lines.append(i.name)
-            for home in range(0, size, 2):
-                lines.append(self._formatFixture(i.athletes[home], i.athletes[home + 1]))
-        return "\n".join(lines)
+        return "\n".join(self._fixtureLines(self._pairings(), self._formatFixture,
+                                            len(self.startList.groups) > 1))
 
     def supportsOdds(self):
         return self._oddsParadigm() is not None
@@ -37,39 +37,21 @@ class XkorMatchesCompetition(XkorAbstractCompetition):
         if p is None:
             return None
 
-        lines = []
-        for i in self.startList.groups:
-            size = len(i.athletes) - (len(i.athletes) % 2)
-            if size == 0:
-                continue
-            if len(self.startList.groups) > 1:
-                lines.append(i.name)
-            for home in range(0, size, 2):
-                lines.append(self._formatOdds(p, i.athletes[home], i.athletes[home + 1], trials))
-        return "\n".join(lines) + ("\n" if lines else "")
+        return self._oddsText(self._fixtureLines(
+            self._pairings(), lambda home, away: self._formatOdds(p, home, away, trials),
+            len(self.startList.groups) > 1))
 
     def scorinate(self, matchday):
-        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
-
-        localParadigmOptions = dict(self.paradigmOpt)
-        localParadigmOptions["nameWidth"] = self.nameWidth()
-
-        p = XkorParadigmFactory.newParadigmForSport(self.sport, localParadigmOptions)
+        p = self._newParadigm()
 
         self.resultsBuf[matchday] = ""
         for i in self.startList.groups:
             self.resultsBuf[matchday] += i.name + "\n"
             p.scorinate(list(i.athletes))
 
-            if toString(self.userOpt.get("allowDraws")) == "false":
+            if not self.allowsDraws():
                 # if there’s a tie, deal with it
-                results = list(p.results())
-                for j in range(0, len(i.athletes) - (len(i.athletes) % 2), 2):
-                    score1 = results[j]
-                    score2 = results[j + 1]
-                    if p.compare(score1, score2) == 0:
-                        tiebreakAthletes = [score1.athlete, score2.athlete]
-                        p.breakTie(tiebreakAthletes)
+                self._breakDrawnPairs(p, len(i.athletes))
 
             self.resultsBuf[matchday] += p.output()
             self.resultsBuf[matchday] += "\n"
