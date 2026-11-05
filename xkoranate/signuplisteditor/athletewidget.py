@@ -120,6 +120,7 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
             finally:
                 self.isInUse = False
 
+            self.athletesImported.emit()
             self.signupListDirectoryChanged.emit(parent_folder(filename))
 
         self.listChanged.emit()

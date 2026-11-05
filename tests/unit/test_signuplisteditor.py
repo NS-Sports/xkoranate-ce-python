@@ -3,6 +3,7 @@
 import pytest
 from builders import make_athletes, make_signup_list
 
+from xkoranate.signuplist import XkorSignupList
 from xkoranate.signuplisteditor.signuplisteditor import XkorSignupListEditor
 from xkoranate.xml.xmlsportreader import XkorXmlSportReader
 
@@ -63,3 +64,35 @@ def test_unpinning_the_ceiling_lifts_it_to_the_field(editor):
     editor.pinMaxToParticipants.setChecked(True)
     editor.pinMaxToParticipants.setChecked(False)
     assert editor.maxRank.value() == pytest.approx(90.0)
+
+
+def importFile(editor, tmp_path, skills):
+    f = tmp_path / "signups.txt"
+    f.write_text("".join("Team %d;T%02d;%s\n" % (i, i, skill) for i, skill in enumerate(skills)),
+                 encoding="utf-8")
+    editor.athletes.importAthletes(str(f))
+
+
+def test_importing_into_a_new_event_lifts_the_ceiling_to_the_field(editor, tmp_path):
+    """A new event's ceiling is 1, and an import used to leave it there, so a
+    field ranked 0-100 was scorinated on its raw ranks (and NSFS baseball's
+    odds overflowed on them)."""
+    if maxRankMode(editor) != "manual":
+        pytest.skip("%s is not an organiser-set-ceiling paradigm" % RESCALING_SPORT)
+    editor.setData(XkorSignupList())
+    assert editor.maxRank.value() == pytest.approx(1.0)
+
+    importFile(editor, tmp_path, [91, 42])
+
+    assert editor.maxRank.value() == pytest.approx(91.0)
+    assert editor.data().adjustRank(91) == pytest.approx(1.0)
+
+
+def test_importing_leaves_a_ceiling_above_the_field_alone(editor, tmp_path):
+    if maxRankMode(editor) != "manual":
+        pytest.skip("%s is not an organiser-set-ceiling paradigm" % RESCALING_SPORT)
+    editor.setData(signupList([50.0], maxRank=100.0))
+
+    importFile(editor, tmp_path, [91, 42])
+
+    assert editor.maxRank.value() == pytest.approx(100.0)
