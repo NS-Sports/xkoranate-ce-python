@@ -299,7 +299,7 @@ class XkorTableGenerator(QWidget):
 
         self.updateTable()
         from ..xml.xmltablewriter import XkorXmlTableWriter
-        w = XkorXmlTableWriter(filename, self.t)
+        XkorXmlTableWriter(filename, self.t)
 
         self.currentFileName = filename
         self.fileChanged.emit(filename)

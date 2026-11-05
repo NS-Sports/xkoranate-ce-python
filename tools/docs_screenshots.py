@@ -29,7 +29,6 @@ from xkoranate.group import XkorGroup
 from xkoranate.paths import appSettings
 from xkoranate.rplist import XkorRPList
 from xkoranate.signuplist import XkorSignupList
-from xkoranate.ui.dialogs import message_box
 from xkoranate.xml.xmlindex import XkorXmlIndex
 from xkoranate.xml.xmlsportreader import XkorXmlSportReader
 from xkoranate.xml.xmlwriter import XkorXmlWriter
