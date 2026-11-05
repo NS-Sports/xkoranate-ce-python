@@ -5,7 +5,8 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFormLayout,
                                QGridLayout, QLabel, QMessageBox,
                                QPlainTextEdit, QSpinBox, QWidget)
 
-from ..ui.dialogs import ask_save_changes, parent_folder, resolved_search_path
+from ..ui.dialogs import (ask_file_name, ask_save_changes, open_file_dialog, parent_folder,
+                          resolved_search_path)
 from ..ui.fonts import monospace_font
 from ..variant import toString
 from .decider import parseMatchLine
@@ -147,18 +148,6 @@ class XkorTableGenerator(QWidget):
         self.setFileModified(False)
         self.reset()
 
-    def _openDialog(self, dialog, slot):
-        # mimics QFileDialog::open(receiver, member): connect fileSelected to
-        # the slot, show the dialog, disconnect when it closes
-        dialog.fileSelected.connect(slot)
-
-        def disconnectOnClose():
-            dialog.fileSelected.disconnect(slot)
-            dialog.finished.disconnect(disconnectOnClose)
-
-        dialog.finished.connect(disconnectOnClose)
-        dialog.open()
-
     def closeEvent(self, event):
         if self.okayToLoad():
             QWidget.closeEvent(self, event)
@@ -213,7 +202,7 @@ class XkorTableGenerator(QWidget):
     def importResults(self, filename=None):
         if filename is None:
             self.importDialog.setDirectory(resolved_search_path("resultsImport"))
-            self._openDialog(self.importDialog, self.importResults)
+            open_file_dialog(self.importDialog, self.importResults)
             return
 
         with open(filename, "rb") as f:
@@ -224,18 +213,23 @@ class XkorTableGenerator(QWidget):
         self.resultImportDirectoryChanged.emit(parent_folder(filename))
 
     def okayToLoad(self):
+        """Whether the current file may be replaced: it's unmodified, or the
+        user discarded the changes, or saved them. A cancelled or failed
+        save counts as Cancel."""
         if self.fileModified:
             r = self.showUnsavedDialog()
+            if r == QMessageBox.Save:
+                return self.saveFile()
             if r == QMessageBox.Cancel:
                 return False
-        return True  # if the current file hasn't been modified, or if the user clicked Yes or No
+        return True
 
     def openFile(self, filename=None):
         if filename is None:
             if self.okayToLoad():
                 self.dialog.setAcceptMode(QFileDialog.AcceptOpen)
                 self.dialog.setDirectory(resolved_search_path("tables"))
-                self._openDialog(self.dialog, self.openFile)
+                open_file_dialog(self.dialog, self.openFile)
             return
 
         from ..xml.xmltablereader import XkorXmlTableReader
@@ -291,26 +285,35 @@ class XkorTableGenerator(QWidget):
             self.setFileModified(False)
 
     def saveFile(self, filename=""):
+        """Save to filename, else to the current file, else ask where.
+        Returns whether the file was saved."""
         if not filename:  # if no filename was specified
             if not self.currentFileName:  # still "Untitled"?
-                self.saveFileAs()
-            else:
-                filename = self.currentFileName
+                return self.saveFileAs()
+            filename = self.currentFileName
 
         self.updateTable()
         from ..xml.xmltablewriter import XkorXmlTableWriter
-        XkorXmlTableWriter(filename, self.t)
+        try:
+            XkorXmlTableWriter(filename, self.t)
+        except OSError as e:
+            QMessageBox.critical(self, "xkoranate", str(e))
+            return False
 
         self.currentFileName = filename
         self.fileChanged.emit(filename)
         self.setFileModified(False)
 
         self.tableDirectoryChanged.emit(parent_folder(filename))
+        return True
 
     def saveFileAs(self):
+        """Ask where to save, then save there. Returns whether the file was
+        saved: False if the user cancelled."""
         self.dialog.setAcceptMode(QFileDialog.AcceptSave)
         self.dialog.setDirectory(resolved_search_path("tables"))
-        self._openDialog(self.dialog, self.saveFile)
+        filename = ask_file_name(self.dialog)
+        return bool(filename) and self.saveFile(filename)
 
     def setFileModified(self, isEdited=True):
         self.fileModified = isEdited
