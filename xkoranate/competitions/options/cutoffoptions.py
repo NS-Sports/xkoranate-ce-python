@@ -31,12 +31,14 @@ class XkorCutoffOptions(XkorAbstractOptionsWidget):
         self.cutoff.setMinimum(0)
         self.cutoff.setMaximum(999)
         self.cutoff.setSpecialValueText("all")
-        if "cutoff" in self.options:
-            self.cutoff.setValue(toInt(self.options.get("cutoff")))
-        self.cutoff.valueChanged.connect(self.setCutoff)
 
         self.explanation = QLabel(self.initialText)
         self.explanation.setWordWrap(True)
+
+        if "cutoff" in self.options:
+            self.cutoff.setValue(toInt(self.options.get("cutoff")))
+            self._explain(self.cutoff.value())
+        self.cutoff.valueChanged.connect(self.setCutoff)
 
         form = QFormLayout()
         form.addRow(self.cutoffLabel, self.cutoff)
@@ -46,8 +48,11 @@ class XkorCutoffOptions(XkorAbstractOptionsWidget):
         layout.addWidget(self.explanation, 1, 0)
 
     def setCutoff(self, value):
+        self._explain(value)
+        self._setOption("cutoff", value)
+
+    def _explain(self, value):
         if value == 0:
             self.explanation.setText(self.noCutoffText)
         else:
             self.explanation.setText(self.cutoffText % ("%d%s" % (value, _placeSuffix(value))))
-        self._setOption("cutoff", value)
