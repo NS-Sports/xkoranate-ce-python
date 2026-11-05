@@ -29,6 +29,29 @@ def resolved_search_path(prefix):
     return d.absolutePath() if d.exists() else QDir.homePath()
 
 
+def open_file_dialog(dialog, slot):
+    """Show dialog without waiting for it, like QFileDialog::open(receiver,
+    member): slot gets the chosen file, and is disconnected once the dialog
+    closes, so a later use of the same dialog never reaches it."""
+    dialog.fileSelected.connect(slot)
+
+    def disconnectOnClose():
+        dialog.fileSelected.disconnect(slot)
+        dialog.finished.disconnect(disconnectOnClose)
+
+    dialog.finished.connect(disconnectOnClose)
+    dialog.open()
+
+
+def ask_file_name(dialog):
+    """Show dialog and wait for it. Returns the chosen file, or "" if the
+    user cancelled."""
+    if not dialog.exec():
+        return ""
+    files = dialog.selectedFiles()
+    return files[0] if files else ""
+
+
 def parent_folder(filename):
     """The canonical path of the folder holding filename, as remembered for
     the next file dialog."""

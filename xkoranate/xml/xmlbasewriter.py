@@ -8,13 +8,15 @@ class XkorXmlBaseWriter(QXmlStreamWriter):
 
     @contextmanager
     def document(self, filename, rootName):
-        """Write filename as a version 0.3 document; the body goes in the with block."""
+        """Write filename as a version 0.3 document; the body goes in the with block.
+        Raises OSError if the file can't be opened or written."""
         # stream writer settings
         self.setAutoFormatting(True)
         self.setAutoFormattingIndent(-1)
 
         f = QFile(filename)
-        f.open(QIODevice.WriteOnly)
+        if not f.open(QIODevice.WriteOnly):
+            raise OSError("Could not save ‘%s’: %s" % (filename, f.errorString()))
 
         self.setDevice(f)
 
@@ -24,7 +26,11 @@ class XkorXmlBaseWriter(QXmlStreamWriter):
         yield
         self.writeEndDocument()
 
+        written = f.flush() and not self.hasError()
+        error = f.errorString()
         f.close()
+        if not written:
+            raise OSError("Could not save ‘%s’: %s" % (filename, error))
 
     def writeBoolElement(self, name, value):
         self.writeTextElement(name, "true" if value else "false")

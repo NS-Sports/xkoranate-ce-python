@@ -7,7 +7,8 @@ from .navigationwidget import XkorNavigationWidget
 from .rpeditor.rpeditor import XkorRPEditor
 from .rplist import XkorRPList
 from .thinsplitter import XkorThinSplitter
-from .ui.dialogs import ask_save_changes, parent_folder, resolved_search_path
+from .ui.dialogs import (ask_file_name, ask_save_changes, open_file_dialog, parent_folder,
+                         resolved_search_path)
 
 
 class XkorCentralWidget(QWidget):
@@ -27,7 +28,6 @@ class XkorCentralWidget(QWidget):
         self.dialog = QFileDialog(self, "Save scorinator file", resolved_search_path("events"), "XML files (*.xml)")
         self.dialog.setDefaultSuffix("xml")
         self.dialog.setWindowModality(Qt.WindowModal)
-        self._dialogSlot = None  # bookkeeping for QFileDialog::open(receiver, member)
 
         self.nw = XkorNavigationWidget()
         self.editor = QStackedWidget()
@@ -92,24 +92,16 @@ class XkorCentralWidget(QWidget):
             self.setModified(False)
 
     def okayToLoad(self):
+        """Whether the current file may be replaced: it's unmodified, or the
+        user discarded the changes, or saved them. A cancelled or failed
+        save counts as Cancel."""
         if self.modified:
             result = self.showUnsavedDialog()
             if result == QMessageBox.Save:
-                self.saveFile()
+                return self.saveFile()
             elif result == QMessageBox.Cancel:
                 return False
         return True
-
-    def _openDialog(self, slot):
-        # equivalent of QFileDialog::open(this, SLOT(...))
-        if self._dialogSlot is not None:
-            try:
-                self.dialog.fileSelected.disconnect(self._dialogSlot)
-            except (RuntimeError, TypeError):
-                pass
-        self._dialogSlot = slot
-        self.dialog.fileSelected.connect(slot)
-        self.dialog.open()
 
     def openFile(self, filename=None):
         # C++ overloads: openFile() shows the dialog; openFile(QString) loads
@@ -117,7 +109,7 @@ class XkorCentralWidget(QWidget):
             if self.okayToLoad():
                 self.dialog.setAcceptMode(QFileDialog.AcceptOpen)
                 self.dialog.setDirectory(resolved_search_path("events"))
-                self._openDialog(self.openFile)
+                open_file_dialog(self.dialog, self.openFile)
             return
 
         if filename != "":
@@ -154,26 +146,35 @@ class XkorCentralWidget(QWidget):
         return self.nw.rpList()
 
     def saveFile(self, filename=""):
+        """Save to filename, else to the current file, else ask where.
+        Returns whether the file was saved."""
         if filename == "":  # if no filename was specified
             if self.currentFileName == "":  # still “Untitled”?
-                self.saveFileAs()
-            else:
-                filename = self.currentFileName
+                return self.saveFileAs()
+            filename = self.currentFileName
 
         from .xml.xmlwriter import XkorXmlWriter
 
-        XkorXmlWriter(filename, self.rpList(), self.events())
+        try:
+            XkorXmlWriter(filename, self.rpList(), self.events())
+        except OSError as e:
+            QMessageBox.critical(self, "xkoranate", str(e))
+            return False
 
         self.currentFileName = filename
         self.fileChanged.emit(filename)
         self.setModified(False)
 
         self.eventDirectoryChanged.emit(parent_folder(filename))
+        return True
 
     def saveFileAs(self):
+        """Ask where to save, then save there. Returns whether the file was
+        saved: False if the user cancelled."""
         self.dialog.setAcceptMode(QFileDialog.AcceptSave)
         self.dialog.setDirectory(resolved_search_path("events"))
-        self._openDialog(self.saveFile)
+        filename = ask_file_name(self.dialog)
+        return bool(filename) and self.saveFile(filename)
 
     def setModified(self, isModified=True):
         self.modified = isModified

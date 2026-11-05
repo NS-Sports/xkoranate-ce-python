@@ -18,7 +18,9 @@ class XkorXmlBaseReader(QXmlStreamReader):
             cls = type(self).__name__
             self.raiseError("File ‘%s’ not found by %s::%s(QString)" % (filename, cls, cls))
             return
-        f.open(QIODevice.ReadOnly)
+        if not f.open(QIODevice.ReadOnly):
+            self.raiseError("Could not open ‘%s’: %s" % (filename, f.errorString()))
+            return
         self.setDevice(f)
 
         while not self.atEnd():
