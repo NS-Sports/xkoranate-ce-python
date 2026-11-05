@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QAbstractItemView, QTreeWidgetItemIterator
+from PySide6.QtWidgets import QAbstractItemView
 
 from ..abstracttreewidget import XkorAbstractTreeWidget
 from ..variant import toString
@@ -59,12 +59,7 @@ class XkorSortCriteriaWidget(XkorAbstractTreeWidget):
             item.setText(0, "<unknown sort type %s>" % sortType)
 
     def sortCriteria(self):
-        rval = []
-        i = QTreeWidgetItemIterator(self.treeWidget)
-        while i.value():
-            rval.append(toString(i.value().data(0, 1093)))
-            i += 1
-        return rval
+        return [toString(item.data(0, 1093)) for item in self.iterItems()]
 
     def setSortCriteria(self, sc):
         self.isInUse = True

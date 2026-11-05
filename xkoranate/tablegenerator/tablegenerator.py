@@ -1,11 +1,11 @@
 import math
 
-from PySide6.QtCore import QDir, QFileInfo, Qt, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFormLayout,
                                QGridLayout, QLabel, QMessageBox,
                                QPlainTextEdit, QSpinBox, QWidget)
 
-from ..ui.dialogs import message_box, resolved_search_path
+from ..ui.dialogs import ask_save_changes, parent_folder, resolved_search_path
 from ..ui.fonts import monospace_font
 from ..variant import toString
 from .decider import parseMatchLine
@@ -221,13 +221,7 @@ class XkorTableGenerator(QWidget):
         self.matches.appendPlainText(data.decode("utf-8", errors="replace"))
         self.generateTable()
 
-        self.resultImportDirectoryChanged.emit(self._parentFolder(filename))
-
-    @staticmethod
-    def _parentFolder(filename):
-        path = QDir(filename)
-        path.cdUp()
-        return path.canonicalPath()
+        self.resultImportDirectoryChanged.emit(parent_folder(filename))
 
     def okayToLoad(self):
         if self.fileModified:
@@ -269,7 +263,7 @@ class XkorTableGenerator(QWidget):
             self.fileChanged.emit(filename)
             self.setFileModified(False)
 
-            self.tableDirectoryChanged.emit(self._parentFolder(filename))
+            self.tableDirectoryChanged.emit(parent_folder(filename))
 
     def reset(self):
         if self.okayToLoad():
@@ -311,7 +305,7 @@ class XkorTableGenerator(QWidget):
         self.fileChanged.emit(filename)
         self.setFileModified(False)
 
-        self.tableDirectoryChanged.emit(self._parentFolder(filename))
+        self.tableDirectoryChanged.emit(parent_folder(filename))
 
     def saveFileAs(self):
         self.dialog.setAcceptMode(QFileDialog.AcceptSave)
@@ -342,14 +336,7 @@ class XkorTableGenerator(QWidget):
             self.syncingOTPoints = False
 
     def showUnsavedDialog(self):
-        displayFileName = ("untitled" if not self.currentFileName
-                           else QFileInfo(self.currentFileName).fileName())
-        warning = message_box(
-            self, "Do you want to save the changes you made to “%s”?" % displayFileName,
-            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
-            informativeText="Your changes will be lost if you don’t save them.",
-            destructiveButton=QMessageBox.Discard)
-        return warning.exec()
+        return ask_save_changes(self, self.currentFileName)
 
     def syncLinkedOTPoints(self):
         """Pull every still-linked OT/SO box up to its win/loss box's value."""
