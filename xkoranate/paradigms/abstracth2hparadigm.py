@@ -43,6 +43,11 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
                     score = self.generateIFAFScore(score1, score2, name,
                                                    toInt(score1.result.get("OTs")) + 1)
                 elif tbType == "shootout":
+                    if not self.shootoutCanDecide():
+                        # every kick scores the same, so a level shootout
+                        # would go on forever; the tie stands instead
+                        print("can't break a tie by shootout in", self.s.name(), file=sys.stderr)
+                        break
                     score = self.generateSOScore(score1, score2, name)
                 else:
                     print("bad tiebreaker", tbType, file=sys.stderr)
@@ -563,9 +568,20 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
 
         return (home, away)
 
+    def shootoutCanDecide(self):
+        """Whether generateSOScore can ever separate a level shootout.
+
+        Each kick goes in with the sport's shootoutProb. A sport file that
+        leaves it out gets 0, so no kick ever scores; at 1 every kick does.
+        Either way the shootout stays level and its sudden death never
+        ends."""
+        return 0 < toDouble(self.opt.get("shootoutProb")) < 1
+
     def generateSOScore(self, home, away, str_):
         home = home.clone()
         away = away.clone()
+        if not self.shootoutCanDecide():
+            return (home, away)
         pkCount = toInt(self.opt.get("shootoutLength"))
         pkProb = toDouble(self.opt.get("shootoutProb"))
 

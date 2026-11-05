@@ -316,6 +316,11 @@ class XkorLISAParadigm(XkorAbstractH2HParadigm):
 
         return (home, away)
 
+    def shootoutCanDecide(self):
+        # the Qusma kicks below carry their own probabilities, all between
+        # 0 and 1, and never read shootoutProb
+        return True
+
     def generateSOScore(self, home, away, str_):
         """Qusma shootout algorithm: rank-independent, tiered conversion
         probabilities (3/4 for kicks 1-3, 2/3 for kicks 4-10, 1/2 for kick

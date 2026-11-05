@@ -820,6 +820,61 @@ def test_a_tie_that_no_shoot_off_can_break_stands_instead_of_hanging(sport_index
     assert "can't break a tie by shoot-off" in capfd.readouterr().err
 
 
+# --------------------------------------------------- shootouts that never end
+
+RUGBY_UNION_NSFS = "Rugby union—NSFS fomula"  # sic: the sport file's own name
+# seeds whose 8-entrant bracket has a match still level after extra time
+LEVEL_AFTER_ET_SEEDS = [5, 14]
+
+
+def rugby_union_nsfs_knockout(index, seed):
+    return event_for(index, Mt19937(seed), RUGBY_UNION_NSFS, competition="singleElimination")
+
+
+def play_or_fail(ev, sport):
+    """Play every matchday, failing instead of hanging if one never
+    finishes. Returns every matchday's text."""
+    import signal
+
+    def hang(signum, frame):
+        raise AssertionError("scorination never finished")
+
+    old = signal.signal(signal.SIGALRM, hang)
+    signal.alarm(10)
+    try:
+        play(ev, sport)
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old)
+    return "".join(ev.results().values())
+
+
+def test_a_level_rugby_union_nsfs_knockout_goes_to_a_shootout(sport_index):
+    """The sport file gave a shootout length but no kick probability, so no
+    kick ever scored and a match level after extra time kicked forever."""
+    for seed in LEVEL_AFTER_ET_SEEDS:
+        text = play_or_fail(*rugby_union_nsfs_knockout(sport_index, seed))
+        assert "pen." in text
+        assert "Decided by coin toss" not in text
+
+
+@pytest.mark.parametrize("shootoutProb", [None, "0", "1"])
+def test_a_shootout_that_cant_separate_leaves_it_to_a_coin_toss(sport_index, capfd, shootoutProb):
+    """With no kick probability every kick misses, and with 1 every kick
+    scores, so a level shootout would never end. The knockout's coin toss
+    settles the match instead."""
+    for seed in LEVEL_AFTER_ET_SEEDS:
+        ev, sport = rugby_union_nsfs_knockout(sport_index, seed)
+        if shootoutProb is None:
+            del sport.m_paradigmOptions["shootoutProb"]
+        else:
+            sport.m_paradigmOptions["shootoutProb"] = shootoutProb
+        text = play_or_fail(ev, sport)
+        assert "Decided by coin toss" in text
+        assert "pen." not in text
+    assert "can't break a tie by shootout" in capfd.readouterr().err
+
+
 # --- qualification markers (Q / E) -------------------------------------------
 
 def markerCounts(text):

@@ -1,6 +1,8 @@
+import pytest
 from builders import make_athlete, make_paradigm, make_sport, stub_uniform
 
 from xkoranate.paradigms.abstracth2hparadigm import XkorAbstractH2HParadigm
+from xkoranate.paradigms.lisaparadigm import XkorLISAParadigm
 from xkoranate.result import XkorResult
 
 
@@ -68,6 +70,27 @@ def test_generateSOScore_stops_once_the_margin_cannot_be_overcome(monkeypatch):
 
     assert home.value("kicks") == 1
     assert away.value("kicks") is None  # away's kick never went in, so it's never written
+
+
+@pytest.mark.parametrize("opts", [{"shootoutLength": 5},
+                                  {"shootoutLength": 5, "shootoutProb": 0},
+                                  {"shootoutLength": 5, "shootoutProb": 1}])
+def test_generateSOScore_skips_a_shootout_no_kick_can_separate(monkeypatch, opts):
+    sport = make_sport(seed=1)
+    stub_uniform(monkeypatch, sport, [])  # any kick at all would raise
+    p = make_paradigm(_MinimalH2HParadigm, opts=opts, sport=sport)
+
+    home, away = p.generateSOScore(XkorResult(ath=make_athlete(name="Home")),
+                                   XkorResult(ath=make_athlete(name="Away")), "kicks")
+
+    assert not p.shootoutCanDecide()
+    assert home.value("kicks") is None and away.value("kicks") is None
+
+
+def test_lisa_shootouts_decide_without_a_shootoutProb():
+    # LISA's Qusma kicks carry their own probabilities
+    p = make_paradigm(XkorLISAParadigm, opts={}, sport=make_sport(seed=1))
+    assert p.shootoutCanDecide()
 
 
 def test_generateStyleModification_default_mode_preserves_margin_sign(monkeypatch):
