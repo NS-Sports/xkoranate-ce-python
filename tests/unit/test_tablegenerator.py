@@ -97,6 +97,16 @@ def test_regulationWins_and_otWins_sort_criteria():
     assert ordered[1] == [a]
 
 
+def test_win_percentage_ignoring_draws_survives_a_side_that_has_only_drawn():
+    t = make_table(criteria=["winPercentNFL"],
+                   matches=[("Alpha", "Bravo", 1, 1), ("Charlie", "Delta", 2, 0)])
+
+    t.generate()  # was a ZeroDivisionError for Alpha and Bravo
+
+    assert names(t)[0] == "Charlie"
+    assert set(names(t)[1:]) == {"Alpha", "Bravo", "Delta"}
+
+
 def test_points_sort_criterion_respects_ot_so_overrides():
     # NHL-style: OT/SO wins are worth the same as a regulation win (2pts each),
     # but an OT/SO loss (1pt) still outranks a regulation loss (0pts)
