@@ -88,14 +88,11 @@ class XkorAutoRacingParadigm(XkorTimedParadigm):
             for j in range(laps):
                 result = self.individualResult(i, j + 1)
 
-                attempts = toList(r.result.get("attempts"))
-                attemptStrings = toList(r.result.get("attemptStrings"))
-                attempts.append(result.score() + (startingGridPenalty if j == 0 else 0))
                 if j == 0:
                     print(startingGridPenalty, file=sys.stderr)
-                attemptStrings.append(result.scoreString())
-                r.result["attempts"] = attempts
-                r.result["attemptStrings"] = attemptStrings
+                # the grid penalty goes on the first lap's time, not its text
+                self._appendAttempt(r, result.score() + (startingGridPenalty if j == 0 else 0),
+                                    result.scoreString())
 
                 if not isQualifying and result.score() == sys.float_info.max:
                     break  # did not finish

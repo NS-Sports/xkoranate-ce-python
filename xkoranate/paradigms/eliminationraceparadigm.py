@@ -84,13 +84,7 @@ class XkorEliminationRaceParadigm(XkorTimedParadigm):
 
             for j in range(laps):
                 result = self.individualResult(i, "score")
-
-                attempts = toList(r.result.get("attempts"))
-                attemptStrings = toList(r.result.get("attemptStrings"))
-                attempts.append(result.score())
-                attemptStrings.append(result.scoreString())
-                r.result["attempts"] = attempts
-                r.result["attemptStrings"] = attemptStrings
+                self._appendAttempt(r, result.score(), result.scoreString())
             self.calculateTotal(r)
 
             activeRes.append(r)

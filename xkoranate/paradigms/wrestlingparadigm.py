@@ -29,47 +29,26 @@ class XkorWrestlingParadigm(XkorAbstractParadigm):
     def breakTie(self, athletes, type=""):
         print("unexpected tie break request in wrestling paradigm", file=sys.stderr)
 
-    def hasOptionsWidget(self):
-        return True
-
-    def newOptionsWidget(self, paradigmOptions):
-        from .options.timedparadigmoptions import XkorTimedParadigmOptions
-        return XkorTimedParadigmOptions(paradigmOptions)
-
     def scorinate(self, athletes, previousResults=None):
-        for i in self.requiredValues:
-            if not self.s.hasValue(i):
-                print("missing parameter", i,
-                      "in XkorSQISParadigm::output(XkorResults *)",
-                      file=sys.stderr)
-                self.out.append(("", "Sport does not support this paradigm"))
-                return
+        if not self._checkRequiredValues("XkorWrestlingParadigm::output(XkorResults *)"):
+            return
 
         # initialize results
         self.out = []
         self.res = []
 
-        acc = 0
-        for awayIdx in range(len(athletes)):
-            if acc & 1:  # if we’re on the second team in a match
-                away = athletes[awayIdx]
-                home = athletes[awayIdx - 1]  # home = away - 1
+        for home, away in self._pairs(athletes):
+            score = self.generateScore(home.rpSkill, away.rpSkill)
+            result = (self.formatName(home) + " " + score.result + " "
+                      + self.formatName(away))
+            if score.annotation != "":
+                result += " (" + score.annotation + ")"
 
-                score = self.generateScore(home.rpSkill, away.rpSkill)
-                result = (self.formatName(home) + " " + score.result + " "
-                          + self.formatName(away))
-                if score.annotation != "":
-                    result += " (" + score.annotation + ")"
-
-                self.out.append((home.name, result))
-                self.res.append(XkorResult(score.homeScore, ath=home.clone()))
-                self.res.append(XkorResult(score.awayScore, ath=away.clone()))
-            acc += 1
+            self.out.append((home.name, result))
+            self.res.append(XkorResult(score.homeScore, ath=home.clone()))
+            self.res.append(XkorResult(score.awayScore, ath=away.clone()))
 
     # protected:
-
-    def formatScore(self, score1, score2):
-        return str(score1) + "–" + str(score2)
 
     def generateScore(self, homeSkill, awaySkill):
         rval = XkorWrestlingParadigmResult()

@@ -1,7 +1,5 @@
-import sys
-
 from ..result import XkorResult
-from ..variant import qNumber, toDouble, toInt, toString
+from ..variant import toDouble, toInt, toString
 from .abstractparadigm import XkorAbstractParadigm
 from .comparators.archeryresultcomparator import XkorArcheryResultComparator
 
@@ -43,47 +41,41 @@ class XkorArcheryParadigm(XkorAbstractParadigm):
                 else:
                     result.setOutput(result.output() + " (tiebreak: " + str(score) + ")")
         else:
-            acc = 0
-            for awayIdx in range(len(athletes)):
-                if acc & 1:
-                    away = athletes[awayIdx]
-                    home = athletes[awayIdx - 1]  # home = away - 1
+            for home, away in self._pairs(athletes):
+                homeScore = 0
+                awayScore = 0
+                tries = 0
+                homeLots = 0.0
+                awayLots = 0.0
+                while homeScore == awayScore and tries < 3:
+                    for i in range(toInt(self.opt.get("arrowsPerTiebreak"))):
+                        if maxScore != 0 and not scorePointForX:
+                            homeScore += min(self.generateArrowScore(self.adjustSkill(home.skill)), maxScore)
+                            awayScore += min(self.generateArrowScore(self.adjustSkill(away.skill)), maxScore)
+                        else:
+                            homeScore += self.generateArrowScore(self.adjustSkill(home.skill))
+                            awayScore += self.generateArrowScore(self.adjustSkill(away.skill))
+                    tries += 1
+                if homeScore == awayScore:
+                    homeLots = self.s.randUniform()
+                    awayLots = self.s.randUniform()
+                    self.findResult(home.id).result["lots"] = homeLots
+                    self.findResult(away.id).result["lots"] = awayLots
 
-                    homeScore = 0
-                    awayScore = 0
-                    tries = 0
-                    homeLots = 0.0
-                    awayLots = 0.0
-                    while homeScore == awayScore and tries < 3:
-                        for i in range(toInt(self.opt.get("arrowsPerTiebreak"))):
-                            if maxScore != 0 and not scorePointForX:
-                                homeScore += min(self.generateArrowScore(self.adjustSkill(home.skill)), maxScore)
-                                awayScore += min(self.generateArrowScore(self.adjustSkill(away.skill)), maxScore)
-                            else:
-                                homeScore += self.generateArrowScore(self.adjustSkill(home.skill))
-                                awayScore += self.generateArrowScore(self.adjustSkill(away.skill))
-                        tries += 1
-                    if homeScore == awayScore:
-                        homeLots = self.s.randUniform()
-                        awayLots = self.s.randUniform()
-                        self.findResult(home.id).result["lots"] = homeLots
-                        self.findResult(away.id).result["lots"] = awayLots
+                result = self.findResult(away.id)
+                if homeLots > awayLots:
+                    result.setOutput(result.output() + " (tiebreak: " + str(homeScore)
+                                     + "*–" + str(awayScore) + ")")
+                elif awayLots > homeLots:
+                    result.setOutput(result.output() + " (tiebreak: " + str(homeScore)
+                                     + "–" + str(awayScore) + "*)")
+                else:
+                    result.setOutput(result.output() + " (tiebreak: " + str(homeScore)
+                                     + "–" + str(awayScore) + ")")
 
-                    result = self.findResult(away.id)
-                    if homeLots > awayLots:
-                        result.setOutput(result.output() + " (tiebreak: " + str(homeScore)
-                                         + "*–" + str(awayScore) + ")")
-                    elif awayLots > homeLots:
-                        result.setOutput(result.output() + " (tiebreak: " + str(homeScore)
-                                         + "–" + str(awayScore) + "*)")
-                    else:
-                        result.setOutput(result.output() + " (tiebreak: " + str(homeScore)
-                                         + "–" + str(awayScore) + ")")
-
-                    # let the competition know who won
-                    self.findResult(home.id).result["tbScore"] = homeScore
-                    self.findResult(away.id).result["tbScore"] = awayScore
-                acc += 1
+                # let the competition know who won
+                self.findResult(home.id).result["tbScore"] = homeScore
+                self.findResult(away.id).result["tbScore"] = awayScore
         self.generateOutput()
 
     def comparisonFunction(self, type=""):
@@ -92,21 +84,9 @@ class XkorArcheryParadigm(XkorAbstractParadigm):
         else:
             return XkorArcheryResultComparator(type, self.opt)
 
-    def hasOptionsWidget(self):
-        return True
-
-    def newOptionsWidget(self, paradigmOptions):
-        from .options.timedparadigmoptions import XkorTimedParadigmOptions
-        return XkorTimedParadigmOptions(paradigmOptions)
-
     def scorinate(self, athletes, previousResults=None):
-        for i in self.requiredValues:
-            if not self.s.hasValue(i):
-                print("missing parameter", i,
-                      "in XkorSQISParadigm::output(XkorResults *)",
-                      file=sys.stderr)
-                self.out.append(("", "Sport does not support this paradigm"))
-                return
+        if not self._checkRequiredValues("XkorArcheryParadigm::output(XkorResults *)"):
+            return
 
         # load options
         nameWidth = toInt(self.userOpt.get("nameWidth", 20)) + 2
@@ -171,21 +151,7 @@ class XkorArcheryParadigm(XkorAbstractParadigm):
     # protected:
 
     def adjustSkill(self, realSkill, isRankingRound=False):
-        if isRankingRound:
-            rankModifier = toDouble(self.opt.get("rankingRankModifier", 0))
-            rankAdjustmentFactor = toDouble(self.opt.get("rankingRankAdjustmentFactor", 1))
-        else:
-            rankModifier = toDouble(self.opt.get("knockoutRankModifier", 0))
-            rankAdjustmentFactor = toDouble(self.opt.get("knockoutRankAdjustmentFactor", 1))
-
-        # randomize the skill a bit to compensate for the fact that long
-        # sequences of arrows would otherwise be highly predictable
-        rval = (realSkill + self.s.randUniform() * rankModifier) / (1 + rankModifier)
-        rval = rval * rankAdjustmentFactor + (1 - rankAdjustmentFactor) / 2
-        return rval
-
-    def individualResult(self, a, b, c=None):
-        return XkorResult()  # unused
+        return self._adjustSkill(realSkill, "ranking" if isRankingRound else "knockout")
 
     def generateArrowScore(self, skill):
         return int(self.s.individualScore("score", skill))

@@ -8,9 +8,6 @@ class XkorGolfinatorParadigm(XkorAbstractParadigm):
         super().__init__(sport, userOptions)
         self.supportedCompetitions["standard"] = True
 
-    def hasOptionsWidget(self):
-        return True
-
     def newAthleteWidget(self):
         from ..signuplisteditor.athletewidget import XkorAthleteWidget
         return XkorAthleteWidget(["name", "nation", "skill", "style"],
@@ -113,9 +110,6 @@ class XkorGolfinatorParadigm(XkorAbstractParadigm):
         self.generateOutput()
 
     # protected:
-
-    def individualResult(self, a, b, c=None):
-        return XkorResult()  # unused
 
     def outputLine(self, r, nameWidth=None, resultWidth=None):
         # C++ declares outputLine(XkorResult, double, double), which hides but

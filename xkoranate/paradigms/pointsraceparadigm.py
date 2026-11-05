@@ -18,21 +18,9 @@ class XkorPointsRaceParadigm(XkorAbstractParadigm):
     def comparisonFunction(self, type=""):
         return XkorPointsRaceResultComparator(type, self.opt)
 
-    def hasOptionsWidget(self):
-        return True
-
-    def newOptionsWidget(self, paradigmOptions):
-        from .options.timedparadigmoptions import XkorTimedParadigmOptions
-        return XkorTimedParadigmOptions(paradigmOptions)
-
     def scorinate(self, athletes, previousResults=None):
-        for i in self.requiredValues:
-            if not self.s.hasValue(i):
-                print("missing parameter", i,
-                      "in XkorPointsRaceParadigm::output(XkorResults *)",
-                      file=sys.stderr)
-                self.out.append(("", "Sport does not support this paradigm"))
-                return
+        if not self._checkRequiredValues("XkorPointsRaceParadigm::output(XkorResults *)"):
+            return
 
         # initialize results
         self.out = []
@@ -84,16 +72,3 @@ class XkorPointsRaceParadigm(XkorAbstractParadigm):
             self.out.append((i.athlete.name, output))
 
     # protected:
-
-    def generateStatus(self):
-        statuses = self.readOptionList("statuses")
-        statusProbs = self.readOptionList("statusProbs")
-
-        rand = self.s.randUniform()
-
-        acc = 0.0
-        for i in range(len(statuses)):
-            acc += toDouble(statusProbs[i])
-            if rand < acc:
-                return toString(statuses[i])
-        return ""

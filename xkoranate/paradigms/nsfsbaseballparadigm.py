@@ -14,12 +14,7 @@ class XkorNSFSBaseballParadigm(XkorNSFSGridironParadigm):
         result = self.generateScorePair(hRes.athlete.skill, aRes.athlete.skill)
         hRes.setScore(hRes.score() + result[0])
         aRes.setScore(aRes.score() + result[1])
-        hResScores = toList(hRes.result.get("subScores"))
-        aResScores = toList(aRes.result.get("subScores"))
-        hResScores.append(result[0])
-        aResScores.append(result[1])
-        hRes.result["subScores"] = hResScores
-        aRes.result["subScores"] = aResScores
+        self._appendSubScores(hRes, aRes, result[0], result[1])
 
         return (hRes, aRes)
 

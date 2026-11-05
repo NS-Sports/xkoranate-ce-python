@@ -1,5 +1,3 @@
-import sys
-
 from ..result import XkorResult
 from ..variant import toDouble, toInt, toList, toString
 from .comparators.shootingresultcomparator import XkorShootingResultComparator
@@ -17,7 +15,7 @@ class XkorShootingParadigm(XkorScoredParadigm):
             result = self.findResult(i.id)
 
             ath = i.clone()
-            ath.rpSkill = self.adjustSkill(ath.rpSkill, "shootoff")
+            ath.rpSkill = self._adjustSkill(ath.rpSkill, "shootoff")
             soResult = self.individualResult(ath, "shootoffScore", "shootoff")
 
             shootoffScores = toList(result.value("shootoffScores"))
@@ -43,13 +41,8 @@ class XkorShootingParadigm(XkorScoredParadigm):
         if previousResults is None:
             previousResults = []
 
-        for i in self.requiredValues:
-            if not self.s.hasValue(i):
-                print("missing parameter", i,
-                      "in XkorShootingParadigm::output(XkorResults *)",
-                      file=sys.stderr)
-                self.out.append(("", "Sport does not support this paradigm"))
-                return
+        if not self._checkRequiredValues("XkorShootingParadigm::output(XkorResults *)"):
+            return
 
         # load options
         isQualifying = (toString(self.userOpt.get("qualifying")) == "true")
@@ -76,28 +69,17 @@ class XkorShootingParadigm(XkorScoredParadigm):
             # load up the previous result, if any
             for j in previousResults:
                 if j.athlete == i:
-                    attemptsList = toList(r.result.get("attempts"))
-                    attemptStrings = toList(r.result.get("attemptStrings"))
-                    attemptsList.append(j.score())
-                    attemptStrings.append(j.scoreString())
-                    r.result["attempts"] = attemptsList
-                    r.result["attemptStrings"] = attemptStrings
+                    self._appendAttempt(r, j.score(), j.scoreString())
 
             for j in range(attempts):
                 # generate the result with a modified skill
                 ath = i.clone()
-                ath.rpSkill = self.adjustSkill(ath.rpSkill, attemptType)
+                ath.rpSkill = self._adjustSkill(ath.rpSkill, attemptType)
                 if attemptTypes in self.opt:
                     result = self.individualResult(ath, toString(self.readOptionList(attemptTypes)[j]))
                 else:
                     result = self.individualResult(ath, attemptType, roundingType)
-
-                attemptsList = toList(r.result.get("attempts"))
-                attemptStrings = toList(r.result.get("attemptStrings"))
-                attemptsList.append(result.score())
-                attemptStrings.append(result.scoreString())
-                r.result["attempts"] = attemptsList
-                r.result["attemptStrings"] = attemptStrings
+                self._appendAttempt(r, result.score(), result.scoreString())
             self.calculateTotal(r)
 
             self.res.append(r)
@@ -105,16 +87,6 @@ class XkorShootingParadigm(XkorScoredParadigm):
         self.generateOutput()
 
     # protected:
-
-    def adjustSkill(self, realSkill, roundType):
-        rankModifier = toDouble(self.opt.get(roundType + "RankModifier", 0))
-        rankAdjustmentFactor = toDouble(self.opt.get(roundType + "RankAdjustmentFactor", 1))
-
-        # randomize the skill a bit to compensate for the fact that long
-        # sequences of arrows would otherwise be highly predictable
-        rval = (realSkill + self.s.randUniform() * rankModifier) / (1 + rankModifier)
-        rval = rval * rankAdjustmentFactor + (1 - rankAdjustmentFactor) / 2
-        return rval
 
     def formatScore(self, score):
         isQualifying = (toString(self.userOpt.get("qualifying")) == "true")

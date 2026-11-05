@@ -14,12 +14,6 @@ class XkorShootingResultComparator(XkorBasicResultComparator):
         else:
             self.useBestGroups = False
 
-    def __call__(self, a, b):
-        if self.isAscending:
-            return self.sortAscending(a, b)
-        else:
-            return self.sortAscending(b, a)
-
     def sortAscending(self, a, b):
         if a.score() < b.score():
             return True

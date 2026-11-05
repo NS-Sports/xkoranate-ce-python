@@ -16,21 +16,9 @@ class XkorTennisParadigm(XkorAbstractParadigm):
     def breakTie(self, athletes, type=""):
         print("unexpected tie break request in tennis paradigm", file=sys.stderr)
 
-    def hasOptionsWidget(self):
-        return True
-
-    def newOptionsWidget(self, paradigmOptions):
-        from .options.timedparadigmoptions import XkorTimedParadigmOptions
-        return XkorTimedParadigmOptions(paradigmOptions)
-
     def scorinate(self, athletes, previousResults=None):
-        for i in self.requiredValues:
-            if not self.s.hasValue(i):
-                print("missing parameter", i,
-                      "in XkorSQISParadigm::output(XkorResults *)",
-                      file=sys.stderr)
-                self.out.append(("", "Sport does not support this paradigm"))
-                return
+        if not self._checkRequiredValues("XkorTennisParadigm::output(XkorResults *)"):
+            return
 
         # load options
         nameWidth = toInt(self.userOpt.get("nameWidth", 20)) + 2
@@ -40,52 +28,43 @@ class XkorTennisParadigm(XkorAbstractParadigm):
         self.out = []
         self.res = []
 
-        acc = 0
-        for awayIdx in range(len(athletes)):
-            if acc & 1:  # if we’re on the second team in a match
-                away = athletes[awayIdx]
-                home = athletes[awayIdx - 1]  # home = away - 1
+        for home, away in self._pairs(athletes):
+            sets = toInt(self.opt.get("sets"))
 
-                sets = toInt(self.opt.get("sets"))
+            score = (0, 0)
+            setScores = []
+            i = 0
+            while score[0] <= sets // 2 and score[1] <= sets // 2:
+                isFinalSet = (i == sets - 1)
+                currentSetScore = self.generateSetScore(home.rpSkill, away.rpSkill,
+                                                        isFinalSet)
+                setScores.append(currentSetScore)
 
-                score = (0, 0)
-                setScores = []
-                i = 0
-                while score[0] <= sets // 2 and score[1] <= sets // 2:
-                    isFinalSet = (i == sets - 1)
-                    currentSetScore = self.generateSetScore(home.rpSkill, away.rpSkill,
-                                                            isFinalSet)
-                    setScores.append(currentSetScore)
-
-                    if sets > 1:
-                        if currentSetScore[0] > currentSetScore[1]:
-                            score = (score[0] + 1, score[1])
-                        else:
-                            score = (score[0], score[1] + 1)
+                if sets > 1:
+                    if currentSetScore[0] > currentSetScore[1]:
+                        score = (score[0] + 1, score[1])
                     else:
-                        score = currentSetScore
-                    i += 1
+                        score = (score[0], score[1] + 1)
+                else:
+                    score = currentSetScore
+                i += 1
 
-                # output the home score
-                homeResult = self.formatName(home).ljust(nameWidth)
-                for i in setScores:
-                    homeResult += str(i[0]).rjust(resultWidth)
-                self.out.append((home.name, homeResult))
-                self.res.append(XkorResult(score[0], ath=home.clone()))
+            # output the home score
+            homeResult = self.formatName(home).ljust(nameWidth)
+            for i in setScores:
+                homeResult += str(i[0]).rjust(resultWidth)
+            self.out.append((home.name, homeResult))
+            self.res.append(XkorResult(score[0], ath=home.clone()))
 
-                # output the away score
-                awayResult = self.formatName(away).ljust(nameWidth)
-                for i in setScores:
-                    awayResult += str(i[1]).rjust(resultWidth)
-                awayResult += "\n"
-                self.out.append((away.name, awayResult))
-                self.res.append(XkorResult(score[1], ath=away.clone()))
-            acc += 1
+            # output the away score
+            awayResult = self.formatName(away).ljust(nameWidth)
+            for i in setScores:
+                awayResult += str(i[1]).rjust(resultWidth)
+            awayResult += "\n"
+            self.out.append((away.name, awayResult))
+            self.res.append(XkorResult(score[1], ath=away.clone()))
 
     # protected:
-
-    def individualResult(self, a, b, c=None):
-        return ("", 0.0)  # unused (C++ returns QPair<QString, double>())
 
     def generateSetScore(self, homeSkill, awaySkill, isFinalSet):
         rval = (0, 0)

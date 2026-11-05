@@ -4,8 +4,7 @@ from .abstracth2hparadigm import XkorAbstractH2HParadigm
 
 
 class XkorHowzzatParadigm(XkorAbstractH2HParadigm):
-    def hasOptionsWidget(self):
-        return True
+    _homeAdvantageMagnitudeDefault = 0.065
 
     def usesMaxSkill(self):
         # generateFTScore below only ever compares
@@ -19,22 +18,9 @@ class XkorHowzzatParadigm(XkorAbstractH2HParadigm):
 
     # protected:
 
-    def _defaultHomeAdvantageMagnitude(self):
-        return toDouble(self.opt.get("homeAdvantage", 0.065))
-
-    def homeAdvantageMagnitude(self):
-        # the sport file provides a default magnitude; the options widget
-        # lets the user override it per-event
-        return toDouble(self.userOpt.get("homeAdvantageMagnitude", self._defaultHomeAdvantageMagnitude()))
-
     def generateFTScore(self, home, away):
         # get the parameters
-        homeAdvantage = 0
-        if toString(self.userOpt.get("homeAdvantage")) == "true":
-            homeAdvantage = self.homeAdvantageMagnitude()
         useStyleMods = toString(self.userOpt.get("useStyleMods", "true")) == "true"
-        skillCoeff = toDouble(self.opt.get("skillCoeff", 0.6))
-        skillOffset = toDouble(self.opt.get("skillOffset", 0.2))
         styleCoeff = toDouble(self.opt.get("styleCoeff", 0.04))
         maxOvers = toInt(self.opt.get("maxOvers", 50))
         maxBalls = toInt(self.opt.get("ballsPerOver", 6)) * maxOvers
@@ -48,11 +34,7 @@ class XkorHowzzatParadigm(XkorAbstractH2HParadigm):
         wicketRateSize = (len(stDevWicketRate) if len(meanWicketRate) > len(stDevWicketRate)
                           else len(meanWicketRate))
 
-        # if the home and away skill are both 0, we can’t calculate the ratio,
-        # and use 0.5 instead
-        skillRatio = (0.5 if home.rpSkill == away.rpSkill
-                      else home.rpSkill / (home.rpSkill + away.rpSkill))
-        homeSkill = skillCoeff * skillRatio + skillOffset + homeAdvantage
+        homeSkill = self._homeWinShare(home.rpSkill, away.rpSkill)
         awaySkill = 1 - homeSkill
 
         homeGetsStyleEffect = (self.s.randUniform() < homeSkill)
