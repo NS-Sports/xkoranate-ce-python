@@ -87,16 +87,20 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
             self.dialog.open()
             return
 
-        self.isInUse = True
-
         if filename != "":
+            # a file that can't be read, or isn't UTF-8, imports nothing
             try:
-                f = open(filename, "r", encoding="utf-8")
-            except OSError:
+                with open(filename, "r", encoding="utf-8") as f:
+                    lines = f.read().splitlines()
+            except (OSError, UnicodeDecodeError):
                 return
 
-            with f:
-                for line in f.read().splitlines():
+            # isInUse silences listIsEdited while the items go in, so it must
+            # come back down whatever happens: left up, every later edit to
+            # the list would go unsaved
+            self.isInUse = True
+            try:
+                for line in lines:
                     l = line.split(";")
                     if len(l) >= 3:
                         athleteName = l[0].strip()
@@ -113,10 +117,11 @@ class XkorAthleteWidget(XkorAbstractAthleteWidget):
                         self.initItem(self.createItem(), athleteName,
                                       uuid.UUID(int=self.r._r.getrandbits(128)),
                                       athleteNation, toDouble(athleteSkill), properties)
+            finally:
+                self.isInUse = False
 
             self.signupListDirectoryChanged.emit(parent_folder(filename))
 
-        self.isInUse = False
         self.listChanged.emit()
 
     def initItem(self, item, athleteName="", id=None, nation="", skill=0, properties=None):
