@@ -7,6 +7,13 @@ released 2008–2011. Original source: <https://github.com/NS-Sports/Xkoranate-C
 The whole program (this rewrite included) is licensed under the GNU General
 Public License v3.0 or later — see [LICENSE](LICENSE).
 
+## Python port maintainers
+
+The Python/PySide6 rewrite is developed and actively maintained by:
+
+- **Mertagne**
+- **Osarius**
+
 ## Original contributors
 
 - Code based upon **NSFootySim** 2.0.7.2 and 3.0.1, © 2004–2010 Vephrall and

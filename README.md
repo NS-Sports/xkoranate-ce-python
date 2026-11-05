@@ -5,7 +5,8 @@ A faithful Python/PySide6 port of [xkoranate-CE](https://github.com/NS-Sports/Xk
 the sports roleplay forum for NationStates. Originally written in Qt4/C++ by
 Commerce Heights/ThirdGeek; this port preserves the original program's behavior —
 scorination math, competition formats, file formats and UI — while running on
-current macOS, Windows, and Linux via Python and Qt 6.
+current macOS, Windows, and Linux via Python and Qt 6. The port is maintained by
+Mertagne and Osarius.
 
 It simulates results for one hundred–plus disciplines across sixty-plus sports:
 mass starts, head-to-head matches, round robins (including leagues split into
@@ -139,5 +140,5 @@ notes this was based on.
 
 GNU General Public License v3.0 or later — see [LICENSE](LICENSE). This
 project is a derivative of the original xkoranate-CE by Commerce Heights
-(ThirdGeek); see [NOTICE.md](NOTICE.md) for full attribution and third-party
-components.
+(ThirdGeek), with the Python port maintained by Mertagne and Osarius; see
+[NOTICE.md](NOTICE.md) for full attribution and third-party components.
