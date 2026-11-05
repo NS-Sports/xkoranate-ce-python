@@ -21,12 +21,7 @@ class XkorMassStartCompetition(XkorAbstractCompetition):
         return toString(self.userOpt.get("sortResults", "true")) == "true"
 
     def scorinate(self, matchday):
-        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
-
-        localParadigmOptions = dict(self.paradigmOpt)
-        localParadigmOptions["nameWidth"] = self.nameWidth()
-
-        p = XkorParadigmFactory.newParadigmForSport(self.sport, localParadigmOptions)
+        p = self._newParadigm()
 
         allResults = []
         heatResults = []

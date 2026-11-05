@@ -7,12 +7,6 @@ class XkorH2HResultComparator(XkorBasicResultComparator):
         super().__init__(type, opt)
         self.tb = self.readOptionList(opt, "tiebreakerNames")
 
-    def __call__(self, a, b):
-        if self.isAscending:
-            return self.sortAscending(a, b)
-        else:
-            return self.sortAscending(b, a)
-
     def sortAscending(self, a, b):
         if a.score() < b.score():
             return True

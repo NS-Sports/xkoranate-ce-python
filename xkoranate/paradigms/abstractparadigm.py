@@ -1,6 +1,8 @@
+import sys
+
 from ..athlete import XkorAthlete
 from ..result import XkorResult
-from ..variant import toInt, toList, toString
+from ..variant import toDouble, toInt, toList, toString
 from .comparators.basicresultcomparator import XkorBasicResultComparator
 
 
@@ -50,7 +52,7 @@ class XkorAbstractParadigm:
         return None
 
     def hasOptionsWidget(self):
-        return False
+        return True
 
     def usesMaxSkill(self):
         """Whether the signup list's "Maximum skill" bound actually affects
@@ -81,7 +83,8 @@ class XkorAbstractParadigm:
                                  ["string", "string", "skill"])
 
     def newOptionsWidget(self, paradigmOptions):
-        return None
+        from .options.timedparadigmoptions import XkorTimedParadigmOptions
+        return XkorTimedParadigmOptions(paradigmOptions)
 
     def output(self):
         rval = ""
@@ -123,6 +126,35 @@ class XkorAbstractParadigm:
         return XkorResult(0, ath=athlete)
 
     # helper functions for subclasses
+    def _checkRequiredValues(self, where):
+        """False, after noting it in the output, if the sport lacks a
+        value this paradigm needs; `where` names the caller for stderr."""
+        for i in self.requiredValues:
+            if not self.s.hasValue(i):
+                print("missing parameter", i, "in " + where, file=sys.stderr)
+                self.out.append(("", "Sport does not support this paradigm"))
+                return False
+        return True
+
+    def _adjustSkill(self, realSkill, prefix):
+        """Skill blurred by the sport's <prefix>RankModifier and
+        <prefix>RankAdjustmentFactor options."""
+        rankModifier = toDouble(self.opt.get(prefix + "RankModifier", 0))
+        rankAdjustmentFactor = toDouble(self.opt.get(prefix + "RankAdjustmentFactor", 1))
+
+        # randomize the skill a bit to compensate for the fact that long
+        # sequences of arrows would otherwise be highly predictable
+        rval = (realSkill + self.s.randUniform() * rankModifier) / (1 + rankModifier)
+        rval = rval * rankAdjustmentFactor + (1 - rankAdjustmentFactor) / 2
+        return rval
+
+    @staticmethod
+    def _pairs(athletes):
+        """(home, away) for each match in a list laid out home, away,
+        home, away…; an odd athlete out at the end is skipped."""
+        for awayIdx in range(1, len(athletes), 2):
+            yield athletes[awayIdx - 1], athletes[awayIdx]
+
     def formatName(self, name, nation=None):
         # collapses the C++ overloads formatName(QString, QString) and
         # formatName(XkorAthlete)
@@ -133,6 +165,26 @@ class XkorAbstractParadigm:
             return name + " (" + nation + ")"
         else:
             return name
+
+    def _worstScore(self):
+        """The score that sorts last under the sport's sort order; its
+        negation sorts first."""
+        return (sys.float_info.max
+                if toString(self.opt.get("sortOrder", "ascending")) == "ascending"
+                else -sys.float_info.max)
+
+    def generateStatus(self):
+        statuses = self.readOptionList("statuses")
+        statusProbs = self.readOptionList("statusProbs")
+
+        rand = self.s.randUniform()
+
+        acc = 0.0
+        for i in range(len(statuses)):
+            acc += toDouble(statusProbs[i])
+            if rand < acc:
+                return toString(statuses[i])
+        return ""
 
     def generateOutput(self):
         self.out = []

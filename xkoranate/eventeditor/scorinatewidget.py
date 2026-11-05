@@ -2,11 +2,10 @@ import sys
 import time
 import traceback
 
-from PySide6.QtCore import QDir, QSize, Qt, Signal
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox,
-                               QFileDialog, QGroupBox, QHBoxLayout, QLabel,
-                               QMessageBox, QPlainTextEdit, QSpinBox, QStyle,
-                               QToolBar, QVBoxLayout, QWidget)
+from PySide6.QtCore import QDir, Qt, Signal
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QGroupBox,
+                               QHBoxLayout, QLabel, QMessageBox, QPlainTextEdit,
+                               QSpinBox, QVBoxLayout, QWidget)
 
 from ..bbcode import boldWinners
 from ..competitions.qualification import (MODE_OFF, MODE_TOP,
@@ -16,65 +15,13 @@ from ..event import XkorEvent
 from ..icons import icon_action
 from ..rng import Mt19937
 from ..rplist import XkorRPList
-from ..signuplist import XkorSignupList
 from ..sport import XkorSport
 from ..startlist import XkorStartList
-from ..ui.dialogs import message_box, resolved_search_path
+from ..ui.dialogs import confirm, message_box, resolved_search_path, text_preview_dialog
 from ..ui.fonts import monospace_font, widen_combo_popup
+from ..ui.toolbars import small_icon_toolbar
 from ..ui.tooltips import wrapped_tooltip
 from ..ui.typography import heading_label
-
-
-# Value-semantics helpers: these classes are passed by value in the C++ code,
-# so we copy them at the call boundaries (see PORTING.md).
-
-def _cloneSignupList(sl):
-    rval = XkorSignupList()
-    rval.ath = [a.clone() for a in sl.ath]
-    rval.min = sl.min
-    rval.max = sl.max
-    return rval
-
-
-def _cloneSport(s):
-    rval = XkorSport()
-    rval.m_name = s.m_name
-    rval.m_alphaName = s.m_alphaName
-    rval.m_discipline = s.m_discipline
-    rval.m_event = s.m_event
-    rval.m_scorinator = s.m_scorinator
-    rval.m_paradigm = s.m_paradigm
-    rval.m_paradigmOptions = dict(s.m_paradigmOptions)
-    rval.m_dataPoints = {k: dict(v) for k, v in s.m_dataPoints.items()}
-    rval.r = s.r
-    return rval
-
-
-def _cloneRPList(rp):
-    rval = XkorRPList()
-    rval.m_competitionName = rp.m_competitionName
-    rval.bon = {k: dict(v) for k, v in rp.bon.items()}
-    rval.rpCalcType = rp.rpCalcType
-    rval.rpOpts = dict(rp.rpOpts)
-    rval.max = rp.max
-    rval.min = rp.min
-    rval.eff = rp.eff
-    rval.teams = rp.teams
-    return rval
-
-
-def _cloneEvent(e):
-    rval = XkorEvent()
-    rval.m_competition = e.m_competition
-    rval.m_competitionOptions = dict(e.m_competitionOptions)
-    rval.m_name = e.m_name
-    rval.m_groups = [g.clone() for g in e.m_groups]
-    rval.m_paradigm = e.m_paradigm
-    rval.m_paradigmOptions = dict(e.m_paradigmOptions)
-    rval.m_results = dict(e.m_results)
-    rval.m_signupList = _cloneSignupList(e.m_signupList)
-    rval.m_sport = e.m_sport
-    return rval
 
 
 class XkorScorinateWidget(QWidget):
@@ -113,13 +60,8 @@ class XkorScorinateWidget(QWidget):
         self.oddsAction.setEnabled(False)
         self.oddsAction.triggered.connect(self.viewOdds)
 
-        # toolbar
-        toolBar = QToolBar()
-        small = self.style().pixelMetric(QStyle.PM_SmallIconSize)
-        toolBar.setIconSize(QSize(small, small))
-        toolBar.addAction(self.scorinateAction)
-        toolBar.addAction(self.oddsAction)
-        toolBar.addAction(self.exportResultsAction)
+        toolBar = small_icon_toolbar(
+            self, [self.scorinateAction, self.oddsAction, self.exportResultsAction])
 
         self.matchday = QComboBox()
         # repopulated whenever the competition changes, so AdjustToContents
@@ -296,40 +238,29 @@ class XkorScorinateWidget(QWidget):
 
         if self.matchday.currentIndex() <= self.lastMatchday:
             if self.matchday.currentIndex() == self.lastMatchday:
-                warning = message_box(
+                ok = confirm(
                     self, "Are you sure you want to regenerate %s?" % self.matchday.currentText(),
-                    QMessageBox.Ok | QMessageBox.Cancel,
-                    informativeText="You will lose your existing results for this round if you regenerate them.",
-                    defaultButton=QMessageBox.Cancel, escapeButton=QMessageBox.Cancel)
-                result = warning.exec()
+                    "You will lose your existing results for this round if you regenerate them.")
             else:
-                warning = message_box(
+                ok = confirm(
                     self, "Are you sure you want to regenerate %s and lose all subsequent results?"
                     % self.matchday.currentText(),
-                    QMessageBox.Ok | QMessageBox.Cancel,
-                    informativeText="You will lose your current results for %s through %s."
+                    "You will lose your current results for %s through %s."
                     % (self.matchday.currentText(), self.matchday.itemText(self.lastMatchday)),
-                    icon=QMessageBox.Warning,
-                    defaultButton=QMessageBox.Cancel, escapeButton=QMessageBox.Cancel)
-                result = warning.exec()
-            if result == QMessageBox.Cancel:
+                    icon=QMessageBox.Warning)
+            if not ok:
                 return
-            else:
-                # now that we’ve got permission, back up to the matchday we’re going to resim
-                self.lastMatchday = self.matchday.currentIndex() - 1
-                resumeOpts = self.c.revertToMatchday(self.matchday.currentIndex())
-                self.updateCompetition(resumeOpts, self.lastMatchday, self.c.results(self.lastMatchday))
+            # now that we’ve got permission, back up to the matchday we’re going to resim
+            self.lastMatchday = self.matchday.currentIndex() - 1
+            resumeOpts = self.c.revertToMatchday(self.matchday.currentIndex())
+            self.updateCompetition(resumeOpts, self.lastMatchday, self.c.results(self.lastMatchday))
 
         if self.matchday.currentIndex() > 0 and self.c.results(self.matchday.currentIndex() - 1) == "":
-            warning = message_box(
-                self, "Do you want to generate results for %s through %s?"
-                % (self.matchday.itemText(self.lastMatchday + 1), self.matchday.currentText()),
-                QMessageBox.Ok | QMessageBox.Cancel,
-                informativeText="This will generate %s rounds of results."
-                % (self.matchday.currentIndex() - self.lastMatchday),
-                defaultButton=QMessageBox.Cancel, escapeButton=QMessageBox.Cancel)
-            result = warning.exec()
-            if result == QMessageBox.Cancel:
+            if not confirm(
+                    self, "Do you want to generate results for %s through %s?"
+                    % (self.matchday.itemText(self.lastMatchday + 1), self.matchday.currentText()),
+                    "This will generate %s rounds of results."
+                    % (self.matchday.currentIndex() - self.lastMatchday)):
                 return
 
         for i in range(self.lastMatchday + 1, self.matchday.currentIndex() + 1):
@@ -355,9 +286,9 @@ class XkorScorinateWidget(QWidget):
 
     def setEvent(self, event, rpList, sport):
         # XkorEvent, XkorRPList and XkorSport are passed by value in the C++
-        event = _cloneEvent(event)
-        rpList = _cloneRPList(rpList)
-        sport = _cloneSport(sport)
+        event = event.clone()
+        rpList = rpList.clone()
+        sport = sport.clone()
 
         sport.setPRNG(self.r)
 
@@ -434,30 +365,8 @@ class XkorScorinateWidget(QWidget):
         odds = self.c.matchOdds(self.matchday.currentIndex())
         if odds is None:
             return
-        self._showTextPreview("Match odds — %s" % self.matchday.currentText(), odds)
-
-    def _showTextPreview(self, title, text):
-        # shown in its own dialog, never in self.textedit — that widget is
-        # the results view, and overwriting it left users with no way back
-        # to their actual scores short of reopening the event
-        dialog = QDialog(self)
-        dialog.setWindowTitle(title)
-        dialog.setWindowModality(Qt.WindowModal)
-        dialog.resize(560, 420)
-
-        preview = QPlainTextEdit(self._formatResults(text))
-        preview.setReadOnly(True)
-        preview.setFont(monospace_font())
-
-        buttons = QDialogButtonBox(QDialogButtonBox.Close)
-        buttons.rejected.connect(dialog.reject)
-        buttons.accepted.connect(dialog.accept)
-
-        layout = QVBoxLayout(dialog)
-        layout.addWidget(preview, 1)
-        layout.addWidget(buttons)
-
-        dialog.exec()
+        text_preview_dialog(self, "Match odds — %s" % self.matchday.currentText(),
+                            self._formatResults(odds))
 
     def _formatResults(self, text):
         if self.bbcodeCheckBox.isChecked() and text != "":

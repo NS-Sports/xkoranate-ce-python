@@ -8,11 +8,10 @@ from ..signuplist import XkorSignupList
 from ..signuplisteditor.signuplisteditor import XkorSignupListEditor
 from ..sport import XkorSport
 from .. import theme
-from ..ui.dialogs import message_box, text_preview_dialog
+from ..ui.dialogs import confirm, text_preview_dialog
 from .competitionselector import XkorCompetitionSelector
-from .eventsetupwidget import XkorEventSetupWidget
-from .scorinatewidget import (XkorScorinateWidget, _cloneEvent, _cloneRPList,
-                              _cloneSport)
+from .eventsetupwidget import XkorEventSetupWidget, pageNames
+from .scorinatewidget import XkorScorinateWidget
 from .sportselector import XkorSportSelector
 
 _STEP_NAMES = ["Sport", "Signups", "Competition", "Groups", "Scorinate"]
@@ -27,7 +26,6 @@ class XkorEventEditor(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WA_StyledBackground, True)
-        self.selectionModel = None
         self.stack = None
         self.signupListEditor = None
         self.eventSetupWidget = None  # built after the competition selector
@@ -72,10 +70,7 @@ class XkorEventEditor(QWidget):
 
     def stepNames(self):
         names = list(_STEP_NAMES)
-        if self.m_data.competition() == "singleElimination":
-            names[_GROUPS_STEP] = "Bracket"  # match the page's own heading
-        elif self.m_data.competition() == "interConference":
-            names[_GROUPS_STEP] = "Conferences"
+        names[_GROUPS_STEP] = pageNames(self.m_data.competition())[1]  # match the page's own heading
         return names
 
     def updateStepIndicator(self):
@@ -148,12 +143,12 @@ class XkorEventEditor(QWidget):
         self.scorinateWidget = XkorScorinateWidget()
         self.scorinateWidget.resumeFileOptionsSet.connect(self.setResumeFileOptions)
         self.scorinateWidget.resultConfirmed.connect(self.setResult)
-        self.scorinateWidget.resultExportDirectoryChanged.connect(self.setResultExportDirectory)
+        self.scorinateWidget.resultExportDirectoryChanged.connect(self.resultExportDirectoryChanged)
 
     def initSignupListEditor(self):
         self.signupListEditor = XkorSignupListEditor()
         self.signupListEditor.dataChanged.connect(self.updateSignupList)
-        self.signupListEditor.signupListDirectoryChanged.connect(self.setSignupListDirectory)
+        self.signupListEditor.signupListDirectoryChanged.connect(self.signupListDirectoryChanged)
 
     def initSportSelector(self):
         self.sportSelector = XkorSportSelector()
@@ -165,12 +160,12 @@ class XkorEventEditor(QWidget):
 
     def data(self):
         self.updateData()
-        return _cloneEvent(self.m_data)  # XkorEvent is returned by value in the C++
+        return self.m_data.clone()  # XkorEvent is returned by value in the C++
 
     def setData(self, data, rpList):
         # XkorEvent and XkorRPList are passed by value in the C++
-        data = _cloneEvent(data)
-        rpList = _cloneRPList(rpList)
+        data = data.clone()
+        rpList = rpList.clone()
 
         self.isLoading = True  # prevent dataChanged from being emitted
 
@@ -223,14 +218,11 @@ class XkorEventEditor(QWidget):
         """
         if not any(self.m_data.results().values()):
             return True
-        warning = message_box(
+        return confirm(
             self, "Are you sure you want to change the bracket?",
-            QMessageBox.Discard | QMessageBox.Cancel,
-            informativeText="This event has already been scorinated. Changing "
-                            "the bracket discards the results played from it.",
-            defaultButton=QMessageBox.Cancel, escapeButton=QMessageBox.Cancel,
-            destructiveButton=QMessageBox.Discard)
-        return warning.exec() == QMessageBox.Discard
+            "This event has already been scorinated. Changing "
+            "the bracket discards the results played from it.",
+            accept=QMessageBox.Discard, destructive=True)
 
     def setDataChanged(self):
         if not self.isLoading:
@@ -240,15 +232,9 @@ class XkorEventEditor(QWidget):
         self.m_data.setResult(matchday, result)
         self.setDataChanged()
 
-    def setResultExportDirectory(self, dir):
-        self.resultExportDirectoryChanged.emit(dir)
-
     def setResumeFileOptions(self, options):
         self.m_data.replaceCompetitionOptions(options)
         self.setDataChanged()
-
-    def setSignupListDirectory(self, dir):
-        self.signupListDirectoryChanged.emit(dir)
 
     def updateCompetition(self, competition):
         self.m_data.setCompetition(competition)
@@ -281,7 +267,7 @@ class XkorEventEditor(QWidget):
         self.setDataChanged()
 
     def updateSport(self, s):
-        self.sport = _cloneSport(s)  # XkorSport is passed by value in the C++
+        self.sport = s.clone()  # XkorSport is passed by value in the C++
         self.m_data.setSport(self.sport.name(), self.sport.paradigm())
         if self.sport.name() != "":
             self.next.setEnabled(True)
@@ -292,9 +278,6 @@ class XkorEventEditor(QWidget):
         self.signupListEditor.setSport(self.sport, self.m_data.paradigmOptions())
         self.competitionSelector.setSport(self.sport, self.m_data.competitionOptions())
         self.setDataChanged()
-
-    def updateSportList(self):
-        self.sportSelector.updateSportList()
 
     def viewSchedule(self):
         from ..competitions.competitionfactory import XkorCompetitionFactory

@@ -10,78 +10,76 @@ INT_MAX = 2147483647  # numeric_limits<int>::max()
 
 
 class XkorAbstractH2HParadigm(XkorAbstractParadigm):
+    # the home advantage magnitude when the sport file sets none
+    _homeAdvantageMagnitudeDefault = 4.0 / 3.0
+    # whether NSFS3 style modifiers apply when the event doesn't say
+    _nsfsStyleModsDefault = None
+
     def __init__(self, sport=None, userOptions=None):
         super().__init__(sport, userOptions)
         self.supportedCompetitions["matches"] = True
         self.supportedCompetitions["roundRobin"] = True
 
     def breakTie(self, athletes, type=""):
-        acc = 0
-
         tiebreakers = self.readOptionList("tiebreakers")
         tiebreakerNames = self.readOptionList("tiebreakerNames")
 
-        for awayIdx in range(len(athletes)):
-            if acc & 1:
-                away = athletes[awayIdx]
-                home = athletes[awayIdx - 1]  # home = away - 1
+        for home, away in self._pairs(athletes):
+            score1 = self.findResult(home.id)
+            score2 = self.findResult(away.id)
 
-                score1 = self.findResult(home.id)
-                score2 = self.findResult(away.id)
+            ni = 0  # parallel iterator over tiebreakerNames
+            ti = 0
+            while ti < len(tiebreakers):
+                tbType = toString(tiebreakers[ti])
+                name = toString(tiebreakerNames[ni])
+                if tbType == "decision":
+                    score = self.generateDecisionScore(score1, score2, name)
+                elif tbType == "extratime":
+                    score = self.generateETScore(score1, score2, name)
+                elif tbType == "goldengoal":
+                    score = self.generateGGScore(score1, score2, name)
+                elif tbType == "ifaf":
+                    score = self.generateIFAFScore(score1, score2, name,
+                                                   toInt(score1.result.get("OTs")) + 1)
+                elif tbType == "shootout":
+                    score = self.generateSOScore(score1, score2, name)
+                else:
+                    print("bad tiebreaker", tbType, file=sys.stderr)
+                    # C++ leaves the QPair default-constructed (two empty
+                    # results) in this case
+                    score = (XkorResult(), XkorResult())
 
-                ni = 0  # parallel iterator over tiebreakerNames
-                ti = 0
-                while ti < len(tiebreakers):
-                    tbType = toString(tiebreakers[ti])
-                    name = toString(tiebreakerNames[ni])
-                    if tbType == "decision":
-                        score = self.generateDecisionScore(score1, score2, name)
-                    elif tbType == "extratime":
-                        score = self.generateETScore(score1, score2, name)
-                    elif tbType == "goldengoal":
-                        score = self.generateGGScore(score1, score2, name)
-                    elif tbType == "ifaf":
-                        score = self.generateIFAFScore(score1, score2, name,
-                                                       toInt(score1.result.get("OTs")) + 1)
-                    elif tbType == "shootout":
-                        score = self.generateSOScore(score1, score2, name)
-                    else:
-                        print("bad tiebreaker", tbType, file=sys.stderr)
-                        # C++ leaves the QPair default-constructed (two empty
-                        # results) in this case
-                        score = (XkorResult(), XkorResult())
+                # output the score
+                for j in range(len(self.out)):
+                    if self.out[j][0] == home.name:
+                        self.out[j] = (self.out[j][0],
+                                       self.outputLine(score[0], score[1]))
 
-                    # output the score
-                    for j in range(len(self.out)):
-                        if self.out[j][0] == home.name:
-                            self.out[j] = (self.out[j][0],
-                                           self.outputLine(score[0], score[1]))
+                # let the competition know the result
+                # (C++: *score1 = score.first; *score2 = score.second —
+                # overwrite the stored results in place)
+                score1.athlete = score[0].athlete
+                score1.result = score[0].result
+                score2.athlete = score[1].athlete
+                score2.result = score[1].result
 
-                    # let the competition know the result
-                    # (C++: *score1 = score.first; *score2 = score.second —
-                    # overwrite the stored results in place)
-                    score1.athlete = score[0].athlete
-                    score1.result = score[0].result
-                    score2.athlete = score[1].athlete
-                    score2.result = score[1].result
+                # keep track of the number of overtimes under IFAF rules
+                if tbType == "ifaf":
+                    score1.result["OTs"] = toInt(score1.result.get("OTs")) + 1
+                    score2.result["OTs"] = toInt(score2.result.get("OTs")) + 1
 
-                    # keep track of the number of overtimes under IFAF rules
-                    if tbType == "ifaf":
-                        score1.result["OTs"] = toInt(score1.result.get("OTs")) + 1
-                        score2.result["OTs"] = toInt(score2.result.get("OTs")) + 1
+                # are we done?
+                if self.compare(score[0], score[1]) != 0:
+                    break
 
-                    # are we done?
-                    if self.compare(score[0], score[1]) != 0:
-                        break
+                # are we on the last tiebreaker? if so, let’s do it again
+                if ti + 1 == len(tiebreakers):
+                    ti -= 1
+                    ni -= 1
 
-                    # are we on the last tiebreaker? if so, let’s do it again
-                    if ti + 1 == len(tiebreakers):
-                        ti -= 1
-                        ni -= 1
-
-                    ni += 1
-                    ti += 1
-            acc += 1
+                ni += 1
+                ti += 1
 
     def comparisonFunction(self, type=""):
         return XkorH2HResultComparator(type, self.opt)
@@ -123,47 +121,76 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
             return super().newAthleteWidget()
 
     def scorinate(self, athletes, previousResults=None):
-        for i in self.requiredValues:
-            if not self.s.hasValue(i):
-                print("missing parameter", i,
-                      "in XkorAbstractH2HParadigm::output(XkorResults *)",
-                      file=sys.stderr)
-                self.out.append(("", "Sport does not support this paradigm"))
-                return
+        if not self._checkRequiredValues("XkorAbstractH2HParadigm::output(XkorResults *)"):
+            return
 
         # initialize results
         self.out = []
         self.res = []
 
-        acc = 0
-        for awayIdx in range(len(athletes)):
-            if acc & 1:  # if we’re on the second team in a match
-                away = athletes[awayIdx]
-                home = athletes[awayIdx - 1]  # home = away - 1
+        for home, away in self._pairs(athletes):
+            score = self.generateFTScore(home, away)
 
-                score = self.generateFTScore(home, away)
+            status = ""
+            if self.compare(score[0], score[1]) == 0:
+                status = self.generateStatus()
 
-                status = ""
-                if self.compare(score[0], score[1]) == 0:
-                    status = self.generateStatus()
+            if status != "" and self.compare(score[0], score[1]) == -1:
+                score[1].result["status"] = status
+            elif status != "":
+                score[0].result["status"] = status
 
-                if status != "" and self.compare(score[0], score[1]) == -1:
-                    score[1].result["status"] = status
-                elif status != "":
-                    score[0].result["status"] = status
+            # output the FT score
+            self.out.append((home.name, self.outputLine(score[0], score[1])))
+            self.res.append(score[0])
+            self.res.append(score[1])
 
-                # output the FT score
-                self.out.append((home.name, self.outputLine(score[0], score[1])))
-                self.res.append(score[0])
-                self.res.append(score[1])
+            if (self.compare(score[0], score[1]) == 0
+                    and toInt(self.opt.get("forceTieBreak")) == 1):
+                # tiebreakers are required for this sport
+                self.breakTie([home, away])
 
-                if (self.compare(score[0], score[1]) == 0
-                        and toInt(self.opt.get("forceTieBreak")) == 1):
-                    # tiebreakers are required for this sport
-                    self.breakTie([home, away])
-            acc += 1
+    def _defaultHomeAdvantageMagnitude(self):
+        return toDouble(self.opt.get("homeAdvantage", self._homeAdvantageMagnitudeDefault))
+
+    def homeAdvantageMagnitude(self):
+        # the sport file provides a default magnitude; the options widget
+        # lets the user override it per-event
+        return toDouble(self.userOpt.get("homeAdvantageMagnitude", self._defaultHomeAdvantageMagnitude()))
 
     # protected:
+
+    def _homeWinShare(self, homeSkill, awaySkill):
+        """The chance that a contested play goes the home side's way, for
+        Footba11er and Howzzat."""
+        homeAdvantage = 0
+        if toString(self.userOpt.get("homeAdvantage")) == "true":
+            homeAdvantage = self.homeAdvantageMagnitude()
+        skillCoeff = toDouble(self.opt.get("skillCoeff", 0.6))
+        skillOffset = toDouble(self.opt.get("skillOffset", 0.2))
+
+        # if the home and away skill are both 0, we can’t calculate the ratio,
+        # and use 0.5 instead
+        skillRatio = (0.5 if homeSkill == awaySkill
+                      else homeSkill / (homeSkill + awaySkill))
+        return skillCoeff * skillRatio + skillOffset + homeAdvantage
+
+    def _binomialDraw(self, n, p, trace=False):
+        """How many of `n` attempts succeed at `p` each, drawn with one
+        uniform number; -1 if rounding leaves that number past the last
+        cumulative probability. `trace` echoes a hit to stderr."""
+        rand = self.s.randUniform()
+        acc = 0.0
+        pI = math.pow(1 - p, n)  # probability of 0 successes
+        for i in range(n + 1):
+            acc += pI
+            if rand < acc:
+                if trace:
+                    print(i, rand, acc, file=sys.stderr)
+                return i
+            # calculate probability of i + 1 successes
+            pI *= (n - i) * p / ((i + 1) * (1 - p))
+        return -1
 
     def formatGaelicScore(self, subScores, totalScore):
         # collapses the C++ overloads formatGaelicScore(QList<QVariant>, int)
@@ -201,7 +228,6 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
 
         # extra time and stuff
         usedTiebreakers = []
-        tiebreakers = self.readOptionList("tiebreakers")
         tiebreakerNames = self.readOptionList("tiebreakerNames")
         for i in range(len(tiebreakerNames)):
             name = toString(tiebreakerNames[i])
@@ -253,7 +279,6 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
 
         # overtime and stuff
         usedTiebreakers = []
-        tiebreakers = self.readOptionList("tiebreakers")
         tiebreakerNames = self.readOptionList("tiebreakerNames")
         for i in range(len(tiebreakerNames)):
             name = toString(tiebreakerNames[i])
@@ -307,6 +332,16 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
             usedTiebreakers.append(name)
 
         return rval
+
+    @staticmethod
+    def _appendSubScores(home, away, homeScore, awayScore, key="subScores"):
+        """Add one more entry to each side's list of sub-scores."""
+        homeScores = toList(home.result.get(key))
+        awayScores = toList(away.result.get(key))
+        homeScores.append(homeScore)
+        awayScores.append(awayScore)
+        home.result[key] = homeScores
+        away.result[key] = awayScores
 
     def generateConversions(self, count, forceValue=-1):
         rval = 0
@@ -370,12 +405,7 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
             away.result[scoreType] = toDouble(away.value(scoreType)) + score2 * toInt(pointValues[i])
 
             # store the sub-score
-            homeScores = toList(home.result.get(subScoreType))
-            awayScores = toList(away.result.get(subScoreType))
-            homeScores.append(score1)
-            awayScores.append(score2)
-            home.result[subScoreType] = homeScores
-            away.result[subScoreType] = awayScores
+            self._appendSubScores(home, away, score1, score2, subScoreType)
 
             if i == 0 and self.opt.get("conversionValues") is not None:
                 home.result[scoreType] = toDouble(home.value(scoreType)) + self.generateConversions(score1)
@@ -416,12 +446,7 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
             aRes.setScore(aRes.score() + score2 * toInt(pointValues[i]))
 
             # store the sub-score
-            hResScores = toList(hRes.result.get("subScores"))
-            aResScores = toList(aRes.result.get("subScores"))
-            hResScores.append(score1)
-            aResScores.append(score2)
-            hRes.result["subScores"] = hResScores
-            aRes.result["subScores"] = aResScores
+            self._appendSubScores(hRes, aRes, score1, score2)
 
             if i == 0 and self.opt.get("conversionValues") is not None:
                 hRes.setScore(hRes.score() + self.generateConversions(score1))
@@ -561,7 +586,7 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
         raise NotImplementedError
 
     def generateStyleModification(self, homeScore, awayScore, homeStyle, awayStyle):
-        if toString(self.userOpt.get("NSFSStyleMods")) == "true":
+        if toString(self.userOpt.get("NSFSStyleMods", self._nsfsStyleModsDefault)) == "true":
             styleCoeffA = toDouble(self.opt.get("NSFSStyleCoeffA", 2.0991677816057))
             styleCoeffB = toDouble(self.opt.get("NSFSStyleCoeffB", 1.2442581729602))
             styleExponent = toDouble(self.opt.get("NSFSStyleExponent", -0.42705203296846))
@@ -595,19 +620,6 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
             homeScore += max(-homeScore, styleEffect)  # don’t drop the score below 0
             awayScore += max(-awayScore, styleEffect)  # don’t drop the score below 0
             return (homeScore, awayScore)
-
-    def generateStatus(self):
-        statuses = self.readOptionList("statuses")
-        statusProbs = self.readOptionList("statusProbs")
-
-        rand = self.s.randUniform()
-
-        acc = 0.0
-        for i in range(len(statuses)):
-            acc += toDouble(statusProbs[i])
-            if rand < acc:
-                return toString(statuses[i])
-        return ""
 
     def outputLine(self, home, away=None):
         # collapses the C++ overloads outputLine(XkorResult) (inherited) and

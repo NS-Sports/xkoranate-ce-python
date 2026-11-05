@@ -1,8 +1,6 @@
 
 import sys
 
-from ..uuids import parseUuid
-from xkoranate.athlete import XkorAthlete
 from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
 from xkoranate.result import XkorResult
 from xkoranate.variant import toDouble, toInt, toList, toString
@@ -27,14 +25,7 @@ class XkorShootingCompetition(XkorAbstractCompetition):
         return XkorShootingCompetitionOptions(options)
 
     def scorinate(self, matchday):
-        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
-
-        localParadigmOptions = dict(self.paradigmOpt)
-        localParadigmOptions["nameWidth"] = self.nameWidth()
-        if matchday == 0:
-            localParadigmOptions["qualifying"] = "true"
-
-        p = XkorParadigmFactory.newParadigmForSport(self.sport, localParadigmOptions)
+        p = self._newParadigm(qualifying="true") if matchday == 0 else self._newParadigm()
 
         self.resultsBuf[matchday] = ""
         sl = self.startList.groups[0]
@@ -47,10 +38,7 @@ class XkorShootingCompetition(XkorAbstractCompetition):
             qualifyingScores = toList(self.userOpt.get("scores"))
             i = 0
             while i < len(qualifiers) and i < len(qualifyingScores):
-                ath = XkorAthlete()
-                for j in sl.athletes:
-                    if parseUuid(toString(qualifiers[i])) == j.id:
-                        ath = j.clone()
+                ath = self._savedAthlete(sl.athletes, qualifiers[i])
                 previousResults.append(XkorResult(toDouble(qualifyingScores[i]), ath=ath))
                 athleteList.append(ath)
                 i += 1

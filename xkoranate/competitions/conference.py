@@ -111,7 +111,7 @@ def conferenceSchedule(sizes, ownLegs, otherLegs):
             fixtures = XkorRoundRobinCompetition.generateFixtures(k, width)
             sections = []
             for c, size in enumerate(sizes):
-                pairs = [((c, h), (c, a)) for h, a in fixtures if h < size and a < size]
+                pairs = [((c, h), (c, a)) for h, a in XkorRoundRobinCompetition.groupPairs(fixtures, size)]
                 if pairs:
                     sections.append(Section("intra", (c,), pairs))
             intraDays.append(sections)

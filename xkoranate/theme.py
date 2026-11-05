@@ -9,7 +9,9 @@ colours, and listen on `signal.changed` so everything re-tints together when
 the mode is switched at runtime.
 """
 
-from PySide6.QtCore import QObject, QSettings, Signal
+from PySide6.QtCore import QObject, Signal
+
+from .paths import appSettings
 
 # fixed in all modes — deliberately not qdarktheme's default blue. Used for
 # fills/indicators (buttons, toggle switch, radio/checkbox) where contrast is
@@ -46,18 +48,9 @@ class _ThemeSignal(QObject):
 signal = _ThemeSignal()
 
 
-def _settings():
-    return QSettings("thirdgeek.com", "xkoranate")
-
-
 def mode():
     """The active theme mode: "light", "dark", or "oled"."""
-    return _settings().value(_SETTINGS_KEY, DEFAULT_MODE)
-
-
-def is_dark():
-    """True for "dark" and "oled" — modes that share dark's icon/text colours."""
-    return mode() in ("dark", "oled")
+    return appSettings().value(_SETTINGS_KEY, DEFAULT_MODE)
 
 
 def ink():
@@ -113,6 +106,6 @@ def set_mode(app, newMode):
     to re-tint."""
     if newMode == mode():
         return
-    _settings().setValue(_SETTINGS_KEY, newMode)
+    appSettings().setValue(_SETTINGS_KEY, newMode)
     apply(app)
     signal.changed.emit()

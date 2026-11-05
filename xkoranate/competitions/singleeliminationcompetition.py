@@ -7,8 +7,7 @@ from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
 from xkoranate.competitions.bracketresults import (THIRD_PLACE_ROUND, BracketRows,
                                                    MatchdaySchedule)
 from xkoranate.rng import Mt19937
-from xkoranate.tablegenerator.decider import nudgeForShootout
-from xkoranate.variant import qNumber, toDouble, toInt, toList, toString
+from xkoranate.variant import toInt, toList, toString
 
 BYE_MARKER = "— BYE —"
 BYE_ADVANCES = "BYE — advances"
@@ -277,6 +276,9 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
         """Who fills a slot in a round that hasn't been reached yet."""
         return "Match %d %s" % (self._matchNumber(round_ - 1, slot), outcome)
 
+    def _slotLabel(self, athlete):
+        return self._formatAthleteName(athlete) if athlete is not None else BYE_MARKER
+
     def _slotLine(self, number, home, away, width):
         return "%s  %s v %s" % (("%d." % number).rjust(width),
                                 home.ljust(self.nameWidth()), away)
@@ -299,8 +301,7 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
             for m in range(self._matchesInRound(round_)):
                 if fixtures is not None:
                     home, away = fixtures[m]
-                    homeLabel = self._formatAthleteName(home) if home is not None else BYE_MARKER
-                    awayLabel = self._formatAthleteName(away) if away is not None else BYE_MARKER
+                    homeLabel, awayLabel = self._slotLabel(home), self._slotLabel(away)
                 else:
                     # this round hasn't been reached, so name the matches that
                     # will decide who plays in it
@@ -354,16 +355,9 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
                     lines.append(self._byeLine(present))
             else:
                 lines.append(self._formatOdds(p, home, away, trials))
-        return "\n".join(lines) + ("\n" if lines else "")
+        return self._oddsText(lines)
 
     # ------------------------------------------------------------- scorinate
-
-    def _newParadigm(self):
-        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
-
-        localParadigmOptions = dict(self.paradigmOpt)
-        localParadigmOptions["nameWidth"] = self.nameWidth()
-        return XkorParadigmFactory.newParadigmForSport(self.sport, localParadigmOptions)
 
     def _decideMatch(self, p, home, away):
         """Resolve one match to (score1, score2, decider, winner).
@@ -547,11 +541,8 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
         nextRound = round_ + 1
         lines = ["Into the " + self.matchdayNames()[self._matchdayForRound(nextRound)]]
         for m in range(self._matchesInRound(nextRound)):
-            home, away = winners[2 * m], winners[2 * m + 1]
-            lines.append("%s  %s v %s" % (
-                ("%d." % self._matchNumber(nextRound, m)).rjust(4),
-                (self._formatAthleteName(home) if home is not None else BYE_MARKER).ljust(self.nameWidth()),
-                self._formatAthleteName(away) if away is not None else BYE_MARKER))
+            lines.append(self._slotLine(self._matchNumber(nextRound, m), self._slotLabel(winners[2 * m]),
+                                        self._slotLabel(winners[2 * m + 1]), 4))
         lines.append("")
         return lines
 
@@ -561,9 +552,7 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
         # "matchday" is the first that will be erased
         self._loadState()
 
-        for k in list(self.resultsBuf.keys()):
-            if k >= matchday:
-                self.resultsBuf[k] = ""
+        self._clearResultsFrom(matchday)
 
         kept = []
         for row in self._rows:

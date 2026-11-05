@@ -5,6 +5,7 @@ from xkoranate.result import XkorResult
 from xkoranate.sport import XkorSport
 from xkoranate.startlist import XkorStartList, XkorStartListGroup
 from xkoranate.tablegenerator.decider import nudgeForShootout
+from xkoranate.uuids import parseUuid
 from xkoranate.variant import toDouble, toList, toString
 
 
@@ -92,6 +93,39 @@ class XkorAbstractCompetition:
         unchanged when there's nothing it can mark."""
         return text
 
+    @staticmethod
+    def _savedAthlete(athletes, savedId):
+        """A copy of the athlete in `athletes` with the saved id string
+        `savedId` (the last, if several have it), or a blank athlete."""
+        rval = XkorAthlete()
+        for a in athletes:
+            if parseUuid(toString(savedId)) == a.id:
+                rval = a.clone()
+        return rval
+
+    def _newParadigm(self, **extra):
+        """The sport's paradigm for scorinating, with the `extra` options and
+        the name column width on top of the event's own."""
+        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
+
+        localParadigmOptions = dict(self.paradigmOpt)
+        localParadigmOptions.update(extra)
+        localParadigmOptions["nameWidth"] = self.nameWidth()
+        return XkorParadigmFactory.newParadigmForSport(self.sport, localParadigmOptions)
+
+    def allowsDraws(self):
+        return toString(self.userOpt.get("allowDraws")) != "false"
+
+    def _breakDrawnPairs(self, p, count=None):
+        """Settle every drawn match among p's results, which pair up two by
+        two in order; only the first `count` results (default: all) count."""
+        results = list(p.results())
+        if count is None:
+            count = len(results)
+        for j in range(0, count - (count % 2), 2):
+            if p.compare(results[j], results[j + 1]) == 0:
+                p.breakTie([results[j].athlete, results[j + 1].athlete])
+
     def _oddsParadigm(self):
         """The event's paradigm, if it can estimate head-to-head odds."""
         from xkoranate.paradigms.abstracth2hparadigm import XkorAbstractH2HParadigm
@@ -170,6 +204,25 @@ class XkorAbstractCompetition:
     def _formatFixture(self, home, away):
         return "%s v %s" % (self._formatAthleteName(home), self._formatAthleteName(away))
 
+    @staticmethod
+    def _fixtureLines(sections, line, headings=True):
+        """line(home, away) for every fixture in `sections`, a list of
+        (heading, fixtures) pairs, each section under its heading if
+        `headings`. Sections with no fixtures are left out."""
+        lines = []
+        for heading, fixtures in sections:
+            if not fixtures:
+                continue
+            if headings:
+                lines.append(heading)
+            for home, away in fixtures:
+                lines.append(line(home, away))
+        return lines
+
+    @staticmethod
+    def _oddsText(lines):
+        return "\n".join(lines) + ("\n" if lines else "")
+
     def _formatOdds(self, paradigm, home, away, trials):
         odds = paradigm.estimateOdds(home, away, trials)
         return "%s v %s — %s %.0f%%  Draw %.0f%%  %s %.0f%%" % (
@@ -198,6 +251,12 @@ class XkorAbstractCompetition:
 
     def results(self, matchday):
         return self.resultsBuf.get(matchday, "")
+
+    def _clearResultsFrom(self, matchday):
+        """Blank the results of `matchday` and every one after it."""
+        for k in list(self.resultsBuf.keys()):
+            if k >= matchday:
+                self.resultsBuf[k] = ""
 
     def resumeFileOptions(self):
         return dict(self.resumeOpt)

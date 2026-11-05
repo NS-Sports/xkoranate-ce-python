@@ -1,13 +1,10 @@
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFormLayout, QLabel,
-                               QRadioButton, QWidget)
+from PySide6.QtWidgets import QButtonGroup, QFormLayout, QLabel, QRadioButton, QWidget
 
-from xkoranate.abstractoptionswidget import XkorAbstractOptionsWidget
 from xkoranate.ui.tooltips import wrapped_tooltip
-from xkoranate.variant import toDouble, toString
+from xkoranate.variant import toString
 
 from .collapsiblesection import XkorCollapsibleSection
-from .constantspinbox import XkorConstantSpinBox
+from .abstracth2hparadigmoptions import XkorAbstractH2HParadigmOptions
 
 _DEFAULT_HOME_ADVANTAGE_EAR = 100.0
 _DEFAULT_POWER_SCALAR = 1.984
@@ -16,7 +13,7 @@ _DEFAULT_REAR = 300.0
 _DEFAULT_MARGIN_DIVISOR = 750.0
 
 
-class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
+class XkorLISAParadigmOptions(XkorAbstractH2HParadigmOptions):
     """Per-event overrides for LISA. Every constant the algorithm's author
     calls out as adjustable (power scalar, reference rank, REAR, margin
     divisor) gets its own spinbox here, same as home-advantage magnitude
@@ -29,23 +26,14 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
                  parent=None):
         super().__init__(opts, parent)
 
-        self.homeAdvantage = QCheckBox("Apply home advantage")
-        if toString(self.options.get("homeAdvantage")) == "true":
-            self.homeAdvantage.setCheckState(Qt.Checked)
-        else:
-            self.homeAdvantage.setCheckState(Qt.Unchecked)
-        self.setHomeAdvantage(self.homeAdvantage.checkState())
-        self.homeAdvantage.stateChanged.connect(self.setHomeAdvantage)
+        self.homeAdvantage = self._flagCheckBox("homeAdvantage", "Apply home advantage",
+                                                self._optionIsTrue("homeAdvantage"))
 
         self.homeAdvantageEARLabel = QLabel("Home advantage (EAR):")
-        self.homeAdvantageEAR = XkorConstantSpinBox(
-            toDouble(self.options.get("homeAdvantageEAR", defaultHomeAdvantageEAR)),
-            defaultHomeAdvantageEAR, decimals=1, minimum=0, maximum=500, step=5)
-        self.homeAdvantageEAR.valueChanged.connect(self.setHomeAdvantageEAR)
-        self.setHomeAdvantageEAR(self.homeAdvantageEAR.value())
+        self.homeAdvantageEAR = self._constantSpinBox(
+            "homeAdvantageEAR", defaultHomeAdvantageEAR, decimals=1, minimum=0, maximum=500, step=5)
 
-        self._updateHomeAdvantageEAREnabled(self.homeAdvantage.checkState())
-        self.homeAdvantage.stateChanged.connect(self._updateHomeAdvantageEAREnabled)
+        self._enableWith(self.homeAdvantage, self.homeAdvantageEARLabel, self.homeAdvantageEAR)
 
         # home advantage mode: "Fixed" is the EAR magnitude above, used
         # directly for every match (today's only behaviour). The other two
@@ -93,43 +81,25 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         self.homeAdvantageModeLabel = QLabel("Home advantage mode:")
         self.homeAdvantageModeLabel.setContentsMargins(0, -4, 0, 0)
 
-        self._updateHomeAdvantageModeEnabled(self.homeAdvantage.checkState())
-        self.homeAdvantage.stateChanged.connect(self._updateHomeAdvantageModeEnabled)
+        self._enableWith(self.homeAdvantage, self.homeAdvantageModeLabel,
+                         self.homeAdvantageModeFixed, self.homeAdvantageModeAdversarial,
+                         self.homeAdvantageModeIndividual)
 
         # LISA formula constants: rank/EAR conversion (power scalar, reference
         # rank, REAR) and margin shaping (margin divisor). These are always
         # active (no enable/disable toggle like home advantage has).
-        self.powerScalar = XkorConstantSpinBox(
-            toDouble(self.options.get("powerScalar", defaultPowerScalar)), defaultPowerScalar,
-            decimals=3, minimum=0.1, maximum=5.0, step=0.01)
-        self.powerScalar.valueChanged.connect(self.setPowerScalar)
-        self.setPowerScalar(self.powerScalar.value())
-
-        self.refRank = XkorConstantSpinBox(
-            toDouble(self.options.get("refRank", defaultRefRank)), defaultRefRank,
-            decimals=2, minimum=0.01, maximum=1000.0, step=0.1)
-        self.refRank.valueChanged.connect(self.setRefRank)
-        self.setRefRank(self.refRank.value())
-
-        self.rear = XkorConstantSpinBox(
-            toDouble(self.options.get("REAR", defaultREAR)), defaultREAR,
-            decimals=1, minimum=1.0, maximum=2000.0, step=5.0)
-        self.rear.valueChanged.connect(self.setREAR)
-        self.setREAR(self.rear.value())
-
-        self.marginDivisor = XkorConstantSpinBox(
-            toDouble(self.options.get("marginDivisor", defaultMarginDivisor)), defaultMarginDivisor,
+        self.powerScalar = self._constantSpinBox(
+            "powerScalar", defaultPowerScalar, decimals=3, minimum=0.1, maximum=5.0, step=0.01)
+        self.refRank = self._constantSpinBox(
+            "refRank", defaultRefRank, decimals=2, minimum=0.01, maximum=1000.0, step=0.1)
+        self.rear = self._constantSpinBox(
+            "REAR", defaultREAR, decimals=1, minimum=1.0, maximum=2000.0, step=5.0)
+        self.marginDivisor = self._constantSpinBox(
+            "marginDivisor", defaultMarginDivisor,
             decimals=1, minimum=1.0, maximum=5000.0, step=10.0)
-        self.marginDivisor.valueChanged.connect(self.setMarginDivisor)
-        self.setMarginDivisor(self.marginDivisor.value())
 
-        self.showTLAs = QCheckBox("Show team names")
-        if toString(self.options.get("showTLAs", "true")) == "true":
-            self.showTLAs.setCheckState(Qt.Checked)
-        else:
-            self.showTLAs.setCheckState(Qt.Unchecked)
-        self.setShowTLAs(self.showTLAs.checkState())
-        self.showTLAs.stateChanged.connect(self.setShowTLAs)
+        self.showTLAs = self._flagCheckBox("showTLAs", "Show team names",
+                                           self._optionIsTrue("showTLAs", True))
 
         advancedContent = QWidget()
         advancedForm = QFormLayout(advancedContent)
@@ -149,22 +119,6 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
         self.form.addRow("", self.showTLAs)
         self.form.addRow(self.advancedSection)
 
-    def setHomeAdvantage(self, x):
-        if Qt.CheckState(x) == Qt.Checked:
-            self.options["homeAdvantage"] = "true"
-        else:
-            self.options["homeAdvantage"] = "false"
-        self.optionsChanged.emit(self.options)
-
-    def setHomeAdvantageEAR(self, x):
-        self.options["homeAdvantageEAR"] = x
-        self.optionsChanged.emit(self.options)
-
-    def _updateHomeAdvantageEAREnabled(self, x):
-        enabled = Qt.CheckState(x) == Qt.Checked
-        self.homeAdvantageEARLabel.setEnabled(enabled)
-        self.homeAdvantageEAR.setEnabled(enabled)
-
     def setHomeAdvantageMode(self, *_args):
         checkedButton = self.homeAdvantageModeGroup.checkedButton()
         if checkedButton is self.homeAdvantageModeAdversarial:
@@ -173,34 +127,4 @@ class XkorLISAParadigmOptions(XkorAbstractOptionsWidget):
             self.options["homeAdvantageMode"] = "individual"
         else:
             self.options["homeAdvantageMode"] = "fixed"
-        self.optionsChanged.emit(self.options)
-
-    def _updateHomeAdvantageModeEnabled(self, x):
-        enabled = Qt.CheckState(x) == Qt.Checked
-        self.homeAdvantageModeLabel.setEnabled(enabled)
-        self.homeAdvantageModeFixed.setEnabled(enabled)
-        self.homeAdvantageModeAdversarial.setEnabled(enabled)
-        self.homeAdvantageModeIndividual.setEnabled(enabled)
-
-    def setPowerScalar(self, x):
-        self.options["powerScalar"] = x
-        self.optionsChanged.emit(self.options)
-
-    def setRefRank(self, x):
-        self.options["refRank"] = x
-        self.optionsChanged.emit(self.options)
-
-    def setREAR(self, x):
-        self.options["REAR"] = x
-        self.optionsChanged.emit(self.options)
-
-    def setMarginDivisor(self, x):
-        self.options["marginDivisor"] = x
-        self.optionsChanged.emit(self.options)
-
-    def setShowTLAs(self, x):
-        if Qt.CheckState(x) == Qt.Checked:
-            self.options["showTLAs"] = "true"
-        else:
-            self.options["showTLAs"] = "false"
         self.optionsChanged.emit(self.options)

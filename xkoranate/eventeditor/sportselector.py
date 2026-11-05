@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QGridLayout, QLineEdit, QTreeView, QWidget
 from ..exceptions import XkorFileNotFoundException
 from ..sport import XkorSport
 from ..ui.typography import heading_label
+from ..ui.widgets import discard
 from .sportmodel import SPORT_DATA, SPORT_NAME, XkorSportModel
 
 
@@ -111,9 +112,7 @@ class XkorSportSelector(QWidget):
             self.sportChanged.emit(s)
 
         if self.paradigmOptionsWidget:
-            self.layout.removeWidget(self.paradigmOptionsWidget)
-            self.paradigmOptionsWidget.setParent(None)
-            self.paradigmOptionsWidget.deleteLater()
+            discard(self.layout, self.paradigmOptionsWidget)
         self.paradigmOptionsWidget = None
 
         # check whether the paradigm has an options dialog

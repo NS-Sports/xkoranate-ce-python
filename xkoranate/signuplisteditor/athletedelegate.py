@@ -3,6 +3,7 @@ from PySide6.QtGui import QRegularExpressionValidator
 from PySide6.QtWidgets import QDoubleSpinBox, QItemDelegate, QLineEdit
 
 from ..variant import toDouble, toString
+from .abstractathletewidget import _SPIN_BOX_COLUMN_TYPES
 
 
 class XkorAthleteDelegate(QItemDelegate):
@@ -64,7 +65,7 @@ class XkorAthleteDelegate(QItemDelegate):
             return lineEdit
 
     def setEditorData(self, editor, index):
-        if self.m_columnTypes[index.column()] in ("double", "skill", "homeAdvantage"):
+        if self.m_columnTypes[index.column()] in _SPIN_BOX_COLUMN_TYPES:
             spinBox = editor
             spinBox.setValue(toDouble(index.model().data(index, Qt.DisplayRole)))
         else:
@@ -78,7 +79,7 @@ class XkorAthleteDelegate(QItemDelegate):
         self.minRank = newMin
 
     def setModelData(self, editor, model, index):
-        if self.m_columnTypes[index.column()] in ("double", "skill", "homeAdvantage"):
+        if self.m_columnTypes[index.column()] in _SPIN_BOX_COLUMN_TYPES:
             spinBox = editor
             model.setData(index, spinBox.value())
         else:

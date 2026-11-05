@@ -18,6 +18,8 @@ def _indexOf(l, value):
 
 # Column types whose displayed text represents a number, not a label.
 _NUMERIC_COLUMN_TYPES = ("double", "skill", "golfStyle", "homeAdvantage")
+# The numeric types edited with a spin box (golfStyle is a string of digits).
+_SPIN_BOX_COLUMN_TYPES = ("double", "skill", "homeAdvantage")
 
 
 class _AthleteTreeWidgetItem(QTreeWidgetItem):

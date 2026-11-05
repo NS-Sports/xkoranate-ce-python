@@ -1,7 +1,10 @@
-"""Locate bundled resources (sports definitions, icons) in dev and frozen runs."""
+"""Locate bundled resources (sports definitions, icons) in dev and frozen runs,
+and the settings store."""
 
 import os
 import sys
+
+from PySide6.QtCore import QSettings
 
 
 def resourceRoot():
@@ -22,3 +25,8 @@ def sportsDir():
 
 def iconsDir():
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons")
+
+
+def appSettings():
+    """The store xkoranate keeps its preferences in."""
+    return QSettings("thirdgeek.com", "xkoranate")

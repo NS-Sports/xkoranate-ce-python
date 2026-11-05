@@ -5,7 +5,7 @@ the brand icon pixmap and modality flags."""
 
 import os
 
-from PySide6.QtCore import QDir, Qt
+from PySide6.QtCore import QDir, QFileInfo, Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QMessageBox,
                                QPlainTextEdit, QStyle, QVBoxLayout)
@@ -27,6 +27,14 @@ def resolved_search_path(prefix):
     entirely."""
     d = QDir(f"{prefix}:/")
     return d.absolutePath() if d.exists() else QDir.homePath()
+
+
+def parent_folder(filename):
+    """The canonical path of the folder holding filename, as remembered for
+    the next file dialog."""
+    path = QDir(filename)
+    path.cdUp()
+    return path.canonicalPath()
 
 
 def brand_pixmap(widget, size=None):
@@ -76,6 +84,31 @@ def message_box(parent, text, buttons, informativeText="", icon=QMessageBox.NoIc
                 % (theme.muted(), theme.muted()))
 
     return box
+
+
+def confirm(parent, text, informativeText, accept=QMessageBox.Ok, icon=QMessageBox.NoIcon,
+            destructive=False):
+    """Ask an accept-or-Cancel question, with Cancel as the default and escape
+    button. Returns whether the user chose accept; destructive styles accept
+    as a warning."""
+    box = message_box(
+        parent, text, accept | QMessageBox.Cancel,
+        informativeText=informativeText, icon=icon,
+        defaultButton=QMessageBox.Cancel, escapeButton=QMessageBox.Cancel,
+        destructiveButton=accept if destructive else None)
+    return box.exec() == accept
+
+
+def ask_save_changes(parent, fileName):
+    """Ask whether to save the changes to fileName ("" when untitled).
+    Returns QMessageBox.Save, Discard or Cancel."""
+    displayFileName = "untitled" if not fileName else QFileInfo(fileName).fileName()
+    warning = message_box(
+        parent, "Do you want to save the changes you made to “%s”?" % displayFileName,
+        QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+        informativeText="Your changes will be lost if you don’t save them.",
+        destructiveButton=QMessageBox.Discard)
+    return warning.exec()
 
 
 def text_preview_dialog(parent, title, text):

@@ -1,8 +1,8 @@
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtWidgets import (QFormLayout, QGridLayout, QHeaderView, QSpinBox,
-                               QStyle, QToolBar, QTreeWidgetItemIterator)
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QFormLayout, QGridLayout, QHeaderView, QSpinBox
 
 from ...ui.fonts import column_width_for
+from ...ui.toolbars import small_icon_toolbar
 from ...variant import qNumber, toDouble, toInt
 from ..abstractrpbonuswidget import XkorAbstractRPBonusWidget
 from .wc36rpbonusdelegate import XkorWC36RPBonusDelegate
@@ -42,9 +42,7 @@ class XkorWC36RPBonusWidget(XkorAbstractRPBonusWidget):
 
     def bonuses(self):
         rval = {}
-        i = QTreeWidgetItemIterator(self.treeWidget)
-        while i.value():
-            item = i.value()
+        for item in self.iterItems():
             properties = {}
             bestRPLevel = toDouble(item.data(1, 1093))
             quantity = toDouble(item.text(2))
@@ -52,7 +50,6 @@ class XkorWC36RPBonusWidget(XkorAbstractRPBonusWidget):
             properties["quantity"] = quantity
             properties["bonus"] = self.calculateBonus(bestRPLevel, quantity)
             rval[item.text(0)] = properties
-            i += 1
         return rval
 
     def calculateBonus(self, bestRPLevel, quantity):
@@ -97,12 +94,7 @@ class XkorWC36RPBonusWidget(XkorAbstractRPBonusWidget):
         self.listChanged.emit()
 
     def setupLayout(self):
-        # tool bar
-        toolBar = QToolBar()
-        small = self.style().pixelMetric(QStyle.PM_SmallIconSize)
-        toolBar.setIconSize(QSize(small, small))
-        toolBar.addAction(self.insertAction)
-        toolBar.addAction(self.deleteAction)
+        toolBar = small_icon_toolbar(self, [self.insertAction, self.deleteAction])
 
         self.layout = QGridLayout(self)
         self.layout.addLayout(self.matchdayForm, 0, 0)

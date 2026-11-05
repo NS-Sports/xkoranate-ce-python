@@ -2,12 +2,43 @@ import math
 import re
 
 from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
-from xkoranate.variant import qNumber, toDouble, toInt, toList, toString, toUInt
+from xkoranate.variant import qNumber, toDouble, toInt, toList, toString
 
 # a saved result: “3: Aquilla 3–1 Busby”, with an optional “OT”/“SO” decider
 # marker before the away team, e.g. “3: Aquilla 3–1 OT Busby”. A score can be
 # negative (taekwondo deducts penalty points), e.g. “3: Aquilla 6–-1 Busby”
 _STORED_MATCH = re.compile("([0-9]+): (.+) (-?[0-9.]+)–(-?[0-9.]+)(?: (OT|SO))? (.+)")
+
+
+# column type -> (sport option naming its heading, default heading)
+_TABLE_HEADINGS = {
+    "played": ("tableHeaderPlayed", "Pld"),
+    "wins": ("tableHeaderWins", "W"),
+    "draws": ("tableHeaderDraws", "D"),
+    "losses": ("tableHeaderLosses", "L"),
+    "goalsFor": ("tableHeaderGoalsFor", "PF"),
+    "goalsAgainst": ("tableHeaderGoalsAgainst", "PA"),
+    "goalAverage": ("tableHeaderGoalAverage", "Avg"),
+    "goalDifference": ("tableHeaderGoalDifference", "PD"),
+    "winPercent": ("tableHeaderWinPercent", "Win %"),
+    "winPercentPure": ("tableHeaderWinPercent", "Win %"),
+    "winPercentNFL": ("tableHeaderWinPercent", "Win %"),
+    "points": ("tableHeaderPoints", "Pts"),
+}
+
+
+# the points a round robin awards when its options don't say
+DEFAULT_POINTS = (("pointsForWin", 3), ("pointsForDraw", 1), ("pointsForLoss", 0))
+
+
+def intOption(options, key, default):
+    """options[key] as an int, or `default` if it isn't set."""
+    return toInt(options.get(key)) if key in options else default
+
+
+def tablePoints(options):
+    """(win, draw, loss) points from competition options."""
+    return tuple(intOption(options, key, default) for key, default in DEFAULT_POINTS)
 
 
 def parseStoredMatch(line):
@@ -53,10 +84,6 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
             # initialize the results in the resume file options
             self.resumeOpt["tableData"] = self.userOpt.get("tableData")
 
-            numberOfLegs = 1
-            if "numberOfLegs" in self.userOpt:
-                numberOfLegs = toUInt(self.userOpt.get("numberOfLegs"))  # noqa: F841 (unused in the C++ too)
-
             self.scorinateMatchday(matchday)
             self.resultsBuf[matchday] = self.resultsBuf.get(matchday, "") + "\n"
 
@@ -93,6 +120,18 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
 
         return fixtures
 
+    @staticmethod
+    def groupPairs(fixtures, size):
+        """The (home, away) index pairs a group of `size` teams plays, out of
+        fixtures made for the largest group."""
+        return [(h, a) for h, a in fixtures if h < size and a < size]
+
+    def _groupFixtures(self, matchday, groupSize):
+        """(group name, fixtures) for each group on one matchday."""
+        fixtures = self.generateFixtures(matchday, groupSize)
+        return [(g.name, [(g.athletes[h], g.athletes[a]) for h, a in self.groupPairs(fixtures, len(g.athletes))])
+                for g in self.startList.groups]
+
     def schedule(self):
         groupSize = self.largestGroupSize(self.startList)
         if groupSize == 0:
@@ -101,17 +140,9 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         matchdayNames = self.matchdayNames()
         lines = []
         for matchday in range(self.matchdays()):
-            fixtures = self.generateFixtures(matchday, groupSize)
             lines.append(matchdayNames[matchday])
-            for i in self.startList.groups:
-                size = len(i.athletes)
-                pairs = [(h, a) for h, a in fixtures if h < size and a < size]
-                if not pairs:
-                    continue
-                if len(self.startList.groups) > 1:
-                    lines.append(i.name)
-                for home, away in pairs:
-                    lines.append(self._formatFixture(i.athletes[home], i.athletes[away]))
+            lines += self._fixtureLines(self._groupFixtures(matchday, groupSize), self._formatFixture,
+                                        len(self.startList.groups) > 1)
             lines.append("")
         return "\n".join(lines)
 
@@ -124,38 +155,24 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         if p is None or groupSize == 0:
             return None
 
-        fixtures = self.generateFixtures(matchday, groupSize)
-        lines = []
-        for i in self.startList.groups:
-            size = len(i.athletes)
-            pairs = [(h, a) for h, a in fixtures if h < size and a < size]
-            if not pairs:
-                continue
-            if len(self.startList.groups) > 1:
-                lines.append(i.name)
-            for home, away in pairs:
-                lines.append(self._formatOdds(p, i.athletes[home], i.athletes[away], trials))
-        return "\n".join(lines) + ("\n" if lines else "")
+        return self._oddsText(self._fixtureLines(
+            self._groupFixtures(matchday, groupSize),
+            lambda home, away: self._formatOdds(p, home, away, trials),
+            len(self.startList.groups) > 1))
 
     def setTablePoints(self, t):
-        t.setPointsForWin(toInt(self.userOpt.get("pointsForWin")) if "pointsForWin" in self.userOpt else 3)
-        t.setPointsForDraw(toInt(self.userOpt.get("pointsForDraw")) if "pointsForDraw" in self.userOpt else 1)
-        t.setPointsForLoss(toInt(self.userOpt.get("pointsForLoss")) if "pointsForLoss" in self.userOpt else 0)
+        win, draw, loss = tablePoints(self.userOpt)
+        t.setPointsForWin(win)
+        t.setPointsForDraw(draw)
+        t.setPointsForLoss(loss)
         # OT/SO points are left unset (falling back to win/loss) unless the
         # competition explicitly overrides them, so existing events score unchanged
-        if "pointsForOTWin" in self.userOpt:
-            t.setPointsForOTWin(toInt(self.userOpt.get("pointsForOTWin")))
-        if "pointsForSOWin" in self.userOpt:
-            t.setPointsForSOWin(toInt(self.userOpt.get("pointsForSOWin")))
-        if "pointsForOTLoss" in self.userOpt:
-            t.setPointsForOTLoss(toInt(self.userOpt.get("pointsForOTLoss")))
-        if "pointsForSOLoss" in self.userOpt:
-            t.setPointsForSOLoss(toInt(self.userOpt.get("pointsForSOLoss")))
+        for name in ("OTWin", "SOWin", "OTLoss", "SOLoss"):
+            if "pointsFor" + name in self.userOpt:
+                getattr(t, "setPointsFor" + name)(toInt(self.userOpt.get("pointsFor" + name)))
 
     def generateTableColumns(self, groupName, teamCount=None):
-        from xkoranate.tablegenerator.tablecolumn import XkorTableColumn
-
-        columns = []
+        from xkoranate.tablegenerator.tablecolumn import standingsColumns
 
         nameWidth = self.nameWidth()
         if len(groupName) > nameWidth:
@@ -164,42 +181,15 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         positionWidth = int(math.log10(teamCount or self.largestGroupSize(self.startList))) + 1
         opt = self.sport.paradigmOptions()
 
-        sortCriteria = self.tableSortCriteria()
-        usesGoalAverage = "goalAverage" in sortCriteria
-        usesGoalDifference = "goalDifference" in sortCriteria
-        usesGoalsAgainst = "goalsAgainst" in sortCriteria
-        usesGoalsFor = "goalsFor" in sortCriteria
-        usesWinPercent = "winPercent" in sortCriteria
-        usesWinPercentPure = "winPercentPure" in sortCriteria
-        usesWinPercentNFL = "winPercentNFL" in sortCriteria
-        usesPoints = "points" in sortCriteria
+        def heading(columnType):
+            key, default = _TABLE_HEADINGS[columnType]
+            return toString(opt.get(key, default))
 
-        columns.append(XkorTableColumn("position", "", positionWidth))
-        columns.append(XkorTableColumn("name", groupName, nameWidth))
-        columns.append(XkorTableColumn("played", toString(opt.get("tableHeaderPlayed", "Pld")), matchdayWidth + 2))
-        columns.append(XkorTableColumn("wins", toString(opt.get("tableHeaderWins", "W")), matchdayWidth + 2))
-        if toString(opt.get("forceTieBreak")) != "1" and toString(self.userOpt.get("allowDraws")) != "false":
-            columns.append(XkorTableColumn("draws", toString(opt.get("tableHeaderDraws", "D")), matchdayWidth + 1))
-        columns.append(XkorTableColumn("losses", toString(opt.get("tableHeaderLosses", "L")), matchdayWidth + 1))
-        if usesGoalAverage or usesGoalDifference or usesGoalsAgainst or usesGoalsFor:
-            columns.append(XkorTableColumn("goalsFor", toString(opt.get("tableHeaderGoalsFor", "PF")), matchdayWidth + 3))
-            columns.append(XkorTableColumn("goalsAgainst", toString(opt.get("tableHeaderGoalsAgainst", "PA")), matchdayWidth + 2))
-        if usesGoalAverage:
-            columns.append(XkorTableColumn("goalAverage", toString(opt.get("tableHeaderGoalAverage", "Avg")), 7))
-        if usesGoalDifference:
-            columns.append(XkorTableColumn("goalDifference", toString(opt.get("tableHeaderGoalDifference", "PD")), matchdayWidth + 2))
-        if usesWinPercent:
-            columns.append(XkorTableColumn("winPercent", toString(opt.get("tableHeaderWinPercent", "Win %")), 8))
-        if usesWinPercentPure:
-            columns.append(XkorTableColumn("winPercentPure", toString(opt.get("tableHeaderWinPercent", "Win %")), 8))
-        if usesWinPercentNFL:
-            columns.append(XkorTableColumn("winPercentNFL", toString(opt.get("tableHeaderWinPercent", "Win %")), 8))
-        if usesPoints:
-            columns.append(XkorTableColumn("points", toString(opt.get("tableHeaderPoints", "Pts")), matchdayWidth + 3))
-        if toString(self.userOpt.get("showResultsGrid")) == "true":
-            columns.append(XkorTableColumn("resultsGrid", "", self.largestGroupSize(self.startList) * 5))
-
-        return columns
+        return standingsColumns(
+            self.tableSortCriteria(), heading, groupName, nameWidth, positionWidth, matchdayWidth,
+            draws=toString(opt.get("forceTieBreak")) != "1" and self.allowsDraws(),
+            gridWidth=(self.largestGroupSize(self.startList) * 5
+                       if toString(self.userOpt.get("showResultsGrid")) == "true" else None))
 
     def largestGroupSize(self, sl):
         rval = 0
@@ -211,10 +201,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         return rval
 
     def matchdays(self):
-        if "numberOfLegs" in self.userOpt:
-            return toInt(self.userOpt.get("numberOfLegs")) * (self.largestGroupSize(self.startList) - 1)
-        else:
-            return self.largestGroupSize(self.startList) - 1
+        return intOption(self.userOpt, "numberOfLegs", 1) * (self.largestGroupSize(self.startList) - 1)
 
     def matchdayNames(self):
         rval = []
@@ -241,10 +228,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
 
     def revertToMatchday(self, matchday):
         # “matchday” is the first that will be erased
-        # delete the results
-        for k in list(self.resultsBuf.keys()):
-            if k >= matchday:
-                self.resultsBuf[k] = ""
+        self._clearResultsFrom(matchday)
 
         # sort out the table data
         tableData = toList(self.userOpt.get("tableData"))
@@ -261,12 +245,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         return dict(self.resumeOpt)
 
     def scorinateMatchday(self, matchday):
-        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
-
-        localParadigmOptions = dict(self.paradigmOpt)
-        localParadigmOptions["nameWidth"] = self.nameWidth()
-
-        p = XkorParadigmFactory.newParadigmForSport(self.sport, localParadigmOptions)
+        p = self._newParadigm()
 
         fixtures = self.generateFixtures(matchday, self.largestGroupSize(self.startList))
 
@@ -280,39 +259,31 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         for i in self.startList.groups:
             athletes = []
             groupData = toList(tableData[groupNo])
-            groupSize = len(i.athletes)
+            pairs = self.groupPairs(fixtures, len(i.athletes))
 
-            for j in fixtures:
-                if j[0] < groupSize and j[1] < groupSize:
-                    athletes.append(i.athletes[j[0]])
-                    athletes.append(i.athletes[j[1]])
+            for home, away in pairs:
+                athletes.append(i.athletes[home])
+                athletes.append(i.athletes[away])
 
             p.scorinate(athletes)
 
-            if toString(self.userOpt.get("allowDraws")) == "false":
+            if not self.allowsDraws():
                 # if there’s a tie, deal with it
-                results = list(p.results())
-                for j in range(0, len(results) - (len(results) % 2), 2):
-                    score1 = results[j]
-                    score2 = results[j + 1]
-                    if p.compare(score1, score2) == 0:
-                        tiebreakAthletes = [score1.athlete, score2.athlete]
-                        p.breakTie(tiebreakAthletes)
+                self._breakDrawnPairs(p)
 
             self.resultsBuf[matchday] = self.resultsBuf.get(matchday, "") + i.name + "\n" + p.output() + "\n"
 
             # assemble teh tablez
-            for j in fixtures:
-                if j[0] < groupSize and j[1] < groupSize:
-                    score1 = p.findResult(i.athletes[j[0]].id)
-                    score2 = p.findResult(i.athletes[j[1]].id)
+            for home, away in pairs:
+                score1 = p.findResult(i.athletes[home].id)
+                score2 = p.findResult(i.athletes[away].id)
 
-                    scoreValue1, scoreValue2, decider = self.tableScores(
-                        p, score1, score2, toString(self.userOpt.get("allowDraws")) != "false")
-                    self.tables[groupNo].insertMatch(i.athletes[j[0]].name, i.athletes[j[1]].name, scoreValue1, scoreValue2, decider)
+                scoreValue1, scoreValue2, decider = self.tableScores(
+                    p, score1, score2, self.allowsDraws())
+                self.tables[groupNo].insertMatch(i.athletes[home].name, i.athletes[away].name, scoreValue1, scoreValue2, decider)
 
-                    # insert into the resume options
-                    groupData.append(formatStoredMatch(matchday, i.athletes[j[0]].name, i.athletes[j[1]].name, scoreValue1, scoreValue2, decider))
+                # insert into the resume options
+                groupData.append(formatStoredMatch(matchday, i.athletes[home].name, i.athletes[away].name, scoreValue1, scoreValue2, decider))
 
             self.tables[groupNo].generate()
             tableData[groupNo] = groupData
@@ -423,11 +394,10 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         remaining = []
         groupSize = self.largestGroupSize(self.startList)
         for md in range(matchday + 1, self.matchdays()):
-            for home, away in self.generateFixtures(md, groupSize):
-                if home < size and away < size:
-                    remaining.append((names[home], names[away]))
+            for home, away in self.groupPairs(self.generateFixtures(md, groupSize), size):
+                remaining.append((names[home], names[away]))
 
-        legs = toInt(self.userOpt.get("numberOfLegs")) if "numberOfLegs" in self.userOpt else 1
+        legs = intOption(self.userOpt, "numberOfLegs", 1)
         metric, outcomes, scale = self._qualificationMetric(table, (size - 1) * legs)
         return QualificationGroup(
             teams=names, current=self._currentMetric(table, metric), remaining=remaining,
@@ -453,7 +423,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         criteria = self.tableSortCriteria()
         first = criteria[0] if criteria else ""
         draws = (toString(self.sport.paradigmOptions().get("forceTieBreak")) != "1"
-                 and toString(self.userOpt.get("allowDraws")) != "false")
+                 and self.allowsDraws())
         perGame = None if not gamesPerTeam else Fraction(1, gamesPerTeam)
         win = [(1, 0), (0, 1)]  # one side wins, the other loses
 

@@ -18,21 +18,9 @@ class XkorHighJumpParadigm(XkorAbstractParadigm):
     def comparisonFunction(self, type=""):
         return XkorHighJumpResultComparator(type, self.opt)
 
-    def hasOptionsWidget(self):
-        return True
-
-    def newOptionsWidget(self, paradigmOptions):
-        from .options.timedparadigmoptions import XkorTimedParadigmOptions
-        return XkorTimedParadigmOptions(paradigmOptions)
-
     def scorinate(self, athletes, previousResults=None):
-        for i in self.requiredValues:
-            if not self.s.hasValue(i):
-                print("missing parameter", i,
-                      "in XkorSQISParadigm::output(XkorResults *)",
-                      file=sys.stderr)
-                self.out.append(("", "Sport does not support this paradigm"))
-                return
+        if not self._checkRequiredValues("XkorHighJumpParadigm::output(XkorResults *)"):
+            return
 
         # load options
         nameWidth = toInt(self.userOpt.get("nameWidth", 20)) + 2
@@ -98,19 +86,6 @@ class XkorHighJumpParadigm(XkorAbstractParadigm):
             self.res.append(r)
 
     # protected:
-
-    def adjustSkill(self, realSkill):
-        rankModifier = toDouble(self.opt.get("rankModifier", 0))
-        rankAdjustmentFactor = toDouble(self.opt.get("rankAdjustmentFactor", 1))
-
-        # randomize the skill a bit to compensate for the fact that long
-        # sequences of arrows would otherwise be highly predictable
-        rval = (realSkill + self.s.randUniform() * rankModifier) / (1 + rankModifier)
-        rval = rval * rankAdjustmentFactor + (1 - rankAdjustmentFactor) / 2
-        return rval
-
-    def individualResult(self, a, b, c=None):
-        return XkorResult()  # unused
 
     def generateScore(self, skill, height):
         attackModifier = toDouble(self.opt.get("attackModifier"))

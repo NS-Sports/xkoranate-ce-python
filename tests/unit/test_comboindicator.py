@@ -1,20 +1,14 @@
 """The dropdown arrow shown on a selected row whose editor is a combo box."""
 
-import pytest
 from PySide6.QtCore import QModelIndex, QRect, Qt
 from PySide6.QtGui import QPainter, QPixmap
-from PySide6.QtWidgets import (QApplication, QStyle, QStyledItemDelegate,
-                               QStyleOptionViewItem, QTreeWidget, QTreeWidgetItem)
+from PySide6.QtWidgets import (QStyle, QStyledItemDelegate, QStyleOptionViewItem,
+                               QTreeWidget, QTreeWidgetItem)
 
 from xkoranate.eventeditor.eventsetupdelegate import XkorEventSetupDelegate
 from xkoranate.rpeditor.rpbonuswidgets.wc36rpbonusdelegate import XkorWC36RPBonusDelegate
 from xkoranate.tablegenerator.sortcriteriadelegate import XkorSortCriteriaDelegate
 from xkoranate.ui.comboindicator import XkorComboIndicatorMixin
-
-
-@pytest.fixture(scope="module")
-def qapp():
-    return QApplication.instance() or QApplication([])
 
 
 class Indicated(XkorComboIndicatorMixin, QStyledItemDelegate):

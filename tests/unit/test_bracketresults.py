@@ -1,19 +1,12 @@
 """The bracket's played-match codec and its matchday running order."""
 
-import uuid
-
 import pytest
+from builders import make_athletes
 
-from xkoranate.athlete import XkorAthlete
 from xkoranate.competitions.bracketresults import (THIRD_PLACE_ROUND, BracketRows,
                                                    MatchdaySchedule)
 
-
-def athlete(name):
-    a = XkorAthlete()
-    a.name = name
-    a.id = uuid.uuid4()  # a bare XkorAthlete has none, and rows key on it
-    return a
+# rows key on athlete ids, which make_athletes() always fills in
 
 
 def resolverFor(*athletes):
@@ -22,7 +15,7 @@ def resolverFor(*athletes):
 
 
 def test_a_row_round_trips():
-    home, away = athlete("Home"), athlete("Away")
+    home, away = make_athletes(["Home", "Away"])
     row = BracketRows.make(0, 3, home, away, 2.0, 1.0, "OT", home)
     parsed = BracketRows.parse(row)
 
@@ -36,7 +29,7 @@ def test_a_row_round_trips():
 
 
 def test_a_bye_row_round_trips():
-    home = athlete("Home")
+    [home] = make_athletes(["Home"])
     parsed = BracketRows.parse(BracketRows.make(0, 1, home, None, None, None, "bye", home))
     assert parsed["away"] == ""
     assert parsed["score1"] is None and parsed["score2"] is None
@@ -49,7 +42,7 @@ def test_a_malformed_row_is_ignored():
 
 
 def test_dropping_a_round_leaves_the_others():
-    a, b = athlete("A"), athlete("B")
+    a, b = make_athletes(["A", "B"])
     rows = BracketRows([BracketRows.make(0, 0, a, b, 1.0, 0.0, "", a),
                         BracketRows.make(1, 0, a, b, 1.0, 0.0, "", b)])
     rows.dropRound(0)
@@ -59,7 +52,7 @@ def test_dropping_a_round_leaves_the_others():
 
 
 def test_winners_are_none_until_the_round_is_complete():
-    a, b = athlete("A"), athlete("B")
+    a, b = make_athletes(["A", "B"])
     resolve = resolverFor(a, b)
     rows = BracketRows([BracketRows.make(0, 0, a, b, 1.0, 0.0, "", a)])
 
@@ -69,14 +62,14 @@ def test_winners_are_none_until_the_round_is_complete():
 
 
 def test_losers_are_the_other_side_of_each_match():
-    a, b = athlete("A"), athlete("B")
+    a, b = make_athletes(["A", "B"])
     rows = BracketRows([BracketRows.make(0, 0, a, b, 1.0, 0.0, "", a),
                         BracketRows.make(0, 1, a, b, 0.0, 1.0, "", b)])
     assert [x.name for x in rows.losers(0, resolverFor(a, b))] == ["B", "A"]
 
 
 def test_a_bye_has_no_loser():
-    a = athlete("A")
+    [a] = make_athletes(["A"])
     rows = BracketRows([BracketRows.make(0, 0, a, None, None, None, "bye", a)])
     assert rows.losers(0, resolverFor(a)) == []
 
@@ -129,7 +122,7 @@ def test_match_numbering_counts_in_playing_order():
 
 
 def test_the_third_place_marker_is_not_a_round_number():
+    a, b = make_athletes(["A", "B"])
     assert THIRD_PLACE_ROUND == "3P"
     assert BracketRows.parse(
-        BracketRows.make(THIRD_PLACE_ROUND, 0, athlete("A"), athlete("B"),
-                         1.0, 0.0, "", athlete("A")))["round"] == THIRD_PLACE_ROUND
+        BracketRows.make(THIRD_PLACE_ROUND, 0, a, b, 1.0, 0.0, "", a))["round"] == THIRD_PLACE_ROUND

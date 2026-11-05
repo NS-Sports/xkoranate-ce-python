@@ -17,7 +17,7 @@ import uuid
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-from PySide6.QtCore import QEvent, QSettings, Qt, QTimer
+from PySide6.QtCore import QEvent, Qt, QTimer
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QAbstractItemView, QApplication
 
@@ -26,9 +26,9 @@ from xkoranate.application import XkorApplication
 from xkoranate.athlete import XkorAthlete
 from xkoranate.event import XkorEvent
 from xkoranate.group import XkorGroup
+from xkoranate.paths import appSettings
 from xkoranate.rplist import XkorRPList
 from xkoranate.signuplist import XkorSignupList
-from xkoranate.ui.dialogs import message_box
 from xkoranate.xml.xmlindex import XkorXmlIndex
 from xkoranate.xml.xmlsportreader import XkorXmlSportReader
 from xkoranate.xml.xmlwriter import XkorXmlWriter
@@ -289,7 +289,7 @@ def main():
     # only the keys the app writes; anything else in the store is left alone
     keys = ["themeMode", "eventDirectory", "resultExportDirectory",
             "resultImportDirectory", "signupListDirectory", "tableDirectory"]
-    settings = QSettings("thirdgeek.com", "xkoranate")
+    settings = appSettings()
     saved = {k: settings.value(k) for k in keys if settings.contains(k)}
     settings.setValue("themeMode", "light")
     try:

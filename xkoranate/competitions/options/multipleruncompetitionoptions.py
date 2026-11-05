@@ -1,8 +1,8 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QCheckBox, QFormLayout, QGridLayout, QSpinBox, QStyle
+from PySide6.QtWidgets import QCheckBox, QFormLayout, QGridLayout, QSpinBox
 
 from xkoranate.abstractoptionswidget import XkorAbstractOptionsWidget
-from xkoranate.variant import toInt, toString
+from xkoranate.variant import toInt
 
 
 class XkorMultipleRunCompetitionOptions(XkorAbstractOptionsWidget):
@@ -12,18 +12,16 @@ class XkorMultipleRunCompetitionOptions(XkorAbstractOptionsWidget):
         self.runs = QSpinBox()
         self.runs.setValue(toInt(self.options.get("runs", 2)))
         self.runs.setRange(2, 99)
-        self.runs.valueChanged.connect(self.setRuns)
+        self.runs.valueChanged.connect(lambda value: self._setOption("runs", value))
 
         self.sortResults = QCheckBox("Sort results")
-        if toString(self.options.get("sortResults", "true")) == "true":
-            self.sortResults.setCheckState(Qt.CheckState.Checked)
+        self.sortResults.setChecked(self._optionIsTrue("sortResults", default=True))
         self.sortResults.stateChanged.connect(self.setSortResults)
 
-        self.sortByBestResult = QCheckBox("Sort by best result when total result is tied")
-        if toString(self.options.get("sortByBestResult", "true")) == "true":
-            self.sortByBestResult.setCheckState(Qt.CheckState.Checked)
-        self.sortByBestResult.setEnabled(self.sortResults.checkState() == Qt.CheckState.Checked)
-        self.sortByBestResult.stateChanged.connect(self.setSortByBestResult)
+        self.sortByBestResult = self._flagCheckBox(
+            "sortByBestResult", "Sort by best result when total result is tied",
+            self._optionIsTrue("sortByBestResult", default=True), storeNow=False)
+        self.sortByBestResult.setEnabled(self.sortResults.isChecked())
 
         form = QFormLayout()
         form.addRow("Runs:", self.runs)
@@ -33,33 +31,17 @@ class XkorMultipleRunCompetitionOptions(XkorAbstractOptionsWidget):
         layout.addWidget(self.sortResults, 1, 1)
         layout.addWidget(self.sortByBestResult, 2, 1)
         layout.setHorizontalSpacing(0)
-        if self.style().styleHint(QStyle.StyleHint.SH_FormLayoutFormAlignment) & Qt.AlignmentFlag.AlignHCenter.value:
+        if self._formAlignment() & Qt.AlignHCenter:
             # center the check boxes, but leave them left-aligned with each other on Mac OS
             layout.setColumnStretch(0, 1093)
             layout.setColumnStretch(2, 1093)
 
-    def setRuns(self, value):
-        self.options["runs"] = value
-        self.optionsChanged.emit(self.options)
-
-    def setSortByBestResult(self, value):
-        if isinstance(value, Qt.CheckState):
-            value = value.value
-        if value == Qt.CheckState.Checked.value:
-            self.options["sortByBestResult"] = "true"
-        else:
-            self.options["sortByBestResult"] = "false"
-        self.optionsChanged.emit(self.options)
-
     def setSortResults(self, value):
-        if isinstance(value, Qt.CheckState):
-            value = value.value
-        if value == Qt.CheckState.Checked.value:
-            self.options["sortResults"] = "true"
-            self.sortByBestResult.setEnabled(True)
-            self.setSortByBestResult(self.sortByBestResult.checkState())
+        on = self._isChecked(value)
+        self.options["sortResults"] = "true" if on else "false"
+        self.sortByBestResult.setEnabled(on)
+        if on:
+            self._setFlag("sortByBestResult", self.sortByBestResult.checkState())
         else:
-            self.options["sortResults"] = "false"
-            self.sortByBestResult.setEnabled(False)
             self.options["sortByBestResult"] = "false"
         self.optionsChanged.emit(self.options)

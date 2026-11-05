@@ -1,4 +1,4 @@
-from paradigm_helpers import make_athlete, make_paradigm, make_sport, stub_uniform
+from builders import make_athlete, make_paradigm, make_sport, stub_uniform
 
 from xkoranate.paradigms.abstracth2hparadigm import XkorAbstractH2HParadigm
 from xkoranate.result import XkorResult

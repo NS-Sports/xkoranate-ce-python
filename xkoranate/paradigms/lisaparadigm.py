@@ -23,9 +23,6 @@ class XkorLISAParadigm(XkorAbstractH2HParadigm):
     regardless of how large the margin is.
     """
 
-    def hasOptionsWidget(self):
-        return True
-
     def usesMaxSkill(self):
         # _ear() below takes rank as a raw, un-normalized value (see its
         # docstring) and calibrates entirely via refRank/REAR/powerScalar,

@@ -1,13 +1,17 @@
 import sys
 
-from ..uuids import parseUuid
-from xkoranate.athlete import XkorAthlete
 from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
 from xkoranate.result import XkorResult
 from xkoranate.variant import toDouble, toInt, toList, toString
 
 DBL_MAX = sys.float_info.max  # numeric_limits<double>::max()
 DBL_MIN = sys.float_info.min  # numeric_limits<double>::min()
+
+# the resume options carrying the runs so far: the athletes still in, their
+# scores and score strings, then the same for the disqualified, plus their
+# output lines
+RUN_KEYS = ("athletes", "scores", "scoreStrings", "disqualifiedAthletes", "disqualifiedScores",
+            "disqualifiedScoreStrings", "disqualifiedOutputs")
 
 
 class XkorMultipleRunCompetition(XkorAbstractCompetition):
@@ -28,6 +32,33 @@ class XkorMultipleRunCompetition(XkorAbstractCompetition):
 
         return XkorMultipleRunCompetitionOptions(options)
 
+    def _saveRuns(self, *values):
+        """Store the RUN_KEYS resume options, in that order."""
+        for key, value in zip(RUN_KEYS, values):
+            self.resumeOpt[key] = value
+
+    @staticmethod
+    def _firstRuns(values, i, runs):
+        """The first `runs` entries of values[i]."""
+        return [toList(values[i])[j] for j in range(runs)]
+
+    @staticmethod
+    def _resultFromAttempts(athlete, attempts, attemptStrings):
+        r = XkorResult()
+        r.athlete = athlete
+        r.result["attempts"] = list(toList(attempts))
+        r.result["attemptStrings"] = list(toList(attemptStrings))
+        return r
+
+    def _comparator(self, p):
+        """The comparator results are ranked by, or None if they stay
+        unsorted."""
+        if toString(self.userOpt.get("sortResults", "true")) != "true":
+            return None
+        if toString(self.userOpt.get("sortByBestResult", "true")) == "true":
+            return p.comparisonFunction()
+        return p.comparisonFunction("noTiebreakers")
+
     def revertToMatchday(self, matchday):
         athletes = []
         scores = []
@@ -43,13 +74,8 @@ class XkorMultipleRunCompetition(XkorAbstractCompetition):
         for i in range(len(currentAthletes)):
             athletes.append(currentAthletes[i])
             if len(toList(currentScores[i])) >= matchday:
-                truncatedScores = []
-                truncatedScoreStrings = []
-                for j in range(matchday):
-                    truncatedScores.append(toList(currentScores[i])[j])
-                    truncatedScoreStrings.append(toList(currentScoreStrings[i])[j])
-                scores.append(truncatedScores)
-                scoreStrings.append(truncatedScoreStrings)
+                scores.append(self._firstRuns(currentScores, i, matchday))
+                scoreStrings.append(self._firstRuns(currentScoreStrings, i, matchday))
             else:
                 scores.append(currentScores[i])
                 scoreStrings.append(currentScoreStrings[i])
@@ -62,36 +88,21 @@ class XkorMultipleRunCompetition(XkorAbstractCompetition):
             if len(toList(currentDQScores[i])) > matchday:
                 # return them to active duty
                 athletes.append(currentDQAthletes[i])
-                truncatedScores = []
-                truncatedScoreStrings = []
-                for j in range(matchday):
-                    truncatedScores.append(toList(currentDQScores[i])[j])
-                    truncatedScoreStrings.append(toList(currentDQScoreStrings[i])[j])
-                scores.append(truncatedScores)
-                scoreStrings.append(truncatedScoreStrings)
+                scores.append(self._firstRuns(currentDQScores, i, matchday))
+                scoreStrings.append(self._firstRuns(currentDQScoreStrings, i, matchday))
             else:
                 disqualifiedAthletes.append(currentDQAthletes[i])
                 disqualifiedScores.append(currentDQScores[i])
                 disqualifiedScoreStrings.append(currentDQScoreStrings[i])
                 disqualifiedOutputs.append(currentDQOutputs[i])
 
-        self.resumeOpt["athletes"] = athletes
-        self.resumeOpt["scores"] = scores
-        self.resumeOpt["scoreStrings"] = scoreStrings
-        self.resumeOpt["disqualifiedAthletes"] = disqualifiedAthletes
-        self.resumeOpt["disqualifiedScores"] = disqualifiedScores
-        self.resumeOpt["disqualifiedScoreStrings"] = disqualifiedScoreStrings
-        self.resumeOpt["disqualifiedOutputs"] = disqualifiedOutputs
+        self._saveRuns(athletes, scores, scoreStrings, disqualifiedAthletes, disqualifiedScores,
+                       disqualifiedScoreStrings, disqualifiedOutputs)
         return dict(self.resumeOpt)
 
     def scorinate(self, matchday):
-        from xkoranate.paradigms.paradigmfactory import XkorParadigmFactory
-
-        localParadigmOptions = dict(self.paradigmOpt)
-        localParadigmOptions["runNumber"] = matchday  # pass the run number to the paradigm for results formatting and such
-        localParadigmOptions["nameWidth"] = self.nameWidth()
-
-        p = XkorParadigmFactory.newParadigmForSport(self.sport, localParadigmOptions)
+        # pass the run number to the paradigm for results formatting and such
+        p = self._newParadigm(runNumber=matchday)
 
         self.resultsBuf[matchday] = ""
         sl = self.startList.groups[0]
@@ -104,22 +115,9 @@ class XkorMultipleRunCompetition(XkorAbstractCompetition):
             scores = toList(self.userOpt.get("scores"))
             scoreStrings = toList(self.userOpt.get("scoreStrings"))
             for i in range(len(athletes)):
-                ath = XkorAthlete()
-                for j in sl.athletes:
-                    if parseUuid(toString(athletes[i])) == j.id:
-                        ath = j.clone()
-
-                r = XkorResult()
-                r.athlete = ath
-                attempts = []
-                attemptStrings = []
-                attempts.extend(toList(scores[i]))
-                attemptStrings.extend(toList(scoreStrings[i]))
-                r.result["attempts"] = attempts
-                r.result["attemptStrings"] = attemptStrings
-
+                ath = self._savedAthlete(sl.athletes, athletes[i])
                 athleteList.append(ath)
-                previousResults.append(r)
+                previousResults.append(self._resultFromAttempts(ath, scores[i], scoreStrings[i]))
         else:
             athleteList = list(sl.athletes)
 
@@ -132,19 +130,9 @@ class XkorMultipleRunCompetition(XkorAbstractCompetition):
         disqualifiedScoreStrings = toList(self.userOpt.get("disqualifiedScoreStrings"))
         disqualifiedOutputs = toList(self.userOpt.get("disqualifiedOutputs"))
         for i in range(len(disqualifiedAthletes)):
-            ath = XkorAthlete()
-            for j in sl.athletes:
-                if parseUuid(toString(disqualifiedAthletes[i])) == j.id:
-                    ath = j.clone()
-
-            r = XkorResult()
-            r.athlete = ath
-            attempts = []
-            attemptStrings = []
-            attempts.extend(toList(disqualifiedScores[i]))
-            attemptStrings.extend(toList(disqualifiedScoreStrings[i]))
-            r.result["attempts"] = attempts
-            r.result["attemptStrings"] = attemptStrings
+            r = self._resultFromAttempts(self._savedAthlete(sl.athletes, disqualifiedAthletes[i]),
+                                         disqualifiedScores[i], disqualifiedScoreStrings[i])
+            attempts, attemptStrings = r.result["attempts"], r.result["attemptStrings"]
             r.setScore(toDouble(attempts[len(attempts) - 1]))
             r.setScoreString(toString(attemptStrings[len(attempts) - 1]))
             r.setOutput(toString(disqualifiedOutputs[i]))
@@ -153,11 +141,9 @@ class XkorMultipleRunCompetition(XkorAbstractCompetition):
         p.addResults(disqualifiedResults)
         results = list(p.results())
 
-        if toString(self.userOpt.get("sortResults", "true")) == "true":
-            if toString(self.userOpt.get("sortByBestResult", "true")) == "true":
-                p.comparisonFunction().sort(results)
-            else:
-                p.comparisonFunction("noTiebreakers").sort(results)
+        comparator = self._comparator(p)
+        if comparator is not None:
+            comparator.sort(results)
 
         # save the qualifiers
         qualifiedAthletes = []
@@ -177,19 +163,11 @@ class XkorMultipleRunCompetition(XkorAbstractCompetition):
                 disqualifiedScores.append(results[i].result.get("attempts"))
                 disqualifiedScoreStrings.append(results[i].result.get("attemptStrings"))
                 disqualifiedOutputs.append(results[i].output())
-        self.resumeOpt["athletes"] = qualifiedAthletes
-        self.resumeOpt["scores"] = qualifyingScores
-        self.resumeOpt["scoreStrings"] = qualifyingScoreStrings
-        self.resumeOpt["disqualifiedAthletes"] = disqualifiedAthletes
-        self.resumeOpt["disqualifiedScores"] = disqualifiedScores
-        self.resumeOpt["disqualifiedScoreStrings"] = disqualifiedScoreStrings
-        self.resumeOpt["disqualifiedOutputs"] = disqualifiedOutputs
+        self._saveRuns(qualifiedAthletes, qualifyingScores, qualifyingScoreStrings, disqualifiedAthletes,
+                       disqualifiedScores, disqualifiedScoreStrings, disqualifiedOutputs)
 
-        if toString(self.userOpt.get("sortResults", "true")) == "true":
-            if toString(self.userOpt.get("sortByBestResult", "true")) == "true":
-                self.resultsBuf[matchday] = self.rankedListOutput(sl.name, results, p.comparisonFunction())
-            else:
-                self.resultsBuf[matchday] = self.rankedListOutput(sl.name, results, p.comparisonFunction("noTiebreakers"))
+        if comparator is not None:
+            self.resultsBuf[matchday] = self.rankedListOutput(sl.name, results, comparator)
         else:
             self.resultsBuf[matchday] += sl.name + "\n"
             self.resultsBuf[matchday] += p.output() + "\n\n"
