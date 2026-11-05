@@ -233,12 +233,14 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
             name = toString(tiebreakerNames[i])
             if (name not in usedTiebreakers
                     and (score1.value(name) is not None or score2.value(name) is not None)):
+                # a tiebreaker keeps its total under its name and the
+                # breakdown under name + "SubScores" (see generateETScore)
                 rval += (" ("
-                         + self.formatGaelicScore(toList(score1.value(name)),
-                                                  int(toDouble(score1.value(name + "SubScores"))))
+                         + self.formatGaelicScore(toList(score1.value(name + "SubScores")),
+                                                  int(toDouble(score1.value(name))))
                          + " – "
-                         + self.formatGaelicScore(toList(score2.value(name)),
-                                                  int(toDouble(score2.value(name + "SubScores"))))
+                         + self.formatGaelicScore(toList(score2.value(name + "SubScores")),
+                                                  int(toDouble(score2.value(name))))
                          + ")")
             usedTiebreakers.append(name)
         return rval

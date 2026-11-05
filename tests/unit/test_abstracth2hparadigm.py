@@ -57,6 +57,26 @@ def test_generateETScore_accumulates_across_point_value_entries():
     assert home.value("subScores") == [0.5, 0.5]
 
 
+def test_a_gaelic_result_shows_the_extra_time_score(monkeypatch):
+    p = make_paradigm(_MinimalH2HParadigm,
+                       opts={"resultStyle": "gaelic", "tiebreakerNames": ["AET"],
+                             "pointValues": [3, 1], "attackCoeffs": [1, 1], "etAttackCoeff": 1.0},
+                       sport=make_sport(seed=1))
+    home = XkorResult(15, ath=make_athlete(name="Home", nation="AAA"))
+    away = XkorResult(15, ath=make_athlete(name="Away", nation="BBB"))
+    home.result["subScores"] = [1, 12]
+    away.result["subScores"] = [0, 15]
+    # extra time: home 1 goal 1 point, away 0 goals 2 points
+    goals = iter([1, 0, 1, 2])
+    monkeypatch.setattr(p, "generateScore", lambda *args: next(goals))
+    home, away = p.generateETScore(home, away, "AET")
+
+    line = p.formatGaelicScore(home, away)
+
+    # was "( (0) –  (0))": the total and the breakdown were swapped
+    assert line == "Home (AAA) 1-12 (15) drew with Away (BBB) 0-15 (15) (1-1 (4) – 0-2 (2))"
+
+
 def test_generateSOScore_stops_once_the_margin_cannot_be_overcome(monkeypatch):
     sport = make_sport(seed=1)
     stub_uniform(monkeypatch, sport, [0.0, 1.0])  # home scores, away misses
