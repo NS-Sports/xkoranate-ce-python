@@ -642,6 +642,69 @@ def test_a_declined_drag_puts_the_bracket_back(widget):
     assert widget.bracketEntrants() == before
 
 
+def test_a_declined_drag_is_not_overridden_by_a_queued_reflow(widget):
+    """One drop sends rowsRemoved and then rowsInserted, and each used to
+    queue its own reflow. The first asked; the second ran inside that
+    dialog's event loop, found the question already marked asked, and laid
+    the dragged bracket — which the first then "restored" on Cancel."""
+    from PySide6.QtCore import QCoreApplication
+
+    loadBracket(widget, 8)
+    before = list(widget.bracketEntrants())
+    asked = []
+
+    def cancelAfterTheEventLoopHasRun():
+        asked.append(1)
+        QCoreApplication.processEvents()  # as the dialog's exec() does
+        return False
+
+    widget.resultsGuard = cancelAfterTheEventLoopHasRun
+
+    # an internal drag: QTreeWidget.dropEvent takes the row, then inserts it
+    first = widget.treeWidget.topLevelItem(0)
+    second = widget.treeWidget.topLevelItem(1)
+    second.insertChild(0, first.takeChild(0))
+    QCoreApplication.processEvents()
+    QCoreApplication.processEvents()
+
+    assert asked == [1]
+    assert widget.bracketEntrants() == before
+
+
+def test_declining_does_not_silence_the_next_question(widget):
+    """The guard was marked asked before the answer came back, so after one
+    Cancel the next edit discarded the results without a word."""
+    loadBracket(widget, 8)
+    before = list(widget.bracketEntrants())
+    asked = []
+    widget.resultsGuard = lambda: (asked.append(1), False)[1]  # "Cancel"
+
+    widget.setBracketSize(4)
+    widget.seedBracket()
+
+    assert len(asked) == 2
+    assert widget.bracketEntrants() == before
+
+
+def test_deleting_a_signup_leaves_a_bye_in_their_slot(widget):
+    """deleteAthlete() took the row out, and the reflow padded a bye onto the
+    end: everyone after the deleted club moved into a different match."""
+    from PySide6.QtCore import QCoreApplication
+
+    ids = loadBracket(widget, 8)
+    before = list(widget.bracketEntrants())
+    asked = []
+    widget.resultsGuard = lambda: (asked.append(1), True)[1]
+
+    widget.deleteAthlete(ids[2])
+    QCoreApplication.processEvents()  # any reflow it queued
+
+    assert widget.bracketEntrants() == [BYE_ID if i == ids[2] else i for i in before]
+    assert all(len(p) == 2 for p in pairs(widget))
+    # the signup is already gone: there is nothing left to say Cancel to
+    assert asked == []
+
+
 def test_group_setup_still_offers_a_participant_already_in_a_group(widget):
     """Filtering placed participants is a bracket rule, not a global one.
 
