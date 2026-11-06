@@ -192,7 +192,14 @@ class XkorApplication(QApplication):
         from .tablegenerator.tablegeneratorwindow import XkorTableGeneratorWindow
 
         if self.tg is not None:  # delete tg
-            self.tg.close()
+            # A window still on screen may hold unsaved changes, so closing it
+            # asks — and Cancel has to keep it. Deleting it whatever close()
+            # answered threw the table away. A hidden one was closed by the
+            # user, who answered for its changes then, so it is just replaced.
+            if self.tg.isVisible() and not self.tg.close():
+                self.tg.raise_()
+                self.tg.activateWindow()
+                return
             self.tg.deleteLater()
         self.tg = XkorTableGeneratorWindow()
         self.tg.resultImportDirectoryChanged.connect(self.setResultImportDirectory)

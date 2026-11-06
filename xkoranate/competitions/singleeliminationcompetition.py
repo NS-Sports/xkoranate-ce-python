@@ -39,6 +39,8 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
     Every later round's fixtures come from the winners of the round before.
     """
 
+    competitionType = "singleElimination"
+
     def __init__(self, *args, **kwargs):
         # set before super(), which may call init()
         self._draw = None  # list of XkorAthlete|None, one per bracket slot

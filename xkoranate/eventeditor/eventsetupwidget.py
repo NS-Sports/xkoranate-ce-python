@@ -47,7 +47,9 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         # set by the event editor: asks the user whether results already
         # generated may be discarded. None means nothing to protect.
         self.resultsGuard = None
-        self._resultsGuardAsked = False
+        self._resultsGuardAsked = False  # the user chose to discard them
+        self._askingResultsGuard = False  # the question is on screen now
+        self._reflowPending = False  # a reflow is queued for the event loop
         self._lastLaidSlots = []  # the arrangement before the edit in progress
         self._availablePlaced = None  # placements the available list was built for
         self._availableDirty = True
@@ -176,13 +178,28 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
 
         Rearranging a bracket invalidates any results played from the old one
         — _drawIsCurrent() drops them — and that used to happen silently, so
-        the loss was only discovered later as a blank results pane. Ask once
-        per event; after that the user has said they know.
+        the loss was only discovered later as a blank results pane. Once the
+        user has chosen to discard them, stop asking for this event.
+
+        Only a Discard counts as having said they know. Marking the question
+        asked before the answer came back let the very next edit after a
+        Cancel go through without a word, and let a reflow that ran inside
+        the dialog's own event loop sail past it while it was still open.
+        A second change arriving while the question is on screen is refused:
+        the answer to the question already showing decides.
         """
         if self.resultsGuard is None or self._resultsGuardAsked:
             return True
-        self._resultsGuardAsked = True
-        return bool(self.resultsGuard())
+        if self._askingResultsGuard:
+            return False
+        self._askingResultsGuard = True
+        try:
+            accepted = bool(self.resultsGuard())
+        finally:
+            self._askingResultsGuard = False
+        if accepted:
+            self._resultsGuardAsked = True
+        return accepted
 
     def largestDrawableSize(self, entrants):
         """The biggest bracket worth drawing for this many entrants.
@@ -368,12 +385,19 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.bracketSizeCombo.setVisible(isBracket)
 
     def scheduleReflow(self, *args):
-        if self.isInUse or not self.isBracket():
+        # A drag moves a row by taking it out and putting it back, so one drop
+        # sends rowsRemoved and then rowsInserted. Queue one reflow for both:
+        # two used to be queued, and the second ran inside the first one's
+        # "discard results?" dialog, changing the bracket before the user had
+        # answered.
+        if self.isInUse or not self.isBracket() or self._reflowPending:
             return
+        self._reflowPending = True
         QTimer.singleShot(0, self.reflowBracket)
 
     def reflowBracket(self):
         """Re-pair the bracket after a drag, keeping the visual order."""
+        self._reflowPending = False
         if self.isInUse or not self.isBracket():
             return
         current = self.bracketEntrants()
@@ -405,12 +429,28 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         return item
 
     def deleteAthlete(self, id):
+        """Take a participant whose signup was deleted out of every group.
+
+        In a bracket their slot becomes a bye, as clearing it by hand does.
+        Taking the row out left the match one short, and the reflow that
+        followed padded a bye onto the end of the bracket, moving everyone
+        after them into a different match.
+        """
         # collected first: taking items out would upset the iteration
         toDelete = [item for item in self.iterItems()
                     if item.parent() and self._slotId(item) == id]
-        for item in toDelete:
-            parent = item.parent()
-            parent.takeChild(parent.indexOfChild(item))
+        if self.isBracket():
+            self.isInUse = True
+            for item in toDelete:
+                self.initAthlete(item, BYE_ID)
+            self.isInUse = False
+            if toDelete:
+                self._lastLaidSlots = list(self.bracketEntrants())
+                self.renumberMatches()
+        else:
+            for item in toDelete:
+                parent = item.parent()
+                parent.takeChild(parent.indexOfChild(item))
         self.listChanged.emit()
 
     def getAthleteByID(self, id):

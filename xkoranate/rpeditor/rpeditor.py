@@ -115,7 +115,12 @@ class XkorRPEditor(QWidget):
     def updateRPBonusWidget(self):
         newRPCalcType = toString(self.m_rpCalcType.itemData(self.m_rpCalcType.currentIndex()))
         if self.m_currentRPCalcType != newRPCalcType:
-            if len(self.m_rpBonus.bonuses()) > 0:
+            # Loading a list isn't the user changing its formula: the bonuses
+            # on screen belong to the list being replaced, and the new list's
+            # own are put in straight after. Asking here popped "reset all
+            # bonuses?" in the middle of opening a file, and Cancel put the
+            # old formula back over the list just loaded.
+            if len(self.m_rpBonus.bonuses()) > 0 and not self.isLoading:
                 if not confirm(
                         self, "Are you sure you want to reset all bonuses by changing the bonus formula?",
                         "If you change the bonus formula, all of your bonuses will be lost.",
@@ -129,8 +134,13 @@ class XkorRPEditor(QWidget):
             else:
                 self.m_rpBonus = XkorOlympicRPBonusWidget()
 
-            self.updateData()
-            if self.m_data is not None and not self.m_data.useTeams():
+            if not self.isLoading:
+                # the user's new formula starts with no bonuses. While loading,
+                # m_data is still the outgoing list, which isn't ours to clear
+                self.updateData()
+            # the buttons, not m_data: while loading, m_data is the outgoing
+            # list, and the new list's choice is already on the buttons
+            if self.m_useParticipantBonus.isChecked():
                 self.m_rpBonus.setUseParticipantBonus()
             else:
                 self.m_rpBonus.setUseTeamBonus()

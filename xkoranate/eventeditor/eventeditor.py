@@ -30,6 +30,8 @@ class XkorEventEditor(QWidget):
         self.signupListEditor = None
         self.eventSetupWidget = None  # built after the competition selector
         self.isLoading = False
+        # the event exactly as loaded, while its sport isn't one we can select
+        self._unresolvedEvent = None
 
         self.m_data = XkorEvent()
         self.m_rpList = XkorRPList()
@@ -49,24 +51,36 @@ class XkorEventEditor(QWidget):
         theme.signal.changed.connect(self.updateStepIndicator)
 
     def goNext(self):
-        self.prev.setDisabled(False)
         if self.stack.currentIndex() == self.stack.count() - 2:  # we’re headed for the scorinate widget
             self.updateData()
             self.scorinateWidget.setEvent(self.m_data, self.m_rpList, self.sport)
-            self.next.setDisabled(True)
 
         if self.stack.currentIndex() < self.stack.count() - 1:  # go to the next widget
             self.stack.setCurrentIndex(self.stack.currentIndex() + 1)
+        self.updateNavigation()
         self.updateStepIndicator()
 
     def goPrev(self):
         if self.stack.currentIndex() > 0:
             self.stack.setCurrentIndex(self.stack.currentIndex() - 1)
-
-        self.next.setDisabled(False)
-        if self.stack.currentIndex() == 0:
-            self.prev.setDisabled(True)
+        self.updateNavigation()
         self.updateStepIndicator()
+
+    def updateNavigation(self):
+        """Go Back while there is a step behind; Continue while there is one
+        ahead and a sport to take there.
+
+        Worked out from the step and the sport every time, rather than nudged
+        by whichever button was pressed: loading another event went back to
+        the first step but left Go Back as it was, and Go Back then enabled
+        Continue with no sport chosen, so the wizard could be walked all the
+        way to Scorinate without one.
+        """
+        if self.stack is None:
+            return  # still being built
+        step = self.stack.currentIndex()
+        self.prev.setEnabled(step > 0)
+        self.next.setEnabled(step < self.stack.count() - 1 and self.sport.name() != "")
 
     def stepNames(self):
         names = list(_STEP_NAMES)
@@ -159,6 +173,8 @@ class XkorEventEditor(QWidget):
         self.sportSelector.updateSportList()
 
     def data(self):
+        if self._unresolvedEvent is not None:
+            return self._unresolvedEvent.clone()
         self.updateData()
         return self.m_data.clone()  # XkorEvent is returned by value in the C++
 
@@ -166,6 +182,8 @@ class XkorEventEditor(QWidget):
         # XkorEvent and XkorRPList are passed by value in the C++
         data = data.clone()
         rpList = rpList.clone()
+        loaded = data.clone()  # as stored, before the selectors below have their say
+        self._unresolvedEvent = None
 
         self.isLoading = True  # prevent dataChanged from being emitted
 
@@ -179,6 +197,7 @@ class XkorEventEditor(QWidget):
         self.eventSetupWidget.setGroups([])
         self.scorinateWidget.clear()
         self.stack.setCurrentIndex(0)
+        self.updateNavigation()
         self.updateStepIndicator()
 
         self.m_data = data
@@ -205,6 +224,15 @@ class XkorEventEditor(QWidget):
         # athletes
         self.eventSetupWidget.setSignupList(data.signupList())
         self.eventSetupWidget.setGroups(data.groups())
+
+        if loaded.sport() and not self.sport.name():
+            # The event names a sport that isn't installed: a custom file, or
+            # one renamed since. Nothing can be selected for it, so the
+            # selectors above fell back to "no sport" and wrote that, and
+            # their default competition type, over the event. Just looking at
+            # it was then enough for the next save to lose both. Hand back the
+            # event as it was until the user picks a sport of their own.
+            self._unresolvedEvent = loaded
 
         self.isLoading = False  # allow dataChanged to be emitted if the user does stuff
 
@@ -267,12 +295,11 @@ class XkorEventEditor(QWidget):
         self.setDataChanged()
 
     def updateSport(self, s):
+        if not self.isLoading and s.name():
+            self._unresolvedEvent = None  # the user has chosen a sport for it
         self.sport = s.clone()  # XkorSport is passed by value in the C++
         self.m_data.setSport(self.sport.name(), self.sport.paradigm())
-        if self.sport.name() != "":
-            self.next.setEnabled(True)
-        else:
-            self.next.setEnabled(False)
+        self.updateNavigation()
 
         # update the signup list editor
         self.signupListEditor.setSport(self.sport, self.m_data.paradigmOptions())

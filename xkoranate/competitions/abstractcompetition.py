@@ -9,7 +9,15 @@ from xkoranate.uuids import parseUuid
 from xkoranate.variant import toDouble, toList, toString
 
 
+# the competition option naming the type whose results the event holds
+RESULTS_COMPETITION = "resultsCompetition"
+
+
 class XkorAbstractCompetition:
+    # the competition type, as XkorCompetitionFactory names it, stamped on the
+    # results so that another type knows they aren't its own
+    competitionType = ""
+
     def __init__(self, sl=None, s=None, paradigmOptions=None, competitionOptions=None, results=None):
         self.resultsBuf = {}  # QHash<int, QString>
         self.resumeOpt = {}
@@ -44,6 +52,31 @@ class XkorAbstractCompetition:
         self.paradigmOpt = dict(paradigmOptions)
         self.userOpt = dict(competitionOptions)
         self.resultsBuf = dict(results)
+        self._dropAnotherTypesResults()
+
+    def _dropAnotherTypesResults(self):
+        """Start from nothing if the stored results are another type's.
+
+        Results are kept as text per matchday, and each type rebuilds its
+        played matches from resume options of its own. Neither said which
+        type wrote them, so after a switch the new type showed the old one's
+        Matchday 1 as its "Mass start" or "Round of 16", and a knockout went
+        on as if rounds had been played. Switching back after playing the
+        other type counted the old round-robin matches a second time.
+
+        Only this object's copy is cleared, the way a rearranged bracket's
+        results are (see XkorSingleEliminationCompetition._drawIsCurrent):
+        switching back without playing the other type finds them intact.
+        Results saved before the stamp existed carry none, and are kept.
+        """
+        stamped = toString(self.userOpt.get(RESULTS_COMPETITION, ""))
+        if not stamped or not self.competitionType or stamped == self.competitionType:
+            return
+        # this type's own way of forgetting everything played: it leaves the
+        # resume options as they were before the first matchday
+        self.userOpt.update(self.revertToMatchday(0))
+        self.resumeOpt = {}
+        self.resultsBuf = {}
 
     def matchdays(self):
         raise NotImplementedError  # pure virtual
@@ -259,7 +292,10 @@ class XkorAbstractCompetition:
                 self.resultsBuf[k] = ""
 
     def resumeFileOptions(self):
-        return dict(self.resumeOpt)
+        rval = dict(self.resumeOpt)
+        if self.competitionType:
+            rval[RESULTS_COMPETITION] = self.competitionType
+        return rval
 
     def revertToMatchday(self, matchday):
         # given matchday is the first that will be erased

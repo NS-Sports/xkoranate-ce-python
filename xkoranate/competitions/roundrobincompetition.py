@@ -59,6 +59,8 @@ def formatStoredMatch(matchday, home, away, score1, score2, decider=None):
 
 
 class XkorRoundRobinCompetition(XkorAbstractCompetition):
+    competitionType = "roundRobin"
+
     def __init__(self, *args, **kwargs):
         self._qualificationCache = {}
         super().__init__(*args, **kwargs)
@@ -201,7 +203,9 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         return rval
 
     def matchdays(self):
-        return intOption(self.userOpt, "numberOfLegs", 1) * (self.largestGroupSize(self.startList) - 1)
+        # with nobody in any group the largest is 0, and 0 − 1 made this −1:
+        # a count the scorinate page's "nothing to scorinate" check missed
+        return intOption(self.userOpt, "numberOfLegs", 1) * max(0, self.largestGroupSize(self.startList) - 1)
 
     def matchdayNames(self):
         rval = []

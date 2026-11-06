@@ -10,6 +10,8 @@ MAX_SHOOTOFFS = 50
 
 
 class XkorShootingCompetition(XkorAbstractCompetition):
+    competitionType = "shooting"
+
     def hasOptionsWidget(self):
         return True
 

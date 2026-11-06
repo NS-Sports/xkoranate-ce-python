@@ -139,6 +139,11 @@ def make_event(athletes, groups=None, names=GROUP_NAMES, name="", sport=None, pa
 def event_for(index, rng, sport_name, n=None, **kw):
     """(event, sport) for a sport file, with the sport drawing from `rng`.
 
+    `sport_name` is the file's index key (its alphabetized name); the event
+    names the sport by its real name, as the editor stores it — the key of a
+    file like "Athletics—Men’s 00100 m—Round 1" isn't a name the sport list
+    can find, so an event naming it reads as one whose sport isn't installed.
+
     n athletes from make_athletes(), defaulting to the sum of the group
     sizes or 8; anything else goes to make_event(). Building draws nothing
     from `rng`.
@@ -148,7 +153,7 @@ def event_for(index, rng, sport_name, n=None, **kw):
     if n is None:
         groups = kw.get("groups")
         n = sum(groups) if groups and isinstance(groups[0], int) else 8
-    ev = make_event(make_athletes(n), name="Test " + sport_name, sport=sport_name,
+    ev = make_event(make_athletes(n), name="Test " + sport_name, sport=sport.name(),
                     paradigm=sport.paradigm(), **kw)
     return ev, sport
 
