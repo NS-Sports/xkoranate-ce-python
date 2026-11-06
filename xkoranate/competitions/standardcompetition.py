@@ -3,6 +3,8 @@ from xkoranate.variant import toList, toString
 
 
 class XkorMassStartCompetition(XkorAbstractCompetition):
+    competitionType = "standard"
+
     def hasOptionsWidget(self):
         return True
 

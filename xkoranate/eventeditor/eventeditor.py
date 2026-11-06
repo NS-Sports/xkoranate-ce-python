@@ -51,24 +51,36 @@ class XkorEventEditor(QWidget):
         theme.signal.changed.connect(self.updateStepIndicator)
 
     def goNext(self):
-        self.prev.setDisabled(False)
         if self.stack.currentIndex() == self.stack.count() - 2:  # we’re headed for the scorinate widget
             self.updateData()
             self.scorinateWidget.setEvent(self.m_data, self.m_rpList, self.sport)
-            self.next.setDisabled(True)
 
         if self.stack.currentIndex() < self.stack.count() - 1:  # go to the next widget
             self.stack.setCurrentIndex(self.stack.currentIndex() + 1)
+        self.updateNavigation()
         self.updateStepIndicator()
 
     def goPrev(self):
         if self.stack.currentIndex() > 0:
             self.stack.setCurrentIndex(self.stack.currentIndex() - 1)
-
-        self.next.setDisabled(False)
-        if self.stack.currentIndex() == 0:
-            self.prev.setDisabled(True)
+        self.updateNavigation()
         self.updateStepIndicator()
+
+    def updateNavigation(self):
+        """Go Back while there is a step behind; Continue while there is one
+        ahead and a sport to take there.
+
+        Worked out from the step and the sport every time, rather than nudged
+        by whichever button was pressed: loading another event went back to
+        the first step but left Go Back as it was, and Go Back then enabled
+        Continue with no sport chosen, so the wizard could be walked all the
+        way to Scorinate without one.
+        """
+        if self.stack is None:
+            return  # still being built
+        step = self.stack.currentIndex()
+        self.prev.setEnabled(step > 0)
+        self.next.setEnabled(step < self.stack.count() - 1 and self.sport.name() != "")
 
     def stepNames(self):
         names = list(_STEP_NAMES)
@@ -185,6 +197,7 @@ class XkorEventEditor(QWidget):
         self.eventSetupWidget.setGroups([])
         self.scorinateWidget.clear()
         self.stack.setCurrentIndex(0)
+        self.updateNavigation()
         self.updateStepIndicator()
 
         self.m_data = data
@@ -286,10 +299,7 @@ class XkorEventEditor(QWidget):
             self._unresolvedEvent = None  # the user has chosen a sport for it
         self.sport = s.clone()  # XkorSport is passed by value in the C++
         self.m_data.setSport(self.sport.name(), self.sport.paradigm())
-        if self.sport.name() != "":
-            self.next.setEnabled(True)
-        else:
-            self.next.setEnabled(False)
+        self.updateNavigation()
 
         # update the signup list editor
         self.signupListEditor.setSport(self.sport, self.m_data.paradigmOptions())

@@ -14,6 +14,8 @@ RUN_KEYS = ("athletes", "scores", "scoreStrings", "disqualifiedAthletes", "disqu
 
 
 class XkorMultipleRunCompetition(XkorAbstractCompetition):
+    competitionType = "multipleRun"
+
     def hasOptionsWidget(self):
         return True
 

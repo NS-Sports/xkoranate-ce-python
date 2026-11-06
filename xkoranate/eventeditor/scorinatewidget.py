@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QGroupBox,
                                QHBoxLayout, QLabel, QMessageBox, QPlainTextEdit,
                                QSpinBox, QVBoxLayout, QWidget)
 
+from ..athlete import isBye
 from ..bbcode import boldWinners
 from ..competitions.qualification import (MODE_OFF, MODE_TOP,
                                           MODE_TOP_PLUS_BEST,
@@ -225,10 +226,18 @@ class XkorScorinateWidget(QWidget):
             self.dialog.setDirectory(path)
             self.resultExportDirectoryChanged.emit(path.canonicalPath())
 
+    def hasEntrants(self):
+        """Whether anyone at all is in the event's groups, byes aside."""
+        return any(not isBye(a) for g in self.sl.groups for a in g.athletes)
+
     def scorinate(self):
-        if self.c is None or self.c.matchdays() == 0:
+        if self.c is None or self.c.matchdays() <= 0 or not self.hasEntrants():
             # nothing to score: without this the checks below offer to
-            # regenerate matchday -1, naming a round that doesn't exist
+            # regenerate matchday -1, naming a round that doesn't exist.
+            # Asking the start list as well as the competition: a type with
+            # a fixed number of matchdays (runs, a qualifying round) has some
+            # even with nobody in it, and archery, multiple-run and shooting
+            # raised IndexError looking for a first group that wasn't there
             message_box(
                 self, "There is nothing to scorinate yet.",
                 QMessageBox.Ok,

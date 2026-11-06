@@ -2,6 +2,8 @@ from xkoranate.competitions.abstractcompetition import XkorAbstractCompetition
 
 
 class XkorMatchesCompetition(XkorAbstractCompetition):
+    competitionType = "matches"
+
     def hasOptionsWidget(self):
         return True
 

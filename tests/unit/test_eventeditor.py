@@ -1,4 +1,5 @@
-"""The event editor: what showing an event does to it."""
+"""The event editor's wizard: what showing an event does to it, and which
+steps the Go Back and Continue buttons allow."""
 
 import pytest
 from builders import LISA, make_athletes, make_event
@@ -7,6 +8,7 @@ from xkoranate.event import XkorEvent
 from xkoranate.rplist import XkorRPList
 
 MISSING = "Some custom sport—not installed"
+SCORINATE = 4  # the last step
 
 
 @pytest.fixture
@@ -64,3 +66,38 @@ def test_an_installed_sport_is_still_read_from_the_editor(editor):
     editor.updateCompetition("matches")
 
     assert editor.data().competition() == "matches"
+
+
+# ------------------------------------------------------------ the buttons
+
+def test_loading_an_event_resets_go_back(editor):
+    """setData() went back to the first step but left Go Back enabled, and
+    Go Back on the first step then enabled Continue with no sport chosen."""
+    editor.setData(make_event(make_athletes(4), sport=LISA, paradigm="lisa"), XkorRPList())
+    editor.goNext()
+    assert buttons(editor) == (1, True, True)
+
+    editor.setData(XkorEvent(), XkorRPList())  # a new event: no sport yet
+    assert buttons(editor) == (0, False, False)
+
+    editor.goPrev()
+    assert buttons(editor) == (0, False, False)
+
+
+def test_continue_follows_the_sport_and_stops_at_the_last_step(editor):
+    editor.setData(XkorEvent(), XkorRPList())
+    assert buttons(editor) == (0, False, False)
+
+    editor.sportSelector.setSelectedSport(LISA)
+    assert buttons(editor) == (0, False, True)
+
+    for step in range(1, SCORINATE + 1):
+        editor.goNext()
+        assert buttons(editor) == (step, True, step < SCORINATE)
+
+    for step in reversed(range(SCORINATE)):
+        editor.goPrev()
+        assert buttons(editor) == (step, step > 0, True)
+
+    editor.sportSelector.setSelectedSport("")
+    assert buttons(editor) == (0, False, False)

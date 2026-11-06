@@ -15,6 +15,8 @@ class XkorInterConferenceCompetition(XkorRoundRobinCompetition):
     can rank everyone together.
     """
 
+    competitionType = "interConference"
+
     # results are kept in one list rather than RR's list per group, so they
     # go under their own key: switching an event between the two types in
     # the editor can't feed one format to the other
