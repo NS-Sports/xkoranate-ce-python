@@ -117,6 +117,33 @@ def test_the_writers_raise_when_the_file_cannot_be_opened(tmp_path):
         XkorXmlTableWriter(path, XkorTable())
 
 
+@pytest.mark.parametrize("error", [OSError("No space left on device"), RuntimeError("a writer bug")])
+@pytest.mark.parametrize("writer, method, write", [
+    (XkorXmlWriter, "writeEvents", lambda path: XkorXmlWriter(path, XkorRPList(), [])),
+    (XkorXmlTableWriter, "writeTable", lambda path: XkorXmlTableWriter(path, XkorTable())),
+], ids=["scorinator", "table generator"])
+def test_a_failed_save_leaves_the_previous_file_intact(writer, method, write, error, tmp_path,
+                                                       monkeypatch):
+    """Opening the file to write it used to empty it first, so a save that
+    failed partway left half a document where the last good one had been."""
+    path = str(tmp_path / "saved.xml")
+    write(path)
+    with open(path, encoding="utf-8") as f:
+        before = f.read()
+
+    def fail(self, *args):
+        self.writeTextElement("halfway", "through")
+        raise error
+
+    monkeypatch.setattr(writer, method, fail)
+    with pytest.raises(type(error)):
+        write(path)
+
+    with open(path, encoding="utf-8") as f:
+        assert f.read() == before
+    assert os.listdir(str(tmp_path)) == ["saved.xml"]  # no temporary file left behind
+
+
 @pytest.mark.parametrize("reader", [XkorXmlReader, XkorXmlTableReader])
 def test_the_readers_report_a_file_they_cannot_open(reader, tmp_path):
     r = reader(str(tmp_path))  # exists, but a folder can't be opened as a file

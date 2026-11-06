@@ -656,3 +656,67 @@ def test_a_shootout_cross_game_follows_cross_points_when_so_points_are_unset():
     t.setCrossPoints((1, 0, 0))
     t.generate()
     assert points(t) == {"A": 1, "X": 0}
+
+
+def _deliverDeferredDeletes():
+    from PySide6.QtCore import QCoreApplication, QEvent
+
+    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+
+
+def _closeTableGenerator(app):
+    if app.tg is not None:
+        app.tg.generator.setFileModified(False)
+        app.tg.close()
+
+
+def test_reopening_keeps_a_table_the_user_chose_not_to_discard(qapp, monkeypatch):
+    """Clicking Table generator again closes the open one first, which asks
+    about unsaved changes. The window was deleted whatever the answer, so
+    Cancel threw the table away."""
+    import shiboken6
+    from PySide6.QtWidgets import QMessageBox
+
+    _closeTableGenerator(qapp)
+    qapp.tableGenerator()
+    tg = qapp.tg
+    try:
+        tg.generator.matches.setPlainText("Alpha 2-1 Beta")
+        monkeypatch.setattr(tg.generator, "showUnsavedDialog", lambda: QMessageBox.Cancel)
+
+        qapp.tableGenerator()
+        _deliverDeferredDeletes()
+
+        assert shiboken6.isValid(tg)
+        assert qapp.tg is tg and tg.isVisible()
+        assert tg.generator.matches.toPlainText() == "Alpha 2-1 Beta"
+        assert tg.generator.fileModified
+    finally:
+        _closeTableGenerator(qapp)
+
+
+def test_reopening_after_a_discard_does_not_ask_again(qapp, monkeypatch):
+    """Closing the window and choosing Discard leaves it hidden but still
+    marked as modified. Reopening must replace it without asking about
+    the changes the user has already thrown away."""
+    from PySide6.QtWidgets import QMessageBox
+
+    _closeTableGenerator(qapp)
+    qapp.tableGenerator()
+    tg = qapp.tg
+    asked = []
+    monkeypatch.setattr(tg.generator, "showUnsavedDialog",
+                        lambda: (asked.append(1), QMessageBox.Discard)[1])
+    tg.generator.matches.setPlainText("Alpha 2-1 Beta")
+    try:
+        assert tg.close()
+        assert asked == [1]
+
+        qapp.tableGenerator()
+        _deliverDeferredDeletes()
+
+        assert asked == [1]
+        assert qapp.tg is not tg and qapp.tg.isVisible()
+        assert qapp.tg.generator.matches.toPlainText() == ""
+    finally:
+        _closeTableGenerator(qapp)
