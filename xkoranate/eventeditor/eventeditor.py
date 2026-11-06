@@ -30,6 +30,8 @@ class XkorEventEditor(QWidget):
         self.signupListEditor = None
         self.eventSetupWidget = None  # built after the competition selector
         self.isLoading = False
+        # the event exactly as loaded, while its sport isn't one we can select
+        self._unresolvedEvent = None
 
         self.m_data = XkorEvent()
         self.m_rpList = XkorRPList()
@@ -159,6 +161,8 @@ class XkorEventEditor(QWidget):
         self.sportSelector.updateSportList()
 
     def data(self):
+        if self._unresolvedEvent is not None:
+            return self._unresolvedEvent.clone()
         self.updateData()
         return self.m_data.clone()  # XkorEvent is returned by value in the C++
 
@@ -166,6 +170,8 @@ class XkorEventEditor(QWidget):
         # XkorEvent and XkorRPList are passed by value in the C++
         data = data.clone()
         rpList = rpList.clone()
+        loaded = data.clone()  # as stored, before the selectors below have their say
+        self._unresolvedEvent = None
 
         self.isLoading = True  # prevent dataChanged from being emitted
 
@@ -205,6 +211,15 @@ class XkorEventEditor(QWidget):
         # athletes
         self.eventSetupWidget.setSignupList(data.signupList())
         self.eventSetupWidget.setGroups(data.groups())
+
+        if loaded.sport() and not self.sport.name():
+            # The event names a sport that isn't installed: a custom file, or
+            # one renamed since. Nothing can be selected for it, so the
+            # selectors above fell back to "no sport" and wrote that, and
+            # their default competition type, over the event. Just looking at
+            # it was then enough for the next save to lose both. Hand back the
+            # event as it was until the user picks a sport of their own.
+            self._unresolvedEvent = loaded
 
         self.isLoading = False  # allow dataChanged to be emitted if the user does stuff
 
@@ -267,6 +282,8 @@ class XkorEventEditor(QWidget):
         self.setDataChanged()
 
     def updateSport(self, s):
+        if not self.isLoading and s.name():
+            self._unresolvedEvent = None  # the user has chosen a sport for it
         self.sport = s.clone()  # XkorSport is passed by value in the C++
         self.m_data.setSport(self.sport.name(), self.sport.paradigm())
         if self.sport.name() != "":
