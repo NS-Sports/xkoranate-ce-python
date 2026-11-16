@@ -15,6 +15,7 @@
 		</list>
 		<int type="forceTieBreak">1</int>
 		<int type="quietTieBreak">1</int>
+		<int type="walkOffMargin">4</int> <!-- the side listed second bats last in extra innings -->
 		<string type="tableHeaderGoalsFor">RF</string>
 		<string type="tableHeaderGoalsAgainst">RA</string>
 		<string type="tableHeaderGoalDifference">RD</string>
