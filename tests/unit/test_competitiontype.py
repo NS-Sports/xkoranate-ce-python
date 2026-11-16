@@ -172,7 +172,7 @@ def test_replacing_another_types_results_asks_first(qapp, league, answers):
 
     w.scorinate()
 
-    assert answers == ["Replace the results played as “Round robin”?"]
+    assert answers == ["Are you sure you want to scorinate Round of 16?"]
     assert confirmed == []
     assert [w.e.results()[md] for md in range(2)] == [ev.results()[md] for md in range(2)]
 
@@ -185,7 +185,7 @@ def test_replacing_them_asks_only_once(qapp, league, answers):
     w.matchday.setCurrentIndex(1)
     w.scorinate()
 
-    assert answers == ["Replace the results played as “Round robin”?"]
+    assert answers == ["Are you sure you want to scorinate Round of 16?"]
     assert confirmed == [0, 1]
     assert w.textedit.placeholderText() == ""
 

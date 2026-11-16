@@ -299,9 +299,11 @@ class XkorScorinateWidget(QWidget):
         from ..competitions.competitionfactory import XkorCompetitionFactory
 
         this = XkorCompetitionFactory.competitionTypes().get(self.c.competitionType, "")
+        # worded like the regenerate questions below, which this stands in
+        # for: they only ask about rounds this type has played itself
         return confirm(
-            self, "Replace the results played as “%s”?" % other,
-            "This event already has %s results. Scorinating it as %s replaces them."
+            self, "Are you sure you want to scorinate %s?" % self.matchday.currentText(),
+            "You will lose this event's %s results if you scorinate it as %s."
             % (other, this or "another type"),
             accept=QMessageBox.Discard, destructive=True, acceptText="Replace Results")
 
