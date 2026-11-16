@@ -130,3 +130,73 @@ def test_results_saved_before_the_stamp_are_kept(league):
     ev.setCompetitionOptions(options)
 
     assert played(new_competition(ev, sport)) == [0, 1]
+
+
+@pytest.fixture
+def answers(monkeypatch):
+    """Every question the scorinate page asks, answered from `answers.reply`."""
+    from xkoranate.eventeditor import scorinatewidget
+
+    class Answers(list):
+        reply = True
+
+    asked = Answers()
+    monkeypatch.setattr(scorinatewidget, "confirm",
+                        lambda parent, text, *args, **kwargs: (asked.append(text), asked.reply)[1])
+    return asked
+
+
+def scorinate_page(ev, sport):
+    from xkoranate.eventeditor.scorinatewidget import XkorScorinateWidget
+
+    w = XkorScorinateWidget()
+    w.setEvent(ev, XkorRPList(), sport)
+    confirmed = []
+    w.resultConfirmed.connect(lambda md, text: confirmed.append(md))
+    return w, confirmed
+
+
+def test_another_types_results_are_shown_as_kept(qapp, league):
+    """Hidden, not lost: an empty pane alone read as the results being gone."""
+    ev, sport = league
+    w, _confirmed = scorinate_page(switched(ev, "singleElimination"), sport)
+
+    assert w.textedit.toPlainText() == ""
+    assert "Round robin" in w.textedit.placeholderText()
+
+
+def test_replacing_another_types_results_asks_first(qapp, league, answers):
+    ev, sport = league
+    w, confirmed = scorinate_page(switched(ev, "singleElimination"), sport)
+    answers.reply = False
+
+    w.scorinate()
+
+    assert answers == ["Replace the results played as “Round robin”?"]
+    assert confirmed == []
+    assert [w.e.results()[md] for md in range(2)] == [ev.results()[md] for md in range(2)]
+
+
+def test_replacing_them_asks_only_once(qapp, league, answers):
+    ev, sport = league
+    w, confirmed = scorinate_page(switched(ev, "singleElimination"), sport)
+
+    w.scorinate()
+    w.matchday.setCurrentIndex(1)
+    w.scorinate()
+
+    assert answers == ["Replace the results played as “Round robin”?"]
+    assert confirmed == [0, 1]
+    assert w.textedit.placeholderText() == ""
+
+
+def test_scorinating_the_same_type_does_not_ask(qapp, league, answers):
+    ev, sport = league
+    w, confirmed = scorinate_page(ev, sport)
+    w.matchday.setCurrentIndex(2)
+
+    w.scorinate()
+
+    assert answers == []
+    assert confirmed == [2]
+    assert w.textedit.placeholderText() == ""

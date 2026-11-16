@@ -20,6 +20,9 @@ class XkorAbstractCompetition:
     # the competition options this type keeps its played matches in, written
     # through resumeFileOptions(); none of them exist before the first matchday
     resumeKeys = ()
+    # the type whose results this object set aside as not its own, or "" —
+    # they are still in the event, and scorinating this type replaces them
+    setAsideResults = ""
 
     def __init__(self, sl=None, s=None, paradigmOptions=None, competitionOptions=None, results=None):
         self.resultsBuf = {}  # QHash<int, QString>
@@ -78,9 +81,12 @@ class XkorAbstractCompetition:
         type's data — a shooting round's qualifying scores raised IndexError
         in a multiple-run revert, and the event couldn't be opened.
         """
+        self.setAsideResults = ""
         stamped = toString(self.userOpt.get(RESULTS_COMPETITION, ""))
         if not stamped or not self.competitionType or stamped == self.competitionType:
             return
+        if any(self.resultsBuf.values()):
+            self.setAsideResults = stamped
         for key in self.resumeKeys:
             self.userOpt.pop(key, None)
         self.resumeOpt = {}
