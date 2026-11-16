@@ -40,6 +40,7 @@ class XkorSingleEliminationCompetition(XkorAbstractCompetition):
     """
 
     competitionType = "singleElimination"
+    resumeKeys = ("bracketDraw", "bracketResults", "bracketThirdPlace")
 
     def __init__(self, *args, **kwargs):
         # set before super(), which may call init()

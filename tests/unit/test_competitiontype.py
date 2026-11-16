@@ -86,6 +86,42 @@ def test_switching_back_after_playing_another_type_starts_clean(league):
     assert perGroup == [2, 2, 2]  # one matchday: two matches in each group of four
 
 
+@pytest.mark.parametrize("competition", list(XkorCompetitionFactory.competitionTypes()))
+def test_every_type_names_the_resume_keys_it_writes(tournament, competition):
+    """A switch drops exactly these, so one left out would survive it."""
+    ev, sport = tournament("league 3×4")
+    c = new_competition(switched(ev, competition), sport)
+    if c.matchdays() <= 0:
+        pytest.skip("nothing to play for this type here")
+    c.scorinate(0)
+
+    written = set(c.resumeFileOptions()) - {RESULTS_COMPETITION}
+    assert written <= set(c.resumeKeys)
+
+
+def test_switching_to_multiple_run_ignores_shootings_scores(tournament):
+    """Both types keep a "scores" option, in different shapes. The switch
+    used to run multiple-run's revert over shooting's shorter list, which
+    raised IndexError while the event was being opened."""
+    ev, sport = tournament("league 3×4")
+    ids = [str(a.id) for g in ev.makeStartList(XkorRPList()).groups for a in g.athletes]
+    options = ev.competitionOptions()
+    options.update({
+        # left by an earlier multiple-run scorination of everyone
+        "athletes": ids, "scoreStrings": [["1"]] * len(ids),
+        # then overwritten by a shooting qualifying round with a cutoff
+        "scores": [9.5] * 4, "qualifiers": ids[:4],
+        RESULTS_COMPETITION: "shooting",
+    })
+    ev.setCompetitionOptions(options)
+    ev.setResults({0: "shooting results"})
+
+    c = new_competition(switched(ev, "multipleRun"), sport)
+
+    assert played(c) == []
+    assert "scores" not in c.userOpt and "athletes" not in c.userOpt
+
+
 def test_results_saved_before_the_stamp_are_kept(league):
     """Files saved by earlier versions have no stamp to go by."""
     ev, sport = league

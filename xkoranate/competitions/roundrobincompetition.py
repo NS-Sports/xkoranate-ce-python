@@ -60,6 +60,7 @@ def formatStoredMatch(matchday, home, away, score1, score2, decider=None):
 
 class XkorRoundRobinCompetition(XkorAbstractCompetition):
     competitionType = "roundRobin"
+    resumeKeys = ("tableData",)
 
     def __init__(self, *args, **kwargs):
         self._qualificationCache = {}

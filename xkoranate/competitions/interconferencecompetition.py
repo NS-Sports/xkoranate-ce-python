@@ -21,6 +21,7 @@ class XkorInterConferenceCompetition(XkorRoundRobinCompetition):
     # go under their own key: switching an event between the two types in
     # the editor can't feed one format to the other
     DATA_KEY = "conferenceTableData"
+    resumeKeys = (DATA_KEY,)
 
     def __init__(self, *args, **kwargs):
         self._scheduleCache = None

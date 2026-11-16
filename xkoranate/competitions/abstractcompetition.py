@@ -17,6 +17,9 @@ class XkorAbstractCompetition:
     # the competition type, as XkorCompetitionFactory names it, stamped on the
     # results so that another type knows they aren't its own
     competitionType = ""
+    # the competition options this type keeps its played matches in, written
+    # through resumeFileOptions(); none of them exist before the first matchday
+    resumeKeys = ()
 
     def __init__(self, sl=None, s=None, paradigmOptions=None, competitionOptions=None, results=None):
         self.resultsBuf = {}  # QHash<int, QString>
@@ -68,13 +71,18 @@ class XkorAbstractCompetition:
         results are (see XkorSingleEliminationCompetition._drawIsCurrent):
         switching back without playing the other type finds them intact.
         Results saved before the stamp existed carry none, and are kept.
+
+        This type's resume keys are dropped rather than reverted: before the
+        first matchday there are none, and revertToMatchday() parses what it
+        finds. Keys like "scores" are shared, so it would be parsing another
+        type's data — a shooting round's qualifying scores raised IndexError
+        in a multiple-run revert, and the event couldn't be opened.
         """
         stamped = toString(self.userOpt.get(RESULTS_COMPETITION, ""))
         if not stamped or not self.competitionType or stamped == self.competitionType:
             return
-        # this type's own way of forgetting everything played: it leaves the
-        # resume options as they were before the first matchday
-        self.userOpt.update(self.revertToMatchday(0))
+        for key in self.resumeKeys:
+            self.userOpt.pop(key, None)
         self.resumeOpt = {}
         self.resultsBuf = {}
 
