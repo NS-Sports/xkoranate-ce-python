@@ -1,6 +1,5 @@
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import (QGridLayout, QLabel, QMessageBox, QPushButton,
-                               QStackedLayout, QWidget)
+from PySide6.QtWidgets import QGridLayout, QLabel, QPushButton, QStackedLayout, QWidget
 
 from ..event import XkorEvent
 from ..rplist import XkorRPList
@@ -30,6 +29,8 @@ class XkorEventEditor(QWidget):
         self.signupListEditor = None
         self.eventSetupWidget = None  # built after the competition selector
         self.isLoading = False
+        # the event exactly as loaded, while its sport isn't one we can select
+        self._unresolvedEvent = None
 
         self.m_data = XkorEvent()
         self.m_rpList = XkorRPList()
@@ -49,24 +50,35 @@ class XkorEventEditor(QWidget):
         theme.signal.changed.connect(self.updateStepIndicator)
 
     def goNext(self):
-        self.prev.setDisabled(False)
         if self.stack.currentIndex() == self.stack.count() - 2:  # we’re headed for the scorinate widget
             self.updateData()
             self.scorinateWidget.setEvent(self.m_data, self.m_rpList, self.sport)
-            self.next.setDisabled(True)
 
         if self.stack.currentIndex() < self.stack.count() - 1:  # go to the next widget
             self.stack.setCurrentIndex(self.stack.currentIndex() + 1)
+        self.updateNavigation()
         self.updateStepIndicator()
 
     def goPrev(self):
         if self.stack.currentIndex() > 0:
             self.stack.setCurrentIndex(self.stack.currentIndex() - 1)
-
-        self.next.setDisabled(False)
-        if self.stack.currentIndex() == 0:
-            self.prev.setDisabled(True)
+        self.updateNavigation()
         self.updateStepIndicator()
+
+    def stepChanged(self, index):
+        # a Discard lasts while the user stays on the page they gave it on
+        if self.stack.widget(index) is not self.eventSetupWidget:
+            self.eventSetupWidget.forgetResultsAnswer()
+
+    def updateNavigation(self):
+        """Go Back while there is a step behind; Continue while there is one
+        ahead and a sport to take there. Always derived from the step and the
+        sport, never from which button was pressed."""
+        if self.stack is None:
+            return  # still being built
+        step = self.stack.currentIndex()
+        self.prev.setEnabled(step > 0)
+        self.next.setEnabled(step < self.stack.count() - 1 and self.sport.name() != "")
 
     def stepNames(self):
         names = list(_STEP_NAMES)
@@ -100,6 +112,7 @@ class XkorEventEditor(QWidget):
         self.eventSetupWidget.viewScheduleRequested.connect(self.viewSchedule)
         self.eventSetupWidget.resultsGuard = self.confirmDiscardBracketResults
         self.signupListEditor.itemDeleted.connect(self.eventSetupWidget.deleteAthlete)
+        self.signupListEditor.deleteGuard = self.confirmDeletingBracketedSignups
 
     def initLayout(self):
         # stacked layout
@@ -110,6 +123,7 @@ class XkorEventEditor(QWidget):
         self.stack.addWidget(self.eventSetupWidget)
         self.stack.addWidget(self.scorinateWidget)
         self.stack.setCurrentWidget(self.sportSelector)
+        self.stack.currentChanged.connect(self.stepChanged)
 
         # step indicator (a read-only breadcrumb above the stack)
         self.stepIndicator = QLabel()
@@ -159,6 +173,8 @@ class XkorEventEditor(QWidget):
         self.sportSelector.updateSportList()
 
     def data(self):
+        if self._unresolvedEvent is not None:
+            return self._unresolvedEvent.clone()
         self.updateData()
         return self.m_data.clone()  # XkorEvent is returned by value in the C++
 
@@ -166,6 +182,8 @@ class XkorEventEditor(QWidget):
         # XkorEvent and XkorRPList are passed by value in the C++
         data = data.clone()
         rpList = rpList.clone()
+        loaded = data.clone()  # as stored, before the selectors below have their say
+        self._unresolvedEvent = None
 
         self.isLoading = True  # prevent dataChanged from being emitted
 
@@ -179,6 +197,7 @@ class XkorEventEditor(QWidget):
         self.eventSetupWidget.setGroups([])
         self.scorinateWidget.clear()
         self.stack.setCurrentIndex(0)
+        self.updateNavigation()
         self.updateStepIndicator()
 
         self.m_data = data
@@ -206,6 +225,12 @@ class XkorEventEditor(QWidget):
         self.eventSetupWidget.setSignupList(data.signupList())
         self.eventSetupWidget.setGroups(data.groups())
 
+        if loaded.sport() and not self.sport.name():
+            # its sport isn't installed, so the selectors above wrote "no
+            # sport" and a default type over it: hand it back as loaded until
+            # the user picks a sport
+            self._unresolvedEvent = loaded
+
         self.isLoading = False  # allow dataChanged to be emitted if the user does stuff
 
     def confirmDiscardBracketResults(self):
@@ -216,13 +241,40 @@ class XkorEventEditor(QWidget):
         results for a draw that no longer exists would be worse — but it used
         to happen with no warning at the point of the edit.
         """
-        if not any(self.m_data.results().values()):
+        if not self.hasResults():
             return True
         return confirm(
             self, "Are you sure you want to change the bracket?",
             "This event has already been scorinated. Changing "
-            "the bracket discards the results played from it.",
-            accept=QMessageBox.Discard, destructive=True)
+            "the bracket discards the results played from it.", discardText="Discard Results")
+
+    def hasResults(self):
+        """Whether the event holds results of its current type. Another
+        type's are only set aside, so no edit here loses them."""
+        from ..competitions.abstractcompetition import resultsTypeIfOther
+        from ..competitions.competitionfactory import XkorCompetitionFactory
+
+        thisType = XkorCompetitionFactory.newCompetition(self.m_data.competition()).competitionType
+        if resultsTypeIfOther(self.m_data.competitionOptions(), thisType):
+            return False
+        return any(self.m_data.results().values())
+
+    def confirmDeletingBracketedSignups(self, ids):
+        """Ask before deleting signups in a played bracket: their slots
+        become byes, so the draw no longer matches the rounds played. A
+        Discard empties the results, since that draw can't come back."""
+        if not self.hasResults():
+            return True
+        setup = self.eventSetupWidget
+        if not setup.isBracket() or not set(ids) & set(setup.realBracketEntrants()):
+            return True
+        accepted = confirm(
+            self, "Are you sure you want to delete a participant in the bracket?",
+            "This event has already been scorinated. Their place becomes a bye, "
+            "which discards the results played from the bracket.", discardText="Discard Results")
+        if accepted:
+            self.m_data.setResults({})
+        return accepted
 
     def setDataChanged(self):
         if not self.isLoading:
@@ -234,6 +286,8 @@ class XkorEventEditor(QWidget):
 
     def setResumeFileOptions(self, options):
         self.m_data.replaceCompetitionOptions(options)
+        # the options page writes its whole copy back on its next change
+        self.competitionSelector.refreshOptions(self.m_data.competitionOptions())
         self.setDataChanged()
 
     def updateCompetition(self, competition):
@@ -267,17 +321,27 @@ class XkorEventEditor(QWidget):
         self.setDataChanged()
 
     def updateSport(self, s):
+        resolved = None
+        if not self.isLoading and s.name():
+            # the user has chosen a sport for an event whose own wasn't found
+            resolved, self._unresolvedEvent = self._unresolvedEvent, None
         self.sport = s.clone()  # XkorSport is passed by value in the C++
         self.m_data.setSport(self.sport.name(), self.sport.paradigm())
-        if self.sport.name() != "":
-            self.next.setEnabled(True)
-        else:
-            self.next.setEnabled(False)
+        self.updateNavigation()
 
         # update the signup list editor
         self.signupListEditor.setSport(self.sport, self.m_data.paradigmOptions())
         self.competitionSelector.setSport(self.sport, self.m_data.competitionOptions())
+        if resolved is not None:
+            self.restoreLoadedFormat(resolved)
         self.setDataChanged()
+
+    def restoreLoadedFormat(self, loaded):
+        """Put back the type and groups (byes included) the event was loaded
+        with, in place of the no-sport fallback, if the sport offers it."""
+        self.competitionSelector.setCompetition(loaded.competition())  # → updateCompetition
+        self.eventSetupWidget.clear()
+        self.eventSetupWidget.setGroups(loaded.groups())
 
     def viewSchedule(self):
         from ..competitions.competitionfactory import XkorCompetitionFactory

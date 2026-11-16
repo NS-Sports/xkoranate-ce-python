@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QGroupBox,
                                QHBoxLayout, QLabel, QMessageBox, QPlainTextEdit,
                                QSpinBox, QVBoxLayout, QWidget)
 
+from ..athlete import isBye
 from ..bbcode import boldWinners
 from ..competitions.qualification import (MODE_OFF, MODE_TOP,
                                           MODE_TOP_PLUS_BEST,
@@ -196,6 +197,7 @@ class XkorScorinateWidget(QWidget):
         self.s = XkorSport()
         self.sl = XkorStartList()
         self.textedit.setPlainText("")
+        self.textedit.setPlaceholderText("")
         self.matchday.clear()
         self.matchday.hide()
         self.oddsAction.setEnabled(False)
@@ -225,15 +227,23 @@ class XkorScorinateWidget(QWidget):
             self.dialog.setDirectory(path)
             self.resultExportDirectoryChanged.emit(path.canonicalPath())
 
+    def hasEntrants(self):
+        """Whether anyone at all is in the event's groups, byes aside."""
+        return any(not isBye(a) for g in self.sl.groups for a in g.athletes)
+
     def scorinate(self):
-        if self.c is None or self.c.matchdays() == 0:
+        if self.c is None or self.c.matchdays() <= 0 or not self.hasEntrants():
             # nothing to score: without this the checks below offer to
-            # regenerate matchday -1, naming a round that doesn't exist
+            # regenerate matchday -1, naming a round that doesn't exist. Some
+            # types have a fixed number of matchdays even with nobody in them
             message_box(
                 self, "There is nothing to scorinate yet.",
                 QMessageBox.Ok,
                 informativeText="This event doesn't have any rounds to generate. "
                                 "Check the participants and groups you've set up.").exec()
+            return
+
+        if not self.confirmReplacingSetAsideResults():
             return
 
         if self.matchday.currentIndex() <= self.lastMatchday:
@@ -265,6 +275,30 @@ class XkorScorinateWidget(QWidget):
 
         for i in range(self.lastMatchday + 1, self.matchday.currentIndex() + 1):
             self.scorinateMatchday(i)
+
+    def setAsideTypeName(self):
+        """The display name of the type whose results the competition set
+        aside as not its own, or "" when it set none aside."""
+        other = "" if self.c is None else self.c.setAsideResults
+        if not other:
+            return ""
+        from ..competitions.competitionfactory import XkorCompetitionFactory
+
+        return XkorCompetitionFactory.competitionTypeName(other) or other
+
+    def confirmReplacingSetAsideResults(self):
+        """Ask before the first scorination of this type replaces results
+        another type played, which until now were only hidden."""
+        other = self.setAsideTypeName()
+        if not other:
+            return True
+        from ..competitions.competitionfactory import XkorCompetitionFactory
+
+        this = XkorCompetitionFactory.competitionTypeName(self.c.competitionType) or "another type"
+        return confirm(
+            self, "Are you sure you want to scorinate %s?" % self.matchday.currentText(),
+            "You will lose this event's %s results if you scorinate it as %s." % (other, this),
+            discardText="Replace Results")
 
     def scorinateMatchday(self, md):
         # scorinate
@@ -346,6 +380,10 @@ class XkorScorinateWidget(QWidget):
             self.e.competitionOptions(), self.e.results())
 
     def updateResults(self, matchday):
+        other = self.setAsideTypeName()
+        # an empty pane would read as the hidden results being lost
+        self.textedit.setPlaceholderText(
+            "%s results are kept. Switch back to see them." % other if other else "")
         text = self.c.results(matchday)
         try:
             # a setting saved while the event was another competition type

@@ -38,6 +38,11 @@ class XkorCompetitionFactory:
         return rval
 
     @staticmethod
+    def competitionTypeName(type):
+        """The display name of a competition type, or "" for one we don't know."""
+        return XkorCompetitionFactory.competitionTypes().get(type, "")
+
+    @staticmethod
     def competitionTypes():
         rval = {}
         rval["archery"] = "Archery ranking round"

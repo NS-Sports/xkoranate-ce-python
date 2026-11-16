@@ -191,8 +191,14 @@ class XkorApplication(QApplication):
     def tableGenerator(self):
         from .tablegenerator.tablegeneratorwindow import XkorTableGeneratorWindow
 
-        if self.tg is not None:  # delete tg
-            self.tg.close()
+        if self.tg is not None:
+            if self.tg.isVisible():
+                # asking for an open (or minimised) one means "show me it"
+                self.tg.setWindowState(self.tg.windowState() & ~Qt.WindowMinimized)
+                self.tg.raise_()
+                self.tg.activateWindow()
+                return
+            # hidden: the user closed it and answered for its changes then
             self.tg.deleteLater()
         self.tg = XkorTableGeneratorWindow()
         self.tg.resultImportDirectoryChanged.connect(self.setResultImportDirectory)

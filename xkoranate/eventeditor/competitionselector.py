@@ -110,6 +110,13 @@ class XkorCompetitionSelector(QWidget):
             self.layout.addWidget(self.optionsWidget, 2, 0, Qt.AlignTop)
             self.optionsWidget.optionsChanged.connect(self.updateCompetitionOptions)
 
+    def refreshOptions(self, options):
+        """Take in options written by scorinating, quietly: the options
+        widget sends its whole copy back on every change."""
+        self.currentOptions = dict(options)
+        if self.optionsWidget:
+            self.optionsWidget.options.update(options)
+
     def _discardOptionsWidget(self):
         if self.optionsWidget:
             discard(self.layout, self.optionsWidget)

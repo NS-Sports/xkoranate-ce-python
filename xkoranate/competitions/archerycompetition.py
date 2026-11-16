@@ -4,6 +4,8 @@ from xkoranate.variant import toInt
 
 
 class XkorArcheryCompetition(XkorAbstractCompetition):
+    competitionType = "archery"
+
     def hasOptionsWidget(self):
         return True
 

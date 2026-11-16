@@ -115,7 +115,8 @@ class XkorRPEditor(QWidget):
     def updateRPBonusWidget(self):
         newRPCalcType = toString(self.m_rpCalcType.itemData(self.m_rpCalcType.currentIndex()))
         if self.m_currentRPCalcType != newRPCalcType:
-            if len(self.m_rpBonus.bonuses()) > 0:
+            # loading a list isn't the user changing its formula
+            if len(self.m_rpBonus.bonuses()) > 0 and not self.isLoading:
                 if not confirm(
                         self, "Are you sure you want to reset all bonuses by changing the bonus formula?",
                         "If you change the bonus formula, all of your bonuses will be lost.",
@@ -129,8 +130,11 @@ class XkorRPEditor(QWidget):
             else:
                 self.m_rpBonus = XkorOlympicRPBonusWidget()
 
-            self.updateData()
-            if self.m_data is not None and not self.m_data.useTeams():
+            if not self.isLoading:
+                # while loading, m_data is still the outgoing list
+                self.updateData()
+            # the buttons already show the new list's choice
+            if self.m_useParticipantBonus.isChecked():
                 self.m_rpBonus.setUseParticipantBonus()
             else:
                 self.m_rpBonus.setUseTeamBonus()

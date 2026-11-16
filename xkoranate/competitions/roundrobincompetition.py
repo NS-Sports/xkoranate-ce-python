@@ -59,6 +59,9 @@ def formatStoredMatch(matchday, home, away, score1, score2, decider=None):
 
 
 class XkorRoundRobinCompetition(XkorAbstractCompetition):
+    competitionType = "roundRobin"
+    resumeKeys = ("tableData",)
+
     def __init__(self, *args, **kwargs):
         self._qualificationCache = {}
         super().__init__(*args, **kwargs)
@@ -201,7 +204,8 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         return rval
 
     def matchdays(self):
-        return intOption(self.userOpt, "numberOfLegs", 1) * (self.largestGroupSize(self.startList) - 1)
+        # an empty event has 0 matchdays, not −1
+        return intOption(self.userOpt, "numberOfLegs", 1) * max(0, self.largestGroupSize(self.startList) - 1)
 
     def matchdayNames(self):
         rval = []

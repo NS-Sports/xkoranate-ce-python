@@ -47,7 +47,9 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         # set by the event editor: asks the user whether results already
         # generated may be discarded. None means nothing to protect.
         self.resultsGuard = None
-        self._resultsGuardAsked = False
+        self._resultsGuardAsked = False  # the user chose to discard them, on this visit
+        self._askingResultsGuard = False  # the question is on screen now
+        self._reflowPending = False  # a reflow is queued for the event loop
         self._lastLaidSlots = []  # the arrangement before the edit in progress
         self._availablePlaced = None  # placements the available list was built for
         self._availableDirty = True
@@ -176,13 +178,28 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
 
         Rearranging a bracket invalidates any results played from the old one
         — _drawIsCurrent() drops them — and that used to happen silently, so
-        the loss was only discovered later as a blank results pane. Ask once
-        per event; after that the user has said they know.
+        the loss was only discovered later as a blank results pane. After a
+        Discard, stop asking until the user leaves the page (see
+        forgetResultsAnswer()). A change arriving while the question is on
+        screen is refused: that question's answer decides.
         """
         if self.resultsGuard is None or self._resultsGuardAsked:
             return True
-        self._resultsGuardAsked = True
-        return bool(self.resultsGuard())
+        if self._askingResultsGuard:
+            return False
+        self._askingResultsGuard = True
+        try:
+            accepted = bool(self.resultsGuard())
+        finally:
+            self._askingResultsGuard = False
+        if accepted:
+            self._resultsGuardAsked = True
+        return accepted
+
+    def forgetResultsAnswer(self):
+        """Ask again before the next change discards results: the editor
+        calls this when the user leaves the page."""
+        self._resultsGuardAsked = False
 
     def largestDrawableSize(self, entrants):
         """The biggest bracket worth drawing for this many entrants.
@@ -368,12 +385,15 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.bracketSizeCombo.setVisible(isBracket)
 
     def scheduleReflow(self, *args):
-        if self.isInUse or not self.isBracket():
+        # one drop sends rowsRemoved then rowsInserted: queue one reflow
+        if self.isInUse or not self.isBracket() or self._reflowPending:
             return
+        self._reflowPending = True
         QTimer.singleShot(0, self.reflowBracket)
 
     def reflowBracket(self):
         """Re-pair the bracket after a drag, keeping the visual order."""
+        self._reflowPending = False
         if self.isInUse or not self.isBracket():
             return
         current = self.bracketEntrants()
@@ -405,12 +425,25 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         return item
 
     def deleteAthlete(self, id):
+        """Take a participant whose signup was deleted out of every group.
+        In a bracket their slot becomes a bye, so no one else moves."""
         # collected first: taking items out would upset the iteration
         toDelete = [item for item in self.iterItems()
                     if item.parent() and self._slotId(item) == id]
-        for item in toDelete:
-            parent = item.parent()
-            parent.takeChild(parent.indexOfChild(item))
+        if self.isBracket():
+            wasInUse, self.isInUse = self.isInUse, True
+            try:
+                for item in toDelete:
+                    self.initAthlete(item, BYE_ID)
+            finally:
+                self.isInUse = wasInUse
+            if toDelete:
+                self._lastLaidSlots = list(self.bracketEntrants())
+                self.renumberMatches()
+        else:
+            for item in toDelete:
+                parent = item.parent()
+                parent.takeChild(parent.indexOfChild(item))
         self.listChanged.emit()
 
     def getAthleteByID(self, id):

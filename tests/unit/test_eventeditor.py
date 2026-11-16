@@ -1,0 +1,365 @@
+"""The event editor's wizard: what showing an event does to it, and which
+steps the Go Back and Continue buttons allow."""
+
+import pytest
+from builders import LISA, make_athletes, make_event
+from PySide6.QtCore import Qt
+
+from xkoranate.event import XkorEvent
+from xkoranate.rplist import XkorRPList
+
+MISSING = "Some custom sport—not installed"
+SCORINATE = 4  # the last step
+
+
+@pytest.fixture
+def editor(qapp):
+    from xkoranate.eventeditor.eventeditor import XkorEventEditor
+
+    ee = XkorEventEditor()
+    ee.loadSports()
+    return ee
+
+
+def buttons(ee):
+    return ee.stack.currentIndex(), ee.prev.isEnabled(), ee.next.isEnabled()
+
+
+# --------------------------------------------------- showing leaves it alone
+
+def test_showing_an_event_with_a_missing_sport_leaves_it_alone(editor):
+    """A sport that isn't installed can't be selected, so the selectors fell
+    back to "no sport" and wrote that, and their default competition type,
+    into the event — selecting it in the sidebar was enough for the next
+    save to lose both."""
+    ev = make_event(make_athletes(4), sport=MISSING, paradigm="lisa", competition="roundRobin",
+                    options={"numberOfLegs": "2"})
+    ev.setResults({0: "Matchday 1"})
+
+    editor.setData(ev, XkorRPList())
+    shown = editor.data()
+
+    assert shown.sport() == MISSING
+    assert shown.paradigm() == "lisa"
+    assert shown.competition() == "roundRobin"
+    assert shown.competitionOptions() == {"numberOfLegs": "2"}
+    assert shown.results() == {0: "Matchday 1"}
+    assert [a.id for a in shown.signupList().athletes()] == [a.id for a in ev.signupList().athletes()]
+    assert (shown.signupList().minRank(), shown.signupList().maxRank()) \
+        == (ev.signupList().minRank(), ev.signupList().maxRank())
+    assert [g.athletes for g in shown.groups()] == [g.athletes for g in ev.groups()]
+    # and there's no going on to scorinate it with no sport
+    assert buttons(editor) == (0, False, False)
+
+
+def test_an_installed_sport_is_still_read_from_the_editor(editor):
+    ev = make_event(make_athletes(4), sport=LISA, paradigm="lisa", competition="roundRobin")
+    editor.setData(ev, XkorRPList())
+    editor.updateCompetition("matches")
+
+    assert editor.data().competition() == "matches"
+
+
+# ------------------------------------------------------------ the buttons
+
+def test_loading_an_event_resets_go_back(editor):
+    """setData() went back to the first step but left Go Back enabled, and
+    Go Back on the first step then enabled Continue with no sport chosen."""
+    editor.setData(make_event(make_athletes(4), sport=LISA, paradigm="lisa"), XkorRPList())
+    editor.goNext()
+    assert buttons(editor) == (1, True, True)
+
+    editor.setData(XkorEvent(), XkorRPList())  # a new event: no sport yet
+    assert buttons(editor) == (0, False, False)
+
+    editor.goPrev()
+    assert buttons(editor) == (0, False, False)
+
+
+def test_continue_follows_the_sport_and_stops_at_the_last_step(editor):
+    editor.setData(XkorEvent(), XkorRPList())
+    assert buttons(editor) == (0, False, False)
+
+    editor.sportSelector.setSelectedSport(LISA)
+    assert buttons(editor) == (0, False, True)
+
+    for step in range(1, SCORINATE + 1):
+        editor.goNext()
+        assert buttons(editor) == (step, True, step < SCORINATE)
+
+    for step in reversed(range(SCORINATE)):
+        editor.goPrev()
+        assert buttons(editor) == (step, step > 0, True)
+
+    editor.sportSelector.setSelectedSport("")
+    assert buttons(editor) == (0, False, False)
+
+
+def test_a_discard_button_says_what_going_on_does(qapp, monkeypatch):
+    """macOS labels a Discard button "Don't Save", which reads as backing out."""
+    from PySide6.QtWidgets import QMessageBox, QWidget
+
+    from xkoranate.ui.dialogs import confirm
+
+    labels = []
+    monkeypatch.setattr(QMessageBox, "exec",
+                        lambda box: (labels.extend(b.text() for b in box.buttons()), QMessageBox.Cancel)[1])
+
+    assert confirm(QWidget(), "Change it?", "", discardText="Discard Results") is False
+    assert "Discard Results" in labels
+
+
+# ------------------------------------- choosing a sport keeps the loaded format
+
+@pytest.fixture
+def unresolvedCup(tournament):
+    """A cup of 12 (16 slots, four byes) with its first round played, saved
+    under a sport name that isn't installed — renamed since, say."""
+    from builders import play
+
+    ev, sport = tournament("cup of 12")
+    play(ev, sport, up_to=1)
+    loaded = ev.clone()
+    loaded.setSport(MISSING, sport.paradigm())
+    return loaded, sport
+
+
+def test_choosing_a_sport_keeps_the_loaded_competition_type(editor, unresolvedCup):
+    """Loading with no sport fell back to the default type, and choosing a
+    sport kept it: the knockout came back as a round robin."""
+    loaded, _sport = unresolvedCup
+    editor.setData(loaded, XkorRPList())
+
+    editor.sportSelector.setSelectedSport(LISA)
+    shown = editor.data()
+
+    assert shown.sport() == LISA
+    assert shown.competition() == "singleElimination"
+    assert editor.competitionSelector.competition() == "singleElimination"
+    assert shown.competitionOptions() == loaded.competitionOptions()
+    assert shown.results() == loaded.results()
+
+
+def test_choosing_a_sport_keeps_the_loaded_bracket(editor, unresolvedCup):
+    """The fallback type laid the bracket out as groups, which drops byes, so
+    a draw arranged by hand came back re-padded: the byes moved, and the round
+    already played no longer described it."""
+    from builders import new_competition, play
+
+    from xkoranate.group import XkorGroup
+
+    cup, sport = unresolvedCup
+    # the editor's own layout, byes included, with each match's two slots
+    # swapped: an arrangement only the saved slot list can reproduce
+    installed = cup.clone()
+    installed.setSport(LISA, sport.paradigm())
+    installed.setResults({})
+    editor.setData(installed, XkorRPList())
+    slots = editor.data().groups()[0].athletes
+    arranged = [s for i in range(0, len(slots), 2) for s in (slots[i + 1], slots[i])]
+    installed.setGroups([XkorGroup("Bracket", arranged)])
+    play(installed, sport, up_to=1)
+    loaded = installed.clone()
+    loaded.setSport(MISSING, sport.paradigm())
+
+    editor.setData(loaded, XkorRPList())
+    editor.sportSelector.setSelectedSport(LISA)
+    shown = editor.data()
+
+    assert shown.groups()[0].athletes == arranged
+    assert new_competition(shown, sport).results(0) == loaded.results()[0]
+
+
+def test_a_sport_without_the_loaded_type_keeps_its_own(editor, unresolvedCup, sport_index):
+    """A race has no knockout: the selector's choice stands, and nothing raises."""
+    from builders import SPRINT
+
+    from xkoranate.xml.xmlsportreader import XkorXmlSportReader
+
+    race = XkorXmlSportReader(sport_index.lookup(SPRINT)).sport().name()
+    loaded, _sport = unresolvedCup
+    editor.setData(loaded, XkorRPList())
+
+    editor.sportSelector.setSelectedSport(race)
+
+    assert editor.data().sport() == race
+    assert editor.data().competition() == editor.competitionSelector.competition()
+    assert editor.data().competition() != "singleElimination"
+
+
+# ------------------------------------------- the bracket's discard question
+
+BRACKET = 3  # the Groups/Bracket step
+
+
+@pytest.fixture
+def playedCup(editor, tournament, questions):
+    """A cup of 8 with round one played, shown on its bracket page, and
+    every "discard the results?" answered Discard and counted."""
+    from builders import play
+
+    from xkoranate.eventeditor import eventeditor
+
+    ev, sport = tournament("cup of 8")
+    play(ev, sport, up_to=1)
+    editor.setData(ev, XkorRPList())
+    while editor.stack.currentIndex() < BRACKET:
+        editor.goNext()
+    return editor, questions.answer(eventeditor)
+
+
+def test_discard_is_remembered_while_on_the_bracket_page(playedCup):
+    editor, asked = playedCup
+
+    editor.eventSetupWidget.seedBracket()
+    editor.eventSetupWidget.randomizeGroup()
+    editor.eventSetupWidget.seedBracket()
+
+    assert len(asked) == 1 and asked.labels == ["Discard Results"]
+
+
+def test_results_played_after_leaving_the_page_are_asked_about_again(playedCup):
+    """Discard used to be remembered for as long as the event stayed open,
+    so a round played after it was thrown away by the next edit, unasked."""
+    editor, asked = playedCup
+    editor.eventSetupWidget.seedBracket()
+
+    editor.goNext()  # to Scorinate, where round one is played again
+    editor.setResult(0, "Round one, played again")
+    editor.goPrev()
+    editor.eventSetupWidget.randomizeGroup()
+
+    assert len(asked) == 2
+
+
+# ----------------------------- deleting a signup who is in a played bracket
+
+SIGNUPS = 1  # the Signups step
+
+
+def onSignups(editor, ev, questions, answer=True):
+    """Show `ev` on its Signups page, with every "discard the results?"
+    answered `answer` and counted."""
+    from xkoranate.eventeditor import eventeditor
+
+    editor.setData(ev, XkorRPList())
+    editor.goNext()
+    assert editor.stack.currentIndex() == SIGNUPS
+    return questions.answer(eventeditor, answer)
+
+
+def deleteSignup(editor, id):
+    """Select the signup with this id on the Signups page and delete it."""
+    from xkoranate.uuids import parseAssignedUuid
+
+    athletes = editor.signupListEditor.athletes
+    tree = athletes.treeWidget
+    tree.clearSelection()
+    for i in range(tree.topLevelItemCount()):
+        item = tree.topLevelItem(i)
+        if any(parseAssignedUuid(item.data(c, Qt.UserRole)) == id for c in range(tree.columnCount())):
+            item.setSelected(True)
+    assert tree.selectedItems(), "no signup with that id"
+    athletes.deleteItems()
+
+
+@pytest.fixture
+def cup(tournament):
+    from builders import play
+
+    ev, sport = tournament("cup of 8")
+    play(ev, sport, up_to=1)
+    return ev, [a.id for a in ev.signupList().athletes()]
+
+
+def signupIds(editor):
+    return [a.id for a in editor.data().signupList().athletes()]
+
+
+def test_cancel_keeps_a_bracketed_signup(editor, cup, questions):
+    ev, ids = cup
+    asked = onSignups(editor, ev, questions, answer=False)
+    before = list(editor.eventSetupWidget.bracketEntrants())
+
+    deleteSignup(editor, ids[0])
+
+    assert len(asked) == 1
+    assert signupIds(editor) == ids
+    assert editor.eventSetupWidget.bracketEntrants() == before
+
+
+def test_discard_empties_the_results_so_nothing_is_asked_again(editor, cup, questions):
+    """The draw the results were played from is gone for good, so Discard
+    throws them away. Keeping them made the bracket page ask again about a
+    loss that had already happened."""
+    ev, ids = cup
+    asked = onSignups(editor, ev, questions)
+
+    deleteSignup(editor, ids[0])
+    deleteSignup(editor, ids[1])
+    assert len(asked) == 1
+    assert signupIds(editor) == ids[2:]
+    assert not any(editor.data().results().values())
+
+    while editor.stack.currentIndex() < BRACKET:
+        editor.goNext()
+    editor.eventSetupWidget.seedBracket()
+    assert len(asked) == 1
+
+
+def test_no_question_without_a_played_bracket(editor, tournament, questions):
+    from builders import play
+
+    unplayed, _sport = tournament("cup of 8")
+    league, sport = tournament("league 3×4")
+    play(league, sport, up_to=1)
+
+    for ev in (unplayed, league):
+        asked = onSignups(editor, ev, questions)
+        deleteSignup(editor, ev.signupList().athletes()[0].id)
+        assert asked == []
+
+
+# ------------------------------ the results stamp survives an options change
+
+COMPETITION = 2  # the competition type step
+
+
+def test_an_options_change_after_scorinating_keeps_the_results_stamp(editor, tournament, questions):
+    """An option change wrote back the options page's copy from before
+    scorinating, losing the stamp and the played table."""
+    from xkoranate.competitions.abstractcompetition import RESULTS_COMPETITION
+    from xkoranate.eventeditor import scorinatewidget
+
+    questions.answer(scorinatewidget)
+    editor.setData(tournament("league 3×4")[0], XkorRPList())
+    while editor.stack.currentIndex() < SCORINATE:
+        editor.goNext()
+    editor.scorinateWidget.scorinate()
+    saved = editor.data().competitionOptions()
+    assert saved[RESULTS_COMPETITION] == "roundRobin"
+
+    while editor.stack.currentIndex() > COMPETITION:
+        editor.goPrev()
+    editor.competitionSelector.optionsWidget._setOption("numberOfLegs", "2")
+
+    options = editor.data().competitionOptions()
+    assert options["numberOfLegs"] == "2"
+    assert options[RESULTS_COMPETITION] == "roundRobin"
+    assert options["tableData"] == saved["tableData"]
+
+
+def test_another_types_results_are_not_the_brackets_to_discard(editor, tournament, questions):
+    """A switch only sets the round robin's results aside: nothing to ask."""
+    from builders import play
+
+    from xkoranate.eventeditor import eventeditor
+
+    ev, sport = tournament("league 3×4")
+    play(ev, sport, up_to=1)
+    ev.setCompetition("singleElimination")
+    editor.setData(ev, XkorRPList())
+    questions.answer(eventeditor)
+
+    assert editor.confirmDiscardBracketResults() is True
+    assert questions == []

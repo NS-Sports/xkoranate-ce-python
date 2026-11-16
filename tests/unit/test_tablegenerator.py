@@ -1,6 +1,7 @@
 import os
 import re
 
+import pytest
 from builders import make_table, names, points
 from PySide6.QtCore import QRegularExpression
 
@@ -656,3 +657,70 @@ def test_a_shootout_cross_game_follows_cross_points_when_so_points_are_unset():
     t.setCrossPoints((1, 0, 0))
     t.generate()
     assert points(t) == {"A": 1, "X": 0}
+
+
+@pytest.fixture
+def tableGenerator(qapp):
+    """A fresh table generator window, closed unasked afterwards."""
+
+    def close():
+        if qapp.tg is not None:
+            qapp.tg.generator.setFileModified(False)
+            qapp.tg.close()
+
+    close()
+    qapp.tableGenerator()
+    yield qapp.tg
+    close()
+
+
+def reopen(app):
+    """Click Table generator, and let any deleteLater() it asked for happen."""
+    from PySide6.QtCore import QCoreApplication, QEvent
+
+    app.tableGenerator()
+    QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+
+
+@pytest.mark.parametrize("edited", [True, False], ids=["unsaved changes", "no changes"])
+def test_reopening_an_open_window_brings_it_forward(qapp, tableGenerator, monkeypatch, edited):
+    """It used to be closed, asking about unsaved changes, and replaced with
+    a blank one."""
+    import shiboken6
+    from PySide6.QtCore import Qt
+
+    tg = tableGenerator
+    asked = []
+    monkeypatch.setattr(tg.generator, "showUnsavedDialog", lambda: asked.append(1))
+    if edited:
+        tg.generator.matches.setPlainText("Alpha 2-1 Beta")
+    tg.showMinimized()
+
+    reopen(qapp)
+
+    assert asked == []
+    assert shiboken6.isValid(tg)
+    assert qapp.tg is tg and tg.isVisible()
+    assert not tg.windowState() & Qt.WindowMinimized
+    assert tg.generator.matches.toPlainText() == ("Alpha 2-1 Beta" if edited else "")
+    assert tg.generator.fileModified == edited
+
+
+def test_reopening_after_a_discard_does_not_ask_again(qapp, tableGenerator, monkeypatch):
+    """Closing with Discard leaves the window hidden but still modified:
+    reopening replaces it without asking again."""
+    from PySide6.QtWidgets import QMessageBox
+
+    tg = tableGenerator
+    asked = []
+    monkeypatch.setattr(tg.generator, "showUnsavedDialog",
+                        lambda: (asked.append(1), QMessageBox.Discard)[1])
+    tg.generator.matches.setPlainText("Alpha 2-1 Beta")
+    assert tg.close()
+    assert asked == [1]
+
+    reopen(qapp)
+
+    assert asked == [1]
+    assert qapp.tg is not tg and qapp.tg.isVisible()
+    assert qapp.tg.generator.matches.toPlainText() == ""
