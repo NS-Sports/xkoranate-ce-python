@@ -610,7 +610,7 @@ def test_the_edit_paths_ask_before_discarding_results(widget):
     assert len(asked) == 3
 
 
-def test_the_bracket_is_only_guarded_once_per_event(widget):
+def test_the_bracket_is_only_guarded_once_per_visit(widget):
     """Having said "discard", the user isn't asked again for every nudge."""
     loadBracket(widget, 8)
     asked = []
@@ -625,6 +625,11 @@ def test_the_bracket_is_only_guarded_once_per_event(widget):
     loadBracket(widget, 8)
     widget.setBracketSize(4)
     assert len(asked) == 2
+
+    # and so has one the user comes back to, having gone off to play a round
+    widget.forgetResultsAnswer()
+    widget.setBracketSize(8)
+    assert len(asked) == 3
 
 
 def test_a_declined_drag_puts_the_bracket_back(widget):

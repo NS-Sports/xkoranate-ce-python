@@ -47,7 +47,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         # set by the event editor: asks the user whether results already
         # generated may be discarded. None means nothing to protect.
         self.resultsGuard = None
-        self._resultsGuardAsked = False  # the user chose to discard them
+        self._resultsGuardAsked = False  # the user chose to discard them, on this visit
         self._askingResultsGuard = False  # the question is on screen now
         self._reflowPending = False  # a reflow is queued for the event loop
         self._lastLaidSlots = []  # the arrangement before the edit in progress
@@ -179,7 +179,8 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         Rearranging a bracket invalidates any results played from the old one
         — _drawIsCurrent() drops them — and that used to happen silently, so
         the loss was only discovered later as a blank results pane. Once the
-        user has chosen to discard them, stop asking for this event.
+        user has chosen to discard them, stop asking until they leave the
+        page (see forgetResultsAnswer()).
 
         Only a Discard counts as having said they know. Marking the question
         asked before the answer came back let the very next edit after a
@@ -200,6 +201,15 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         if accepted:
             self._resultsGuardAsked = True
         return accepted
+
+    def forgetResultsAnswer(self):
+        """Ask again before the next change discards results.
+
+        The editor calls this when the user leaves the page. A Discard covers
+        the edits made while they stay on it, not a round they go on to play
+        afterwards: that one was being thrown away by the next edit, unasked.
+        """
+        self._resultsGuardAsked = False
 
     def largestDrawableSize(self, entrants):
         """The biggest bracket worth drawing for this many entrants.

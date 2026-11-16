@@ -197,3 +197,50 @@ def test_a_sport_without_the_loaded_type_keeps_its_own(editor, unresolvedCup, sp
     assert editor.data().sport() == race
     assert editor.data().competition() == editor.competitionSelector.competition()
     assert editor.data().competition() != "singleElimination"
+
+
+# ------------------------------------------- the bracket's discard question
+
+BRACKET = 3  # the Groups/Bracket step
+
+
+@pytest.fixture
+def playedCup(editor, tournament, monkeypatch):
+    """A cup of 8 with round one played, shown on its bracket page, and
+    every "discard the results?" answered Discard and counted."""
+    from builders import play
+
+    from xkoranate.eventeditor import eventeditor
+
+    ev, sport = tournament("cup of 8")
+    play(ev, sport, up_to=1)
+    editor.setData(ev, XkorRPList())
+    while editor.stack.currentIndex() < BRACKET:
+        editor.goNext()
+    asked = []
+    monkeypatch.setattr(eventeditor, "confirm", lambda *args, **kwargs: (asked.append(1), True)[1])
+    return editor, asked
+
+
+def test_discard_is_remembered_while_on_the_bracket_page(playedCup):
+    editor, asked = playedCup
+
+    editor.eventSetupWidget.seedBracket()
+    editor.eventSetupWidget.randomizeGroup()
+    editor.eventSetupWidget.seedBracket()
+
+    assert asked == [1]
+
+
+def test_results_played_after_leaving_the_page_are_asked_about_again(playedCup):
+    """Discard used to be remembered for as long as the event stayed open,
+    so a round played after it was thrown away by the next edit, unasked."""
+    editor, asked = playedCup
+    editor.eventSetupWidget.seedBracket()
+
+    editor.goNext()  # to Scorinate, where round one is played again
+    editor.setResult(0, "Round one, played again")
+    editor.goPrev()
+    editor.eventSetupWidget.randomizeGroup()
+
+    assert asked == [1, 1]

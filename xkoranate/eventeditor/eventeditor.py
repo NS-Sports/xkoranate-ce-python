@@ -66,6 +66,11 @@ class XkorEventEditor(QWidget):
         self.updateNavigation()
         self.updateStepIndicator()
 
+    def stepChanged(self, index):
+        if self.stack.widget(index) is not self.eventSetupWidget:
+            # a Discard on the bracket page lasts while the user stays there
+            self.eventSetupWidget.forgetResultsAnswer()
+
     def updateNavigation(self):
         """Go Back while there is a step behind; Continue while there is one
         ahead and a sport to take there.
@@ -124,6 +129,7 @@ class XkorEventEditor(QWidget):
         self.stack.addWidget(self.eventSetupWidget)
         self.stack.addWidget(self.scorinateWidget)
         self.stack.setCurrentWidget(self.sportSelector)
+        self.stack.currentChanged.connect(self.stepChanged)
 
         # step indicator (a read-only breadcrumb above the stack)
         self.stepIndicator = QLabel()
