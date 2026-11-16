@@ -295,8 +295,10 @@ class XkorEventEditor(QWidget):
         self.setDataChanged()
 
     def updateSport(self, s):
+        resolved = None
         if not self.isLoading and s.name():
-            self._unresolvedEvent = None  # the user has chosen a sport for it
+            # the user has chosen a sport for an event whose own wasn't found
+            resolved, self._unresolvedEvent = self._unresolvedEvent, None
         self.sport = s.clone()  # XkorSport is passed by value in the C++
         self.m_data.setSport(self.sport.name(), self.sport.paradigm())
         self.updateNavigation()
@@ -304,7 +306,22 @@ class XkorEventEditor(QWidget):
         # update the signup list editor
         self.signupListEditor.setSport(self.sport, self.m_data.paradigmOptions())
         self.competitionSelector.setSport(self.sport, self.m_data.competitionOptions())
+        if resolved is not None:
+            self.restoreLoadedFormat(resolved)
         self.setDataChanged()
+
+    def restoreLoadedFormat(self, loaded):
+        """Put back the competition type and groups an event was loaded with.
+
+        With no sport to go by, loading fell back to the selector's default
+        type and laid the groups out for it, which drops a bracket's byes.
+        Choosing a sport then kept that fallback: a knockout came back as a
+        round robin, and its results were set aside as another type's. A
+        sport that doesn't offer the loaded type keeps the selector's choice.
+        """
+        self.competitionSelector.setCompetition(loaded.competition())  # → updateCompetition
+        self.eventSetupWidget.clear()
+        self.eventSetupWidget.setGroups(loaded.groups())
 
     def viewSchedule(self):
         from ..competitions.competitionfactory import XkorCompetitionFactory

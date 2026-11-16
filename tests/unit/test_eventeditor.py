@@ -119,3 +119,81 @@ def test_the_bracket_question_says_what_going_on_does(editor, monkeypatch):
 
     assert editor.confirmDiscardBracketResults() is False
     assert len(labels) == 1 and "Discard Results" in labels[0]
+
+
+# ------------------------------------- choosing a sport keeps the loaded format
+
+@pytest.fixture
+def unresolvedCup(tournament):
+    """A cup of 12 (16 slots, four byes) with its first round played, saved
+    under a sport name that isn't installed — renamed since, say."""
+    from builders import play
+
+    ev, sport = tournament("cup of 12")
+    play(ev, sport, up_to=1)
+    loaded = ev.clone()
+    loaded.setSport(MISSING, sport.paradigm())
+    return loaded, sport
+
+
+def test_choosing_a_sport_keeps_the_loaded_competition_type(editor, unresolvedCup):
+    """Loading with no sport fell back to the default type, and choosing a
+    sport kept it: the knockout came back as a round robin."""
+    loaded, _sport = unresolvedCup
+    editor.setData(loaded, XkorRPList())
+
+    editor.sportSelector.setSelectedSport(LISA)
+    shown = editor.data()
+
+    assert shown.sport() == LISA
+    assert shown.competition() == "singleElimination"
+    assert editor.competitionSelector.competition() == "singleElimination"
+    assert shown.competitionOptions() == loaded.competitionOptions()
+    assert shown.results() == loaded.results()
+
+
+def test_choosing_a_sport_keeps_the_loaded_bracket(editor, unresolvedCup):
+    """The fallback type laid the bracket out as groups, which drops byes, so
+    a draw arranged by hand came back re-padded: the byes moved, and the round
+    already played no longer described it."""
+    from builders import new_competition, play
+
+    from xkoranate.group import XkorGroup
+
+    cup, sport = unresolvedCup
+    # the editor's own layout, byes included, with each match's two slots
+    # swapped: an arrangement only the saved slot list can reproduce
+    installed = cup.clone()
+    installed.setSport(LISA, sport.paradigm())
+    installed.setResults({})
+    editor.setData(installed, XkorRPList())
+    slots = editor.data().groups()[0].athletes
+    arranged = [s for i in range(0, len(slots), 2) for s in (slots[i + 1], slots[i])]
+    installed.setGroups([XkorGroup("Bracket", arranged)])
+    play(installed, sport, up_to=1)
+    loaded = installed.clone()
+    loaded.setSport(MISSING, sport.paradigm())
+
+    editor.setData(loaded, XkorRPList())
+    editor.sportSelector.setSelectedSport(LISA)
+    shown = editor.data()
+
+    assert shown.groups()[0].athletes == arranged
+    assert new_competition(shown, sport).results(0) == loaded.results()[0]
+
+
+def test_a_sport_without_the_loaded_type_keeps_its_own(editor, unresolvedCup, sport_index):
+    """A race has no knockout: the selector's choice stands, and nothing raises."""
+    from builders import SPRINT
+
+    from xkoranate.xml.xmlsportreader import XkorXmlSportReader
+
+    race = XkorXmlSportReader(sport_index.lookup(SPRINT)).sport().name()
+    loaded, _sport = unresolvedCup
+    editor.setData(loaded, XkorRPList())
+
+    editor.sportSelector.setSelectedSport(race)
+
+    assert editor.data().sport() == race
+    assert editor.data().competition() == editor.competitionSelector.competition()
+    assert editor.data().competition() != "singleElimination"
