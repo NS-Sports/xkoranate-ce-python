@@ -178,16 +178,10 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
 
         Rearranging a bracket invalidates any results played from the old one
         — _drawIsCurrent() drops them — and that used to happen silently, so
-        the loss was only discovered later as a blank results pane. Once the
-        user has chosen to discard them, stop asking until they leave the
-        page (see forgetResultsAnswer()).
-
-        Only a Discard counts as having said they know. Marking the question
-        asked before the answer came back let the very next edit after a
-        Cancel go through without a word, and let a reflow that ran inside
-        the dialog's own event loop sail past it while it was still open.
-        A second change arriving while the question is on screen is refused:
-        the answer to the question already showing decides.
+        the loss was only discovered later as a blank results pane. After a
+        Discard, stop asking until the user leaves the page (see
+        forgetResultsAnswer()). A change arriving while the question is on
+        screen is refused: that question's answer decides.
         """
         if self.resultsGuard is None or self._resultsGuardAsked:
             return True
@@ -203,12 +197,8 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         return accepted
 
     def forgetResultsAnswer(self):
-        """Ask again before the next change discards results.
-
-        The editor calls this when the user leaves the page. A Discard covers
-        the edits made while they stay on it, not a round they go on to play
-        afterwards: that one was being thrown away by the next edit, unasked.
-        """
+        """Ask again before the next change discards results: the editor
+        calls this when the user leaves the page."""
         self._resultsGuardAsked = False
 
     def largestDrawableSize(self, entrants):
@@ -395,11 +385,7 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
         self.bracketSizeCombo.setVisible(isBracket)
 
     def scheduleReflow(self, *args):
-        # A drag moves a row by taking it out and putting it back, so one drop
-        # sends rowsRemoved and then rowsInserted. Queue one reflow for both:
-        # two used to be queued, and the second ran inside the first one's
-        # "discard results?" dialog, changing the bracket before the user had
-        # answered.
+        # one drop sends rowsRemoved then rowsInserted: queue one reflow
         if self.isInUse or not self.isBracket() or self._reflowPending:
             return
         self._reflowPending = True
@@ -440,20 +426,17 @@ class XkorEventSetupWidget(XkorAbstractTreeWidget):
 
     def deleteAthlete(self, id):
         """Take a participant whose signup was deleted out of every group.
-
-        In a bracket their slot becomes a bye, as clearing it by hand does.
-        Taking the row out left the match one short, and the reflow that
-        followed padded a bye onto the end of the bracket, moving everyone
-        after them into a different match.
-        """
+        In a bracket their slot becomes a bye, so no one else moves."""
         # collected first: taking items out would upset the iteration
         toDelete = [item for item in self.iterItems()
                     if item.parent() and self._slotId(item) == id]
         if self.isBracket():
-            self.isInUse = True
-            for item in toDelete:
-                self.initAthlete(item, BYE_ID)
-            self.isInUse = False
+            wasInUse, self.isInUse = self.isInUse, True
+            try:
+                for item in toDelete:
+                    self.initAthlete(item, BYE_ID)
+            finally:
+                self.isInUse = wasInUse
             if toDelete:
                 self._lastLaidSlots = list(self.bracketEntrants())
                 self.renumberMatches()

@@ -15,12 +15,9 @@ def bonusList(formula, bonuses=None, teams=True):
 
 
 @pytest.fixture
-def asked(monkeypatch):
+def asked(questions):
     """Every "reset all bonuses?" question, each answered Cancel."""
-    questions = []
-    monkeypatch.setattr(rpeditor, "confirm",
-                        lambda parent, text, *args, **kwargs: (questions.append(text), False)[1])
-    return questions
+    return questions.answer(rpeditor, False)
 
 
 def test_loading_a_bonus_list_asks_nothing_and_shows_its_formula(qapp, asked):

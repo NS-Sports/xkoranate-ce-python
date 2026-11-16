@@ -24,8 +24,7 @@ class XkorSignupListEditor(QWidget):
         self.isLoading = False
 
         self.athletes = None
-        # set by the event editor: whether deleting these signups may go ahead.
-        # The athlete list is rebuilt for every sport, so it asks through us
+        # set by the event editor; the athlete list, rebuilt per sport, asks us
         self.deleteGuard = None
         self.m_data = XkorSignupList()
         self._usesMinSkill = True

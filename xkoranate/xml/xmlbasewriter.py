@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 
-from PySide6.QtCore import QIODevice, QSaveFile, QXmlStreamWriter
+from PySide6.QtCore import QBuffer, QIODevice, QSaveFile, QXmlStreamWriter
 
 
 class XkorXmlBaseWriter(QXmlStreamWriter):
@@ -11,42 +11,36 @@ class XkorXmlBaseWriter(QXmlStreamWriter):
         """Write filename as a version 0.3 document; the body goes in the with block.
         Raises OSError if the file can't be opened or written.
 
-        The document goes to a temporary file that only replaces filename
-        once all of it has been written. Opening filename itself emptied it
-        before a byte was written, so a save that failed partway — a full
-        disk, a writer that raised — left half a document where the last
-        good save had been, and the user's retry had nothing to fall back on.
+        The document is built in memory and only then saved through a
+        temporary file that replaces filename once complete, so a failed
+        save leaves the last good one in place. A folder that won't take a
+        temporary file (some network shares) gets filename rewritten in place.
         """
         # stream writer settings
         self.setAutoFormatting(True)
         self.setAutoFormattingIndent(-1)
 
-        f = QSaveFile(filename)
-        # a folder that lets us rewrite the file but not create one beside it
-        # (some network shares) can't hold the temporary copy; writing in
-        # place there, as before, beats refusing to save at all
-        f.setDirectWriteFallback(True)
-        if not f.open(QIODevice.WriteOnly):
-            raise OSError("Could not save ‘%s’: %s" % (filename, f.errorString()))
-
-        self.setDevice(f)
+        buffer = QBuffer()
+        buffer.open(QIODevice.WriteOnly)
+        self.setDevice(buffer)
         try:
             self.writeStartDocument()
             self.writeStartElement(rootName)
             self.writeAttribute("version", "0.3")
             yield
             self.writeEndDocument()
-        except BaseException:
-            f.cancelWriting()  # commit() then throws the temporary file away
-            f.commit()
-            raise
         finally:
             self.setDevice(None)
-
+            buffer.close()
         if self.hasError():
-            # read why before cancelWriting(), which replaces the device's own
-            # error ("No space left on device") with "Writing canceled by
-            # application" — true, and no help to the user
+            raise OSError("Could not save ‘%s’: the document could not be written" % filename)
+
+        f = QSaveFile(filename)
+        f.setDirectWriteFallback(True)
+        if not f.open(QIODevice.WriteOnly):
+            raise OSError("Could not save ‘%s’: %s" % (filename, f.errorString()))
+        if f.write(buffer.data()) != buffer.size():
+            # read before cancelWriting() replaces it with "Writing canceled"
             error = f.errorString()
             f.cancelWriting()
             f.commit()  # throws the temporary file away

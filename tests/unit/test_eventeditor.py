@@ -52,15 +52,6 @@ def test_showing_an_event_with_a_missing_sport_leaves_it_alone(editor):
     assert buttons(editor) == (0, False, False)
 
 
-def test_choosing_a_sport_for_it_takes_over(editor):
-    editor.setData(make_event(make_athletes(4), sport=MISSING, paradigm="lisa"), XkorRPList())
-
-    editor.sportSelector.setSelectedSport(LISA)
-
-    assert editor.data().sport() == LISA
-    assert editor.next.isEnabled()
-
-
 def test_an_installed_sport_is_still_read_from_the_editor(editor):
     ev = make_event(make_athletes(4), sport=LISA, paradigm="lisa", competition="roundRobin")
     editor.setData(ev, XkorRPList())
@@ -104,22 +95,18 @@ def test_continue_follows_the_sport_and_stops_at_the_last_step(editor):
     assert buttons(editor) == (0, False, False)
 
 
-def test_the_bracket_question_says_what_going_on_does(editor, monkeypatch):
-    """Its Discard button reads "Don't Save" on macOS, which left the
-    question with no way to go on."""
-    from PySide6.QtWidgets import QMessageBox
+def test_a_discard_button_says_what_going_on_does(qapp, monkeypatch):
+    """macOS labels a Discard button "Don't Save", which reads as backing out."""
+    from PySide6.QtWidgets import QMessageBox, QWidget
+
+    from xkoranate.ui.dialogs import confirm
 
     labels = []
+    monkeypatch.setattr(QMessageBox, "exec",
+                        lambda box: (labels.extend(b.text() for b in box.buttons()), QMessageBox.Cancel)[1])
 
-    def answer(box):
-        labels.append([b.text() for b in box.buttons()])
-        return QMessageBox.Cancel
-
-    monkeypatch.setattr(QMessageBox, "exec", answer)
-    editor.m_data.setResults({0: "played"})
-
-    assert editor.confirmDiscardBracketResults() is False
-    assert len(labels) == 1 and "Discard Results" in labels[0]
+    assert confirm(QWidget(), "Change it?", "", discardText="Discard Results") is False
+    assert "Discard Results" in labels
 
 
 # ------------------------------------- choosing a sport keeps the loaded format
@@ -206,7 +193,7 @@ BRACKET = 3  # the Groups/Bracket step
 
 
 @pytest.fixture
-def playedCup(editor, tournament, monkeypatch):
+def playedCup(editor, tournament, questions):
     """A cup of 8 with round one played, shown on its bracket page, and
     every "discard the results?" answered Discard and counted."""
     from builders import play
@@ -218,9 +205,7 @@ def playedCup(editor, tournament, monkeypatch):
     editor.setData(ev, XkorRPList())
     while editor.stack.currentIndex() < BRACKET:
         editor.goNext()
-    asked = []
-    monkeypatch.setattr(eventeditor, "confirm", lambda *args, **kwargs: (asked.append(1), True)[1])
-    return editor, asked
+    return editor, questions.answer(eventeditor)
 
 
 def test_discard_is_remembered_while_on_the_bracket_page(playedCup):
@@ -230,7 +215,7 @@ def test_discard_is_remembered_while_on_the_bracket_page(playedCup):
     editor.eventSetupWidget.randomizeGroup()
     editor.eventSetupWidget.seedBracket()
 
-    assert asked == [1]
+    assert len(asked) == 1 and asked.labels == ["Discard Results"]
 
 
 def test_results_played_after_leaving_the_page_are_asked_about_again(playedCup):
@@ -244,7 +229,7 @@ def test_results_played_after_leaving_the_page_are_asked_about_again(playedCup):
     editor.goPrev()
     editor.eventSetupWidget.randomizeGroup()
 
-    assert asked == [1, 1]
+    assert len(asked) == 2
 
 
 # ----------------------------- deleting a signup who is in a played bracket
@@ -252,7 +237,7 @@ def test_results_played_after_leaving_the_page_are_asked_about_again(playedCup):
 SIGNUPS = 1  # the Signups step
 
 
-def onSignups(editor, ev, monkeypatch, answer=True):
+def onSignups(editor, ev, questions, answer=True):
     """Show `ev` on its Signups page, with every "discard the results?"
     answered `answer` and counted."""
     from xkoranate.eventeditor import eventeditor
@@ -260,9 +245,7 @@ def onSignups(editor, ev, monkeypatch, answer=True):
     editor.setData(ev, XkorRPList())
     editor.goNext()
     assert editor.stack.currentIndex() == SIGNUPS
-    asked = []
-    monkeypatch.setattr(eventeditor, "confirm", lambda *args, **kwargs: (asked.append(1), answer)[1])
-    return asked
+    return questions.answer(eventeditor, answer)
 
 
 def deleteSignup(editor, id):
@@ -293,34 +276,38 @@ def signupIds(editor):
     return [a.id for a in editor.data().signupList().athletes()]
 
 
-def test_cancel_keeps_a_bracketed_signup(editor, cup, monkeypatch):
+def test_cancel_keeps_a_bracketed_signup(editor, cup, questions):
     ev, ids = cup
-    asked = onSignups(editor, ev, monkeypatch, answer=False)
+    asked = onSignups(editor, ev, questions, answer=False)
     before = list(editor.eventSetupWidget.bracketEntrants())
 
     deleteSignup(editor, ids[0])
 
-    assert asked == [1]
+    assert len(asked) == 1
     assert signupIds(editor) == ids
     assert editor.eventSetupWidget.bracketEntrants() == before
 
 
-def test_discard_is_asked_once_per_visit_to_the_signups_page(editor, cup, monkeypatch):
+def test_discard_empties_the_results_so_nothing_is_asked_again(editor, cup, questions):
+    """The draw the results were played from is gone for good, so Discard
+    throws them away. Keeping them made the bracket page ask again about a
+    loss that had already happened."""
     ev, ids = cup
-    asked = onSignups(editor, ev, monkeypatch)
+    asked = onSignups(editor, ev, questions)
 
     deleteSignup(editor, ids[0])
     deleteSignup(editor, ids[1])
-    assert asked == [1]
+    assert len(asked) == 1
     assert signupIds(editor) == ids[2:]
+    assert not any(editor.data().results().values())
 
-    editor.goNext()  # leave the page, and come back
-    editor.goPrev()
-    deleteSignup(editor, ids[2])
-    assert asked == [1, 1]
+    while editor.stack.currentIndex() < BRACKET:
+        editor.goNext()
+    editor.eventSetupWidget.seedBracket()
+    assert len(asked) == 1
 
 
-def test_no_question_without_a_played_bracket(editor, tournament, monkeypatch):
+def test_no_question_without_a_played_bracket(editor, tournament, questions):
     from builders import play
 
     unplayed, _sport = tournament("cup of 8")
@@ -328,6 +315,51 @@ def test_no_question_without_a_played_bracket(editor, tournament, monkeypatch):
     play(league, sport, up_to=1)
 
     for ev in (unplayed, league):
-        asked = onSignups(editor, ev, monkeypatch)
+        asked = onSignups(editor, ev, questions)
         deleteSignup(editor, ev.signupList().athletes()[0].id)
         assert asked == []
+
+
+# ------------------------------ the results stamp survives an options change
+
+COMPETITION = 2  # the competition type step
+
+
+def test_an_options_change_after_scorinating_keeps_the_results_stamp(editor, tournament, questions):
+    """An option change wrote back the options page's copy from before
+    scorinating, losing the stamp and the played table."""
+    from xkoranate.competitions.abstractcompetition import RESULTS_COMPETITION
+    from xkoranate.eventeditor import scorinatewidget
+
+    questions.answer(scorinatewidget)
+    editor.setData(tournament("league 3×4")[0], XkorRPList())
+    while editor.stack.currentIndex() < SCORINATE:
+        editor.goNext()
+    editor.scorinateWidget.scorinate()
+    saved = editor.data().competitionOptions()
+    assert saved[RESULTS_COMPETITION] == "roundRobin"
+
+    while editor.stack.currentIndex() > COMPETITION:
+        editor.goPrev()
+    editor.competitionSelector.optionsWidget._setOption("numberOfLegs", "2")
+
+    options = editor.data().competitionOptions()
+    assert options["numberOfLegs"] == "2"
+    assert options[RESULTS_COMPETITION] == "roundRobin"
+    assert options["tableData"] == saved["tableData"]
+
+
+def test_another_types_results_are_not_the_brackets_to_discard(editor, tournament, questions):
+    """A switch only sets the round robin's results aside: nothing to ask."""
+    from builders import play
+
+    from xkoranate.eventeditor import eventeditor
+
+    ev, sport = tournament("league 3×4")
+    play(ev, sport, up_to=1)
+    ev.setCompetition("singleElimination")
+    editor.setData(ev, XkorRPList())
+    questions.answer(eventeditor)
+
+    assert editor.confirmDiscardBracketResults() is True
+    assert questions == []

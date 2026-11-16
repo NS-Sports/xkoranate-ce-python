@@ -659,71 +659,68 @@ def test_a_shootout_cross_game_follows_cross_points_when_so_points_are_unset():
     assert points(t) == {"A": 1, "X": 0}
 
 
-def _deliverDeferredDeletes():
+@pytest.fixture
+def tableGenerator(qapp):
+    """A fresh table generator window, closed unasked afterwards."""
+
+    def close():
+        if qapp.tg is not None:
+            qapp.tg.generator.setFileModified(False)
+            qapp.tg.close()
+
+    close()
+    qapp.tableGenerator()
+    yield qapp.tg
+    close()
+
+
+def reopen(app):
+    """Click Table generator, and let any deleteLater() it asked for happen."""
     from PySide6.QtCore import QCoreApplication, QEvent
 
+    app.tableGenerator()
     QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
 
 
-def _closeTableGenerator(app):
-    if app.tg is not None:
-        app.tg.generator.setFileModified(False)
-        app.tg.close()
-
-
 @pytest.mark.parametrize("edited", [True, False], ids=["unsaved changes", "no changes"])
-def test_reopening_an_open_window_brings_it_forward(qapp, monkeypatch, edited):
-    """Clicking Table generator again closed the open one, asking about
-    unsaved changes, and replaced it with a blank one: Cancel used to throw
-    the table away, and even Save left the user with an empty window."""
+def test_reopening_an_open_window_brings_it_forward(qapp, tableGenerator, monkeypatch, edited):
+    """It used to be closed, asking about unsaved changes, and replaced with
+    a blank one."""
     import shiboken6
     from PySide6.QtCore import Qt
 
-    _closeTableGenerator(qapp)
-    qapp.tableGenerator()
-    tg = qapp.tg
+    tg = tableGenerator
     asked = []
     monkeypatch.setattr(tg.generator, "showUnsavedDialog", lambda: asked.append(1))
-    try:
-        if edited:
-            tg.generator.matches.setPlainText("Alpha 2-1 Beta")
-        tg.showMinimized()
+    if edited:
+        tg.generator.matches.setPlainText("Alpha 2-1 Beta")
+    tg.showMinimized()
 
-        qapp.tableGenerator()
-        _deliverDeferredDeletes()
+    reopen(qapp)
 
-        assert asked == []
-        assert shiboken6.isValid(tg)
-        assert qapp.tg is tg and tg.isVisible()
-        assert not tg.windowState() & Qt.WindowMinimized
-        assert tg.generator.matches.toPlainText() == ("Alpha 2-1 Beta" if edited else "")
-        assert tg.generator.fileModified == edited
-    finally:
-        _closeTableGenerator(qapp)
+    assert asked == []
+    assert shiboken6.isValid(tg)
+    assert qapp.tg is tg and tg.isVisible()
+    assert not tg.windowState() & Qt.WindowMinimized
+    assert tg.generator.matches.toPlainText() == ("Alpha 2-1 Beta" if edited else "")
+    assert tg.generator.fileModified == edited
 
 
-def test_reopening_after_a_discard_does_not_ask_again(qapp, monkeypatch):
-    """Closing the window and choosing Discard leaves it hidden but still
-    marked as modified. Reopening must replace it without asking about
-    the changes the user has already thrown away."""
+def test_reopening_after_a_discard_does_not_ask_again(qapp, tableGenerator, monkeypatch):
+    """Closing with Discard leaves the window hidden but still modified:
+    reopening replaces it without asking again."""
     from PySide6.QtWidgets import QMessageBox
 
-    _closeTableGenerator(qapp)
-    qapp.tableGenerator()
-    tg = qapp.tg
+    tg = tableGenerator
     asked = []
     monkeypatch.setattr(tg.generator, "showUnsavedDialog",
                         lambda: (asked.append(1), QMessageBox.Discard)[1])
     tg.generator.matches.setPlainText("Alpha 2-1 Beta")
-    try:
-        assert tg.close()
-        assert asked == [1]
+    assert tg.close()
+    assert asked == [1]
 
-        qapp.tableGenerator()
-        _deliverDeferredDeletes()
+    reopen(qapp)
 
-        assert asked == [1]
-        assert qapp.tg is not tg and qapp.tg.isVisible()
-        assert qapp.tg.generator.matches.toPlainText() == ""
-    finally:
-        _closeTableGenerator(qapp)
+    assert asked == [1]
+    assert qapp.tg is not tg and qapp.tg.isVisible()
+    assert qapp.tg.generator.matches.toPlainText() == ""

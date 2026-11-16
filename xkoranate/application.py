@@ -193,16 +193,12 @@ class XkorApplication(QApplication):
 
         if self.tg is not None:
             if self.tg.isVisible():
-                # Asking for the table generator while it's open means "show
-                # me it", not "start again": it used to be closed — asking to
-                # save, and deleted whatever the answer — and replaced with a
-                # blank one. Minimised counts as open.
+                # asking for an open (or minimised) one means "show me it"
                 self.tg.setWindowState(self.tg.windowState() & ~Qt.WindowMinimized)
                 self.tg.raise_()
                 self.tg.activateWindow()
                 return
-            # a hidden one was closed by the user, who answered for its
-            # changes then, so it is just replaced
+            # hidden: the user closed it and answered for its changes then
             self.tg.deleteLater()
         self.tg = XkorTableGeneratorWindow()
         self.tg.resultImportDirectoryChanged.connect(self.setResultImportDirectory)

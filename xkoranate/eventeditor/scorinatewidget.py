@@ -234,11 +234,8 @@ class XkorScorinateWidget(QWidget):
     def scorinate(self):
         if self.c is None or self.c.matchdays() <= 0 or not self.hasEntrants():
             # nothing to score: without this the checks below offer to
-            # regenerate matchday -1, naming a round that doesn't exist.
-            # Asking the start list as well as the competition: a type with
-            # a fixed number of matchdays (runs, a qualifying round) has some
-            # even with nobody in it, and archery, multiple-run and shooting
-            # raised IndexError looking for a first group that wasn't there
+            # regenerate matchday -1, naming a round that doesn't exist. Some
+            # types have a fixed number of matchdays even with nobody in them
             message_box(
                 self, "There is nothing to scorinate yet.",
                 QMessageBox.Ok,
@@ -287,25 +284,21 @@ class XkorScorinateWidget(QWidget):
             return ""
         from ..competitions.competitionfactory import XkorCompetitionFactory
 
-        return XkorCompetitionFactory.competitionTypes().get(other, other)
+        return XkorCompetitionFactory.competitionTypeName(other) or other
 
     def confirmReplacingSetAsideResults(self):
         """Ask before the first scorination of this type replaces results
-        another type played. Until then they are only hidden — switching
-        back finds them — so this is the point they would be lost."""
+        another type played, which until now were only hidden."""
         other = self.setAsideTypeName()
         if not other:
             return True
         from ..competitions.competitionfactory import XkorCompetitionFactory
 
-        this = XkorCompetitionFactory.competitionTypes().get(self.c.competitionType, "")
-        # worded like the regenerate questions below, which this stands in
-        # for: they only ask about rounds this type has played itself
+        this = XkorCompetitionFactory.competitionTypeName(self.c.competitionType) or "another type"
         return confirm(
             self, "Are you sure you want to scorinate %s?" % self.matchday.currentText(),
-            "You will lose this event's %s results if you scorinate it as %s."
-            % (other, this or "another type"),
-            accept=QMessageBox.Discard, destructive=True, acceptText="Replace Results")
+            "You will lose this event's %s results if you scorinate it as %s." % (other, this),
+            discardText="Replace Results")
 
     def scorinateMatchday(self, md):
         # scorinate
@@ -388,7 +381,7 @@ class XkorScorinateWidget(QWidget):
 
     def updateResults(self, matchday):
         other = self.setAsideTypeName()
-        # an empty pane over results that are only hidden reads as lost ones
+        # an empty pane would read as the hidden results being lost
         self.textedit.setPlaceholderText(
             "%s results are kept. Switch back to see them." % other if other else "")
         text = self.c.results(matchday)

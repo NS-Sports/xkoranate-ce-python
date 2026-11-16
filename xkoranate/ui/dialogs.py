@@ -110,22 +110,20 @@ def message_box(parent, text, buttons, informativeText="", icon=QMessageBox.NoIc
 
 
 def confirm(parent, text, informativeText, accept=QMessageBox.Ok, icon=QMessageBox.NoIcon,
-            destructive=False, acceptText=""):
+            destructive=False, discardText=""):
     """Ask an accept-or-Cancel question, with Cancel as the default and escape
     button. Returns whether the user chose accept; destructive styles accept
-    as a warning.
-
-    acceptText labels the accept button. Pass it with accept=Discard: macOS
-    names that button "Don't Save", which only answers a save question —
-    anywhere else it reads as one more way to back out, and the question
-    seems to have no way forward."""
+    as a warning. discardText makes accept a destructive Discard button with
+    that label (macOS would call it "Don't Save")."""
+    if discardText:
+        accept, destructive = QMessageBox.Discard, True
     box = message_box(
         parent, text, accept | QMessageBox.Cancel,
         informativeText=informativeText, icon=icon,
         defaultButton=QMessageBox.Cancel, escapeButton=QMessageBox.Cancel,
         destructiveButton=accept if destructive else None)
-    if acceptText:
-        box.button(accept).setText(acceptText)
+    if discardText:
+        box.button(accept).setText(discardText)
     return box.exec() == accept
 
 

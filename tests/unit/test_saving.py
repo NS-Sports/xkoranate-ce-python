@@ -179,3 +179,42 @@ def test_the_readers_report_a_file_they_cannot_open(reader, tmp_path):
     r = reader(str(tmp_path))  # exists, but a folder can't be opened as a file
     assert r.hasError()
     assert str(tmp_path) in r.error()
+
+
+@pytest.fixture
+def lockedFolder(tmp_path):
+    """A folder holding a writable saved.xml that can't take a new file
+    beside it, so a save has to rewrite saved.xml in place."""
+    folder = tmp_path / "locked"
+    folder.mkdir()
+    path = folder / "saved.xml"
+    path.write_text("", encoding="utf-8")
+    folder.chmod(0o555)
+    yield str(path)
+    folder.chmod(0o755)
+
+
+@pytest.mark.parametrize("writer, method, write", [
+    (XkorXmlWriter, "writeEvents", lambda path: XkorXmlWriter(path, XkorRPList(), [])),
+    (XkorXmlTableWriter, "writeTable", lambda path: XkorXmlTableWriter(path, XkorTable())),
+], ids=["scorinator", "table generator"])
+def test_a_save_in_place_is_only_started_once_the_document_is_whole(writer, method, write,
+                                                                    lockedFolder, monkeypatch):
+    """Where no temporary file can be made, saved.xml is rewritten in place,
+    and opening it for that emptied it — so a writer that raised partway
+    still left half a document behind."""
+    write(lockedFolder)  # a save in place works
+    with open(lockedFolder, encoding="utf-8") as f:
+        before = f.read()
+    assert before
+
+    def fail(self, *args):
+        self.writeTextElement("halfway", "through")
+        raise RuntimeError("a writer bug")
+
+    monkeypatch.setattr(writer, method, fail)
+    with pytest.raises(RuntimeError):
+        write(lockedFolder)
+
+    with open(lockedFolder, encoding="utf-8") as f:
+        assert f.read() == before

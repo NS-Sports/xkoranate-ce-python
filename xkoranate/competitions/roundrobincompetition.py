@@ -204,8 +204,7 @@ class XkorRoundRobinCompetition(XkorAbstractCompetition):
         return rval
 
     def matchdays(self):
-        # with nobody in any group the largest is 0, and 0 − 1 made this −1:
-        # a count the scorinate page's "nothing to scorinate" check missed
+        # an empty event has 0 matchdays, not −1
         return intOption(self.userOpt, "numberOfLegs", 1) * max(0, self.largestGroupSize(self.startList) - 1)
 
     def matchdayNames(self):

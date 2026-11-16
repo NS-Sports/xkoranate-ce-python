@@ -1,6 +1,5 @@
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import (QGridLayout, QLabel, QMessageBox, QPushButton,
-                               QStackedLayout, QWidget)
+from PySide6.QtWidgets import QGridLayout, QLabel, QPushButton, QStackedLayout, QWidget
 
 from ..event import XkorEvent
 from ..rplist import XkorRPList
@@ -30,9 +29,6 @@ class XkorEventEditor(QWidget):
         self.signupListEditor = None
         self.eventSetupWidget = None  # built after the competition selector
         self.isLoading = False
-        # the user chose to discard results by deleting a bracketed signup,
-        # on this visit to the Signups page
-        self._signupDiscardAnswered = False
         # the event exactly as loaded, while its sport isn't one we can select
         self._unresolvedEvent = None
 
@@ -73,19 +69,11 @@ class XkorEventEditor(QWidget):
         # a Discard lasts while the user stays on the page they gave it on
         if self.stack.widget(index) is not self.eventSetupWidget:
             self.eventSetupWidget.forgetResultsAnswer()
-        if self.stack.widget(index) is not self.signupListEditor:
-            self._signupDiscardAnswered = False
 
     def updateNavigation(self):
         """Go Back while there is a step behind; Continue while there is one
-        ahead and a sport to take there.
-
-        Worked out from the step and the sport every time, rather than nudged
-        by whichever button was pressed: loading another event went back to
-        the first step but left Go Back as it was, and Go Back then enabled
-        Continue with no sport chosen, so the wizard could be walked all the
-        way to Scorinate without one.
-        """
+        ahead and a sport to take there. Always derived from the step and the
+        sport, never from which button was pressed."""
         if self.stack is None:
             return  # still being built
         step = self.stack.currentIndex()
@@ -238,12 +226,9 @@ class XkorEventEditor(QWidget):
         self.eventSetupWidget.setGroups(data.groups())
 
         if loaded.sport() and not self.sport.name():
-            # The event names a sport that isn't installed: a custom file, or
-            # one renamed since. Nothing can be selected for it, so the
-            # selectors above fell back to "no sport" and wrote that, and
-            # their default competition type, over the event. Just looking at
-            # it was then enough for the next save to lose both. Hand back the
-            # event as it was until the user picks a sport of their own.
+            # its sport isn't installed, so the selectors above wrote "no
+            # sport" and a default type over it: hand it back as loaded until
+            # the user picks a sport
             self._unresolvedEvent = loaded
 
         self.isLoading = False  # allow dataChanged to be emitted if the user does stuff
@@ -261,21 +246,24 @@ class XkorEventEditor(QWidget):
         return confirm(
             self, "Are you sure you want to change the bracket?",
             "This event has already been scorinated. Changing "
-            "the bracket discards the results played from it.",
-            accept=QMessageBox.Discard, destructive=True, acceptText="Discard Results")
+            "the bracket discards the results played from it.", discardText="Discard Results")
 
     def hasResults(self):
+        """Whether the event holds results of its current type. Another
+        type's are only set aside, so no edit here loses them."""
+        from ..competitions.abstractcompetition import resultsTypeIfOther
+        from ..competitions.competitionfactory import XkorCompetitionFactory
+
+        thisType = XkorCompetitionFactory.newCompetition(self.m_data.competition()).competitionType
+        if resultsTypeIfOther(self.m_data.competitionOptions(), thisType):
+            return False
         return any(self.m_data.results().values())
 
     def confirmDeletingBracketedSignups(self, ids):
-        """Ask before deleting signups in a bracket that has been played.
-
-        Their slots become byes, so the draw no longer matches the rounds
-        played and the knockout stops showing them — the same loss a change
-        on the bracket page asks about, but from a page that said nothing.
-        A Discard lasts while the user stays on the Signups page.
-        """
-        if self._signupDiscardAnswered or not self.hasResults():
+        """Ask before deleting signups in a played bracket: their slots
+        become byes, so the draw no longer matches the rounds played. A
+        Discard empties the results, since that draw can't come back."""
+        if not self.hasResults():
             return True
         setup = self.eventSetupWidget
         if not setup.isBracket() or not set(ids) & set(setup.realBracketEntrants()):
@@ -283,10 +271,9 @@ class XkorEventEditor(QWidget):
         accepted = confirm(
             self, "Are you sure you want to delete a participant in the bracket?",
             "This event has already been scorinated. Their place becomes a bye, "
-            "which discards the results played from the bracket.",
-            accept=QMessageBox.Discard, destructive=True, acceptText="Discard Results")
+            "which discards the results played from the bracket.", discardText="Discard Results")
         if accepted:
-            self._signupDiscardAnswered = True
+            self.m_data.setResults({})
         return accepted
 
     def setDataChanged(self):
@@ -299,6 +286,8 @@ class XkorEventEditor(QWidget):
 
     def setResumeFileOptions(self, options):
         self.m_data.replaceCompetitionOptions(options)
+        # the options page writes its whole copy back on its next change
+        self.competitionSelector.refreshOptions(self.m_data.competitionOptions())
         self.setDataChanged()
 
     def updateCompetition(self, competition):
@@ -348,14 +337,8 @@ class XkorEventEditor(QWidget):
         self.setDataChanged()
 
     def restoreLoadedFormat(self, loaded):
-        """Put back the competition type and groups an event was loaded with.
-
-        With no sport to go by, loading fell back to the selector's default
-        type and laid the groups out for it, which drops a bracket's byes.
-        Choosing a sport then kept that fallback: a knockout came back as a
-        round robin, and its results were set aside as another type's. A
-        sport that doesn't offer the loaded type keeps the selector's choice.
-        """
+        """Put back the type and groups (byes included) the event was loaded
+        with, in place of the no-sport fallback, if the sport offers it."""
         self.competitionSelector.setCompetition(loaded.competition())  # → updateCompetition
         self.eventSetupWidget.clear()
         self.eventSetupWidget.setGroups(loaded.groups())

@@ -709,6 +709,10 @@ def test_deleting_a_signup_leaves_a_bye_in_their_slot(widget):
     # the signup is already gone: there is nothing left to say Cancel to
     assert asked == []
 
+    widget.isInUse = True  # mid-rebuild: the flag is left as it was found
+    widget.deleteAthlete(ids[3])
+    assert widget.isInUse is True
+
 
 def test_group_setup_still_offers_a_participant_already_in_a_group(widget):
     """Filtering placed participants is a bracket rule, not a global one.

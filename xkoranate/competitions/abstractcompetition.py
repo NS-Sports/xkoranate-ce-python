@@ -13,16 +13,19 @@ from xkoranate.variant import toDouble, toList, toString
 RESULTS_COMPETITION = "resultsCompetition"
 
 
+def resultsTypeIfOther(competitionOptions, competitionType):
+    """The type stamped on an event's results if it isn't competitionType,
+    else "". Unstamped (older) results count as competitionType's own."""
+    stamped = toString(competitionOptions.get(RESULTS_COMPETITION, ""))
+    if not stamped or not competitionType or stamped == competitionType:
+        return ""
+    return stamped
+
+
 class XkorAbstractCompetition:
-    # the competition type, as XkorCompetitionFactory names it, stamped on the
-    # results so that another type knows they aren't its own
-    competitionType = ""
-    # the competition options this type keeps its played matches in, written
-    # through resumeFileOptions(); none of them exist before the first matchday
-    resumeKeys = ()
-    # the type whose results this object set aside as not its own, or "" —
-    # they are still in the event, and scorinating this type replaces them
-    setAsideResults = ""
+    competitionType = ""  # the XkorCompetitionFactory key, stamped on results
+    resumeKeys = ()  # the competition options resumeFileOptions() writes
+    setAsideResults = ""  # the type whose results init() set aside, or ""
 
     def __init__(self, sl=None, s=None, paradigmOptions=None, competitionOptions=None, results=None):
         self.resultsBuf = {}  # QHash<int, QString>
@@ -63,30 +66,17 @@ class XkorAbstractCompetition:
     def _dropAnotherTypesResults(self):
         """Start from nothing if the stored results are another type's.
 
-        Results are kept as text per matchday, and each type rebuilds its
-        played matches from resume options of its own. Neither said which
-        type wrote them, so after a switch the new type showed the old one's
-        Matchday 1 as its "Mass start" or "Round of 16", and a knockout went
-        on as if rounds had been played. Switching back after playing the
-        other type counted the old round-robin matches a second time.
-
-        Only this object's copy is cleared, the way a rearranged bracket's
-        results are (see XkorSingleEliminationCompetition._drawIsCurrent):
-        switching back without playing the other type finds them intact.
-        Results saved before the stamp existed carry none, and are kept.
-
-        This type's resume keys are dropped rather than reverted: before the
-        first matchday there are none, and revertToMatchday() parses what it
-        finds. Keys like "scores" are shared, so it would be parsing another
-        type's data — a shooting round's qualifying scores raised IndexError
-        in a multiple-run revert, and the event couldn't be opened.
+        Only this object's copy is cleared, so switching back without
+        playing finds them intact. This type's resume keys are dropped, not
+        reverted: keys like "scores" are shared, and reverting would parse
+        another type's data.
         """
         self.setAsideResults = ""
-        stamped = toString(self.userOpt.get(RESULTS_COMPETITION, ""))
-        if not stamped or not self.competitionType or stamped == self.competitionType:
+        other = resultsTypeIfOther(self.userOpt, self.competitionType)
+        if not other:
             return
         if any(self.resultsBuf.values()):
-            self.setAsideResults = stamped
+            self.setAsideResults = other
         for key in self.resumeKeys:
             self.userOpt.pop(key, None)
         self.resumeOpt = {}

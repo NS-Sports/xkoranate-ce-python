@@ -106,3 +106,27 @@ def tournament(sport_index, rng):
         return builders.tournament(name, sport_index, rng, **overrides)
 
     return build
+
+
+@pytest.fixture
+def questions(monkeypatch):
+    """questions.answer(module, reply) stands in for module.confirm: the
+    list gets each question's text, .labels each Discard button's label,
+    and every question is answered `reply` (which a test may change)."""
+
+    class Questions(list):
+        reply = True
+        labels = []
+
+        def answer(self, module, reply=True):
+            self.reply, self.labels = reply, []
+
+            def confirm(parent, text, *args, discardText="", **kwargs):
+                self.append(text)
+                self.labels.append(discardText)
+                return self.reply
+
+            monkeypatch.setattr(module, "confirm", confirm)
+            return self
+
+    return Questions()
