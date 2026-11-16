@@ -350,6 +350,20 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
         home.result[key] = homeScores
         away.result[key] = awayScores
 
+    def _walkOffRuns(self, runs, deficit, defaultMargin=None):
+        """The runs a side batting last keeps when it can win on the spot.
+
+        In baseball the game ends the moment the home side takes the lead in
+        its last turn at bat, so it can't pull further ahead than the hit
+        that won it allows: a grand slam with the scores level wins by 4.
+        `deficit` is how far it trailed when it came to bat. The sport file
+        sets the widest margin with walkOffMargin; without one, and without
+        a default, the runs stand."""
+        margin = self.opt.get("walkOffMargin", defaultMargin)
+        if margin is None or deficit < 0:
+            return runs
+        return min(runs, deficit + toInt(margin))
+
     def generateConversions(self, count, forceValue=-1):
         rval = 0
 

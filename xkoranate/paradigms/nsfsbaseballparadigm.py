@@ -8,13 +8,20 @@ from .nsfsgridironparadigm import XkorNSFSGridironParadigm
 class XkorNSFSBaseballParadigm(XkorNSFSGridironParadigm):
     # protected:
 
+    # a grand slam with the scores level is the widest a walk-off can be
+    _walkOffMarginDefault = 4
+
     def generateETScore(self, hRes, aRes, str_=""):
+        # one extra inning; the side listed first bats first, as in regulation
         hRes = hRes.clone()
         aRes = aRes.clone()
-        result = self.generateScorePair(hRes.athlete.skill, aRes.athlete.skill)
+        result = self.generateScorePair(hRes.athlete.rpSkill, aRes.athlete.rpSkill)
+        # the scores were level, so the side batting last trails by whatever
+        # the other side just scored
+        homeRuns = self._walkOffRuns(result[1], result[0], self._walkOffMarginDefault)
         hRes.setScore(hRes.score() + result[0])
-        aRes.setScore(aRes.score() + result[1])
-        self._appendSubScores(hRes, aRes, result[0], result[1])
+        aRes.setScore(aRes.score() + homeRuns)
+        self._appendSubScores(hRes, aRes, result[0], homeRuns)
 
         return (hRes, aRes)
 
@@ -35,13 +42,18 @@ class XkorNSFSBaseballParadigm(XkorNSFSGridironParadigm):
                 if i == periods - 1 and aRes.score() + result[1] < hRes.score():
                     homeMustBat = False
 
-                if homeMustBat:
-                    hRes.setScore(hRes.score() + result[0])
                 aRes.setScore(aRes.score() + result[1])
+                homeRuns = result[0]
+                if i == periods - 1:
+                    # the game ends the moment the home side goes ahead
+                    homeRuns = self._walkOffRuns(homeRuns, aRes.score() - hRes.score(),
+                                                 self._walkOffMarginDefault)
+                if homeMustBat:
+                    hRes.setScore(hRes.score() + homeRuns)
                 hResScores = toList(hRes.result.get("subScores"))
                 aResScores = toList(aRes.result.get("subScores"))
                 if homeMustBat:
-                    hResScores.append(result[0])
+                    hResScores.append(homeRuns)
                 aResScores.append(result[1])
                 hRes.result["subScores"] = hResScores
                 aRes.result["subScores"] = aResScores
@@ -53,7 +65,10 @@ class XkorNSFSBaseballParadigm(XkorNSFSGridironParadigm):
             if result1[1] + result2[1] < result1[0]:
                 hRes.setScore(result1[0])  # home did not bat in ninth inning
             else:
-                hRes.setScore(result1[0] + result2[0])
+                # the game ends the moment the home side goes ahead
+                hRes.setScore(result1[0] + self._walkOffRuns(
+                    result2[0], result1[1] + result2[1] - result1[0],
+                    self._walkOffMarginDefault))
             aRes.setScore(result1[1] + result2[1])
 
         return (aRes, hRes)

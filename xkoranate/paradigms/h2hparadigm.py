@@ -25,12 +25,13 @@ class XkorH2HParadigm(XkorSQISParadigm):
         home = home.clone()
         away = away.clone()
         scoreType = ("score" if str_ == "" else str_)
-        home.result[scoreType] = (toDouble(home.value(scoreType))
-                                  + int(self.s.h2hScore("etScore", home.athlete.rpSkill,
-                                                        away.athlete.rpSkill)))
-        away.result[scoreType] = (toDouble(away.value(scoreType))
-                                  + int(self.s.h2hScore("etScore", away.athlete.rpSkill,
-                                                        home.athlete.rpSkill)))
+        homeET = int(self.s.h2hScore("etScore", home.athlete.rpSkill, away.athlete.rpSkill))
+        awayET = int(self.s.h2hScore("etScore", away.athlete.rpSkill, home.athlete.rpSkill))
+        # in sports with a walk-off (baseball), the side listed second bats
+        # last, so the game ends as soon as it goes ahead
+        awayET = self._walkOffRuns(awayET, homeET)
+        home.result[scoreType] = toDouble(home.value(scoreType)) + homeET
+        away.result[scoreType] = toDouble(away.value(scoreType)) + awayET
 
         return (home, away)
 
