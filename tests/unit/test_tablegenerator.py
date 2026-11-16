@@ -1,6 +1,7 @@
 import os
 import re
 
+import pytest
 from builders import make_table, names, points
 from PySide6.QtCore import QRegularExpression
 
@@ -670,27 +671,33 @@ def _closeTableGenerator(app):
         app.tg.close()
 
 
-def test_reopening_keeps_a_table_the_user_chose_not_to_discard(qapp, monkeypatch):
-    """Clicking Table generator again closes the open one first, which asks
-    about unsaved changes. The window was deleted whatever the answer, so
-    Cancel threw the table away."""
+@pytest.mark.parametrize("edited", [True, False], ids=["unsaved changes", "no changes"])
+def test_reopening_an_open_window_brings_it_forward(qapp, monkeypatch, edited):
+    """Clicking Table generator again closed the open one, asking about
+    unsaved changes, and replaced it with a blank one: Cancel used to throw
+    the table away, and even Save left the user with an empty window."""
     import shiboken6
-    from PySide6.QtWidgets import QMessageBox
+    from PySide6.QtCore import Qt
 
     _closeTableGenerator(qapp)
     qapp.tableGenerator()
     tg = qapp.tg
+    asked = []
+    monkeypatch.setattr(tg.generator, "showUnsavedDialog", lambda: asked.append(1))
     try:
-        tg.generator.matches.setPlainText("Alpha 2-1 Beta")
-        monkeypatch.setattr(tg.generator, "showUnsavedDialog", lambda: QMessageBox.Cancel)
+        if edited:
+            tg.generator.matches.setPlainText("Alpha 2-1 Beta")
+        tg.showMinimized()
 
         qapp.tableGenerator()
         _deliverDeferredDeletes()
 
+        assert asked == []
         assert shiboken6.isValid(tg)
         assert qapp.tg is tg and tg.isVisible()
-        assert tg.generator.matches.toPlainText() == "Alpha 2-1 Beta"
-        assert tg.generator.fileModified
+        assert not tg.windowState() & Qt.WindowMinimized
+        assert tg.generator.matches.toPlainText() == ("Alpha 2-1 Beta" if edited else "")
+        assert tg.generator.fileModified == edited
     finally:
         _closeTableGenerator(qapp)
 

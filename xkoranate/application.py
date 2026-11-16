@@ -191,15 +191,18 @@ class XkorApplication(QApplication):
     def tableGenerator(self):
         from .tablegenerator.tablegeneratorwindow import XkorTableGeneratorWindow
 
-        if self.tg is not None:  # delete tg
-            # A window still on screen may hold unsaved changes, so closing it
-            # asks — and Cancel has to keep it. Deleting it whatever close()
-            # answered threw the table away. A hidden one was closed by the
-            # user, who answered for its changes then, so it is just replaced.
-            if self.tg.isVisible() and not self.tg.close():
+        if self.tg is not None:
+            if self.tg.isVisible():
+                # Asking for the table generator while it's open means "show
+                # me it", not "start again": it used to be closed — asking to
+                # save, and deleted whatever the answer — and replaced with a
+                # blank one. Minimised counts as open.
+                self.tg.setWindowState(self.tg.windowState() & ~Qt.WindowMinimized)
                 self.tg.raise_()
                 self.tg.activateWindow()
                 return
+            # a hidden one was closed by the user, who answered for its
+            # changes then, so it is just replaced
             self.tg.deleteLater()
         self.tg = XkorTableGeneratorWindow()
         self.tg.resultImportDirectoryChanged.connect(self.setResultImportDirectory)
