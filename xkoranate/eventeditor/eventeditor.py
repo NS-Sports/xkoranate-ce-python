@@ -250,7 +250,7 @@ class XkorEventEditor(QWidget):
             self, "Are you sure you want to change the bracket?",
             "This event has already been scorinated. Changing "
             "the bracket discards the results played from it.",
-            accept=QMessageBox.Discard, destructive=True)
+            accept=QMessageBox.Discard, destructive=True, acceptText="Discard Results")
 
     def setDataChanged(self):
         if not self.isLoading:

@@ -303,7 +303,7 @@ class XkorScorinateWidget(QWidget):
             self, "Replace the results played as “%s”?" % other,
             "This event already has %s results. Scorinating it as %s replaces them."
             % (other, this or "another type"),
-            accept=QMessageBox.Discard, destructive=True)
+            accept=QMessageBox.Discard, destructive=True, acceptText="Replace Results")
 
     def scorinateMatchday(self, md):
         # scorinate

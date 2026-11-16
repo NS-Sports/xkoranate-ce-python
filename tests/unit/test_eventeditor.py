@@ -101,3 +101,21 @@ def test_continue_follows_the_sport_and_stops_at_the_last_step(editor):
 
     editor.sportSelector.setSelectedSport("")
     assert buttons(editor) == (0, False, False)
+
+
+def test_the_bracket_question_says_what_going_on_does(editor, monkeypatch):
+    """Its Discard button reads "Don't Save" on macOS, which left the
+    question with no way to go on."""
+    from PySide6.QtWidgets import QMessageBox
+
+    labels = []
+
+    def answer(box):
+        labels.append([b.text() for b in box.buttons()])
+        return QMessageBox.Cancel
+
+    monkeypatch.setattr(QMessageBox, "exec", answer)
+    editor.m_data.setResults({0: "played"})
+
+    assert editor.confirmDiscardBracketResults() is False
+    assert len(labels) == 1 and "Discard Results" in labels[0]

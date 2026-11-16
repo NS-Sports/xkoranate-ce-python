@@ -200,3 +200,23 @@ def test_scorinating_the_same_type_does_not_ask(qapp, league, answers):
     assert answers == []
     assert confirmed == [2]
     assert w.textedit.placeholderText() == ""
+
+
+def test_the_replace_button_says_what_it_does(qapp, league, monkeypatch):
+    """macOS names a Discard button "Don't Save", so the question offered
+    two ways to back out and none to go on."""
+    from PySide6.QtWidgets import QMessageBox
+
+    labels = []
+
+    def answer(box):
+        labels.append([b.text() for b in box.buttons()])
+        return QMessageBox.Cancel
+
+    monkeypatch.setattr(QMessageBox, "exec", answer)
+    ev, sport = league
+    w, _confirmed = scorinate_page(switched(ev, "singleElimination"), sport)
+
+    w.scorinate()
+
+    assert len(labels) == 1 and "Replace Results" in labels[0]
