@@ -19,6 +19,7 @@
 <string type="tableHeaderGoalsFor">GF</string>
 <string type="tableHeaderGoalsAgainst">GA</string>
 <string type="tableHeaderGoalDifference">GD</string>
+    <int type="suddenDeathExtraTime">1</int> <!-- the first score in overtime wins -->
 </paradigmOptions>
 
 <dataPoints name="score">

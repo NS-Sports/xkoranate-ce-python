@@ -22,6 +22,7 @@
 			<double>0.00746268656716</double>
 			<double>0.00746268656716</double>
 		</list>
+		<double type="scoreMin">0</double> <!-- a penalty gives the opponent a point; it never takes one away -->
 	</paradigmOptions>
 	
 	<dataPoints name="score">

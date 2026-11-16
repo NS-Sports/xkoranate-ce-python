@@ -54,3 +54,21 @@ def test_randGaussian_survives_the_rngs_minimum_value(sport):
 def test_randGaussianCapped_stays_inside_its_cap(sport):
     sport.randUniform = lambda: 0.0
     assert 0.1 <= sport.randGaussianCapped(0.1) <= 0.9
+
+
+# --- the ends of a data-point scale ----------------------------------------------
+
+def scale_sport(**options):
+    return make_sport(1, paradigm_options=options, data_points={"score": {0.1: 10.0, 0.9: 90.0}})
+
+
+def test_transformNumber_carries_the_line_on_past_the_data_points_by_default():
+    assert scale_sport().transformNumber(0.0, "score") == pytest.approx(0.0)
+    assert scale_sport().transformNumber(1.0, "score") == pytest.approx(100.0)
+
+
+def test_transformNumber_holds_a_scale_to_the_ends_the_sport_file_names():
+    sport = scale_sport(scoreMin=5.0, scoreMax=95.0)
+    assert sport.transformNumber(0.0, "score") == 5.0
+    assert sport.transformNumber(1.0, "score") == 95.0
+    assert sport.transformNumber(0.5, "score") == pytest.approx(50.0)

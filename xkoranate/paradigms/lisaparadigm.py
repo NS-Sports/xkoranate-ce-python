@@ -323,11 +323,20 @@ class XkorLISAParadigm(XkorAbstractH2HParadigm):
 
     def generateSOScore(self, home, away, str_):
         """Qusma shootout algorithm: rank-independent, tiered conversion
-        probabilities (3/4 for kicks 1-3, 2/3 for kicks 4-10, 1/2 for kick
-        11 onward as sudden death)."""
+        probabilities by round (3/4 for rounds 1-3, 2/3 for rounds 4-10,
+        1/2 from round 11 on)."""
         home = home.clone()
         away = away.clone()
-        pkCount = 10  # regulation kicks (3 @ 3/4 + 7 @ 2/3) before sudden death
+        # Football takes 5 kicks each, the home side first, and stops the
+        # moment one side can't catch up; level after 5, it goes to sudden
+        # death a round at a time.
+        pkCount = 5
+        # The algorithm first played 10 kicks each before sudden death. It
+        # still draws every kick that version drew, so the shootout uses up
+        # as many random numbers as it always has and later results for the
+        # same seed don't move; the kicks after the real shootout is over
+        # are thrown away.
+        drawCount = 10
 
         def kickProb(kickNumber):  # 1-based
             if kickNumber <= 3:
@@ -337,15 +346,41 @@ class XkorLISAParadigm(XkorAbstractH2HParadigm):
             else:
                 return 1 / 2
 
+        def cannotCatchUp(behind, ahead, kicksLeft):
+            return behind + kicksLeft < ahead
+
+        homeGoals = homeDrawn = toInt(home.value(str_))
+        awayGoals = awayDrawn = toInt(away.value(str_))
+        decided = False
         count = 0
-        while abs(toInt(home.value(str_)) - toInt(away.value(str_))) <= pkCount - count:
+        while abs(homeDrawn - awayDrawn) <= drawCount - count:
             p = kickProb(count + 1)
-            if self.s.randUniform() < p:
-                home.result[str_] = toInt(home.value(str_)) + 1
-            if self.s.randUniform() < p:
-                away.result[str_] = toInt(away.value(str_)) + 1
-            if count >= pkCount:
+            kick = count + 1 if count < drawCount else drawCount + 1  # this round's number
+            homeScores = self.s.randUniform() < p
+            awayScores = self.s.randUniform() < p
+            homeDrawn += homeScores
+            awayDrawn += awayScores
+
+            if not decided:
+                homeGoals += homeScores
+                if kick <= pkCount:
+                    # the home side has kicked `kick` times, the away side one fewer
+                    decided = (cannotCatchUp(homeGoals, awayGoals, pkCount - kick)
+                               or cannotCatchUp(awayGoals, homeGoals, pkCount - kick + 1))
+            if not decided:
+                awayGoals += awayScores
+                if kick <= pkCount:
+                    decided = (cannotCatchUp(homeGoals, awayGoals, pkCount - kick)
+                               or cannotCatchUp(awayGoals, homeGoals, pkCount - kick))
+                else:
+                    decided = homeGoals != awayGoals
+
+            if count >= drawCount:
                 count -= 1
             count += 1
 
+        if homeGoals:
+            home.result[str_] = homeGoals
+        if awayGoals:
+            away.result[str_] = awayGoals
         return (home, away)

@@ -400,25 +400,79 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
         scoreType = ("score" if str_ == "" else str_)
         subScoreType = ("subScores" if str_ == "" else str_ + "SubScores")
 
+        homeCounts = []
+        awayCounts = []
+        homePoints = 0
+        awayPoints = 0
         for i in range(len(pointValues)):  # for each type of scoring
             attackCoeff = toDouble(attackCoeffs[i])
             score1 = self.generateScore(home.athlete.rpSkill, away.athlete.rpSkill,
                                         0, 0, homeAdvantage, attackCoeff * attackMultiplier)
             score2 = self.generateScore(away.athlete.rpSkill, home.athlete.rpSkill,
                                         0, 0, False, attackCoeff * attackMultiplier)
-
-            # add to overall score
-            home.result[scoreType] = toDouble(home.value(scoreType)) + score1 * toInt(pointValues[i])
-            away.result[scoreType] = toDouble(away.value(scoreType)) + score2 * toInt(pointValues[i])
-
-            # store the sub-score
-            self._appendSubScores(home, away, score1, score2, subScoreType)
+            homeCounts.append(score1)
+            awayCounts.append(score2)
+            homePoints += score1 * toInt(pointValues[i])
+            awayPoints += score2 * toInt(pointValues[i])
 
             if i == 0 and self.opt.get("conversionValues") is not None:
-                home.result[scoreType] = toDouble(home.value(scoreType)) + self.generateConversions(score1)
-                away.result[scoreType] = toDouble(away.value(scoreType)) + self.generateConversions(score2)
+                homePoints += self.generateConversions(score1)
+                awayPoints += self.generateConversions(score2)
+
+        rule = self._extraTimeRule()
+        if rule:
+            # the period is drawn as usual, then cut back to what the sport
+            # allows, so no extra random numbers are drawn
+            homeCounts, awayCounts, homePoints, awayPoints = self._trimExtraTime(
+                rule, homeCounts, awayCounts, homePoints, awayPoints,
+                [toInt(v) for v in pointValues])
+
+        if homeCounts:  # a sport with no kinds of score leaves the period unset
+            home.result[scoreType] = toDouble(home.value(scoreType)) + homePoints
+            away.result[scoreType] = toDouble(away.value(scoreType)) + awayPoints
+        for score1, score2 in zip(homeCounts, awayCounts):
+            self._appendSubScores(home, away, score1, score2, subScoreType)
 
         return (home, away)
+
+    def _extraTimeRule(self):
+        """How the sport file says an extra period ends: "suddenDeath" when
+        the first score wins it (suddenDeathExtraTime), "oneSide" when only
+        one side can score in it, like curling's extra end
+        (extraTimeOneSideScores), or "" for a full period."""
+        if toInt(self.opt.get("suddenDeathExtraTime")) == 1:
+            return "suddenDeath"
+        if toInt(self.opt.get("extraTimeOneSideScores")) == 1:
+            return "oneSide"
+        return ""
+
+    @staticmethod
+    def _trimExtraTime(rule, homeCounts, awayCounts, homePoints, awayPoints, pointValues):
+        """Cut a drawn extra period back to what `rule` allows.
+
+        The draw gives each side a count of each kind of score but not their
+        order, so the side that drew more points is taken to have scored
+        first. Under "suddenDeath" it keeps a single score, of the most
+        valuable kind it drew, with no conversion, because play stops before
+        one is taken. Under "oneSide" it keeps everything it drew. Either
+        way the other side keeps nothing, and a level draw counts as nobody
+        scoring. Returns (homeCounts, awayCounts, homePoints, awayPoints)."""
+        none = [0] * len(homeCounts)
+        if homePoints == awayPoints:
+            return none, list(none), 0, 0
+        homeWon = homePoints > awayPoints
+        if rule == "oneSide":
+            winnerCounts, winnerPoints = (homeCounts, homePoints) if homeWon else (awayCounts, awayPoints)
+        else:
+            drawn = homeCounts if homeWon else awayCounts
+            kinds = [i for i in range(len(drawn)) if drawn[i] > 0] or [0]
+            best = max(kinds, key=lambda i: pointValues[i])
+            winnerCounts = list(none)
+            winnerCounts[best] = 1
+            winnerPoints = pointValues[best]
+        if homeWon:
+            return winnerCounts, none, winnerPoints, 0
+        return none, winnerCounts, 0, winnerPoints
 
     def generateFTScore(self, home, away):
         hRes = XkorResult()

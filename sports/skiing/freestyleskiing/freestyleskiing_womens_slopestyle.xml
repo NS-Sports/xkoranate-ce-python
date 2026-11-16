@@ -11,6 +11,8 @@
 		<int type="displayDigits">2</int>
            <double type="roundingValue">0.2</double>
 		<string type="sortOrder">descending</string>
+		<double type="scoreMin">0</double> <!-- judged out of 100 -->
+		<double type="scoreMax">100</double>
 	</paradigmOptions>
 	
 	<dataPoints name="score">

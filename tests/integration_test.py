@@ -1181,6 +1181,9 @@ def test_conference_tables_count_stoppages_and_negative_scores(tournament, sport
     for seed in range(4):
         ev, sport = tournament("conferences 4+4", rng=Mt19937(seed), sport_name=sportName,
                                groups=sizes)
+        # the taekwondo file now floors scores at 0; lift the floor on this
+        # copy so the table still meets a negative score
+        sport.m_paradigmOptions.pop("scoreMin", None)
         c = play(ev, sport)
         results = ev.results()
         final = results[c.matchdays() - 1]

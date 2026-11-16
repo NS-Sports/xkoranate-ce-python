@@ -9,12 +9,12 @@
 	<paradigm>wrestling</paradigm>
 	<paradigmOptions>
 		<list type="results">
-			<string>2–1</string>
 			<string>2–0</string>
+			<string>2–1</string>
 		</list>
 		<list type="reversedResults">
-			<string>1–2</string>
 			<string>0–2</string>
+			<string>1–2</string>
 		</list>
 		<list type="winnerScores">
 			<double>2</double>
