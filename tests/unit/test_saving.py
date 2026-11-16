@@ -144,6 +144,36 @@ def test_a_failed_save_leaves_the_previous_file_intact(writer, method, write, er
     assert os.listdir(str(tmp_path)) == ["saved.xml"]  # no temporary file left behind
 
 
+@pytest.mark.parametrize("write", [
+    lambda path: XkorXmlWriter(path, XkorRPList(), []),
+    lambda path: XkorXmlTableWriter(path, XkorTable()),
+], ids=["scorinator", "table generator"])
+def test_a_failed_write_says_why(write, tmp_path, monkeypatch):
+    """The message was read after the write had been cancelled, so a full
+    disk was reported as "Writing canceled by application"."""
+    from PySide6.QtCore import QSaveFile
+
+    from xkoranate.xml import xmlbasewriter
+
+    class FullDisk(QSaveFile):
+        def writeData(self, data, *args):
+            self.setErrorString("No space left on device")
+            return -1
+
+    path = str(tmp_path / "saved.xml")
+    write(path)
+    with open(path, encoding="utf-8") as f:
+        before = f.read()
+
+    monkeypatch.setattr(xmlbasewriter, "QSaveFile", FullDisk)
+    with pytest.raises(OSError, match="No space left on device"):
+        write(path)
+
+    with open(path, encoding="utf-8") as f:
+        assert f.read() == before
+    assert os.listdir(str(tmp_path)) == ["saved.xml"]
+
+
 @pytest.mark.parametrize("reader", [XkorXmlReader, XkorXmlTableReader])
 def test_the_readers_report_a_file_they_cannot_open(reader, tmp_path):
     r = reader(str(tmp_path))  # exists, but a folder can't be opened as a file

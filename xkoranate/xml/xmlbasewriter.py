@@ -44,10 +44,15 @@ class XkorXmlBaseWriter(QXmlStreamWriter):
             self.setDevice(None)
 
         if self.hasError():
+            # read why before cancelWriting(), which replaces the device's own
+            # error ("No space left on device") with "Writing canceled by
+            # application" — true, and no help to the user
+            error = f.errorString()
             f.cancelWriting()
-        error = f.errorString()
+            f.commit()  # throws the temporary file away
+            raise OSError("Could not save ‘%s’: %s" % (filename, error))
         if not f.commit():
-            raise OSError("Could not save ‘%s’: %s" % (filename, f.errorString() or error))
+            raise OSError("Could not save ‘%s’: %s" % (filename, f.errorString()))
 
     def writeBoolElement(self, name, value):
         self.writeTextElement(name, "true" if value else "false")
