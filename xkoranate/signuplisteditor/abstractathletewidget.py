@@ -58,6 +58,7 @@ class XkorAbstractAthleteWidget(XkorAbstractTreeWidget):
         self.m_minDouble = minDouble
         self.m_maxDouble = maxDouble
         self.m_doubleStep = doubleStep
+        self.deleteGuard = None  # callable(ids) -> bool, or None to allow
 
     def createItem(self):
         item = _AthleteTreeWidgetItem(self.treeWidget, self.m_columnTypes)
@@ -71,8 +72,12 @@ class XkorAbstractAthleteWidget(XkorAbstractTreeWidget):
 
     def deleteItems(self):
         selection = self.treeWidget.selectedItems()
-        for i in selection:
-            self.itemDeleted.emit(parseAssignedUuid(i.data(_indexOf(self.m_columnKeys, "name"), Qt.UserRole)))
+        ids = [parseAssignedUuid(i.data(_indexOf(self.m_columnKeys, "name"), Qt.UserRole)) for i in selection]
+        # set by the signup list editor: whether deleting these may go ahead
+        if self.deleteGuard is not None and not self.deleteGuard(ids):
+            return
+        for id in ids:
+            self.itemDeleted.emit(id)
         XkorAbstractTreeWidget.deleteItems(self)
 
     def athletes(self):

@@ -30,6 +30,9 @@ class XkorEventEditor(QWidget):
         self.signupListEditor = None
         self.eventSetupWidget = None  # built after the competition selector
         self.isLoading = False
+        # the user chose to discard results by deleting a bracketed signup,
+        # on this visit to the Signups page
+        self._signupDiscardAnswered = False
         # the event exactly as loaded, while its sport isn't one we can select
         self._unresolvedEvent = None
 
@@ -67,9 +70,11 @@ class XkorEventEditor(QWidget):
         self.updateStepIndicator()
 
     def stepChanged(self, index):
+        # a Discard lasts while the user stays on the page they gave it on
         if self.stack.widget(index) is not self.eventSetupWidget:
-            # a Discard on the bracket page lasts while the user stays there
             self.eventSetupWidget.forgetResultsAnswer()
+        if self.stack.widget(index) is not self.signupListEditor:
+            self._signupDiscardAnswered = False
 
     def updateNavigation(self):
         """Go Back while there is a step behind; Continue while there is one
@@ -119,6 +124,7 @@ class XkorEventEditor(QWidget):
         self.eventSetupWidget.viewScheduleRequested.connect(self.viewSchedule)
         self.eventSetupWidget.resultsGuard = self.confirmDiscardBracketResults
         self.signupListEditor.itemDeleted.connect(self.eventSetupWidget.deleteAthlete)
+        self.signupListEditor.deleteGuard = self.confirmDeletingBracketedSignups
 
     def initLayout(self):
         # stacked layout
@@ -250,13 +256,38 @@ class XkorEventEditor(QWidget):
         results for a draw that no longer exists would be worse — but it used
         to happen with no warning at the point of the edit.
         """
-        if not any(self.m_data.results().values()):
+        if not self.hasResults():
             return True
         return confirm(
             self, "Are you sure you want to change the bracket?",
             "This event has already been scorinated. Changing "
             "the bracket discards the results played from it.",
             accept=QMessageBox.Discard, destructive=True, acceptText="Discard Results")
+
+    def hasResults(self):
+        return any(self.m_data.results().values())
+
+    def confirmDeletingBracketedSignups(self, ids):
+        """Ask before deleting signups in a bracket that has been played.
+
+        Their slots become byes, so the draw no longer matches the rounds
+        played and the knockout stops showing them — the same loss a change
+        on the bracket page asks about, but from a page that said nothing.
+        A Discard lasts while the user stays on the Signups page.
+        """
+        if self._signupDiscardAnswered or not self.hasResults():
+            return True
+        setup = self.eventSetupWidget
+        if not setup.isBracket() or not set(ids) & set(setup.realBracketEntrants()):
+            return True
+        accepted = confirm(
+            self, "Are you sure you want to delete a participant in the bracket?",
+            "This event has already been scorinated. Their place becomes a bye, "
+            "which discards the results played from the bracket.",
+            accept=QMessageBox.Discard, destructive=True, acceptText="Discard Results")
+        if accepted:
+            self._signupDiscardAnswered = True
+        return accepted
 
     def setDataChanged(self):
         if not self.isLoading:

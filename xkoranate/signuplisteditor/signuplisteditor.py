@@ -24,6 +24,9 @@ class XkorSignupListEditor(QWidget):
         self.isLoading = False
 
         self.athletes = None
+        # set by the event editor: whether deleting these signups may go ahead.
+        # The athlete list is rebuilt for every sport, so it asks through us
+        self.deleteGuard = None
         self.m_data = XkorSignupList()
         self._usesMinSkill = True
         self._usesMaxSkill = True
@@ -263,6 +266,7 @@ class XkorSignupListEditor(QWidget):
         self.athletes.listChanged.connect(self._onAthleteListChanged)
         self.athletes.athletesImported.connect(self._onAthletesImported)
         self.athletes.itemDeleted.connect(self.itemDeleted)
+        self.athletes.deleteGuard = lambda ids: self.deleteGuard is None or self.deleteGuard(ids)
         self.athletes.signupListDirectoryChanged.connect(self.signupListDirectoryChanged)
 
         # re-apply now that a fresh athlete widget/data exist

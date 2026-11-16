@@ -3,6 +3,7 @@ steps the Go Back and Continue buttons allow."""
 
 import pytest
 from builders import LISA, make_athletes, make_event
+from PySide6.QtCore import Qt
 
 from xkoranate.event import XkorEvent
 from xkoranate.rplist import XkorRPList
@@ -244,3 +245,89 @@ def test_results_played_after_leaving_the_page_are_asked_about_again(playedCup):
     editor.eventSetupWidget.randomizeGroup()
 
     assert asked == [1, 1]
+
+
+# ----------------------------- deleting a signup who is in a played bracket
+
+SIGNUPS = 1  # the Signups step
+
+
+def onSignups(editor, ev, monkeypatch, answer=True):
+    """Show `ev` on its Signups page, with every "discard the results?"
+    answered `answer` and counted."""
+    from xkoranate.eventeditor import eventeditor
+
+    editor.setData(ev, XkorRPList())
+    editor.goNext()
+    assert editor.stack.currentIndex() == SIGNUPS
+    asked = []
+    monkeypatch.setattr(eventeditor, "confirm", lambda *args, **kwargs: (asked.append(1), answer)[1])
+    return asked
+
+
+def deleteSignup(editor, id):
+    """Select the signup with this id on the Signups page and delete it."""
+    from xkoranate.uuids import parseAssignedUuid
+
+    athletes = editor.signupListEditor.athletes
+    tree = athletes.treeWidget
+    tree.clearSelection()
+    for i in range(tree.topLevelItemCount()):
+        item = tree.topLevelItem(i)
+        if any(parseAssignedUuid(item.data(c, Qt.UserRole)) == id for c in range(tree.columnCount())):
+            item.setSelected(True)
+    assert tree.selectedItems(), "no signup with that id"
+    athletes.deleteItems()
+
+
+@pytest.fixture
+def cup(tournament):
+    from builders import play
+
+    ev, sport = tournament("cup of 8")
+    play(ev, sport, up_to=1)
+    return ev, [a.id for a in ev.signupList().athletes()]
+
+
+def signupIds(editor):
+    return [a.id for a in editor.data().signupList().athletes()]
+
+
+def test_cancel_keeps_a_bracketed_signup(editor, cup, monkeypatch):
+    ev, ids = cup
+    asked = onSignups(editor, ev, monkeypatch, answer=False)
+    before = list(editor.eventSetupWidget.bracketEntrants())
+
+    deleteSignup(editor, ids[0])
+
+    assert asked == [1]
+    assert signupIds(editor) == ids
+    assert editor.eventSetupWidget.bracketEntrants() == before
+
+
+def test_discard_is_asked_once_per_visit_to_the_signups_page(editor, cup, monkeypatch):
+    ev, ids = cup
+    asked = onSignups(editor, ev, monkeypatch)
+
+    deleteSignup(editor, ids[0])
+    deleteSignup(editor, ids[1])
+    assert asked == [1]
+    assert signupIds(editor) == ids[2:]
+
+    editor.goNext()  # leave the page, and come back
+    editor.goPrev()
+    deleteSignup(editor, ids[2])
+    assert asked == [1, 1]
+
+
+def test_no_question_without_a_played_bracket(editor, tournament, monkeypatch):
+    from builders import play
+
+    unplayed, _sport = tournament("cup of 8")
+    league, sport = tournament("league 3×4")
+    play(league, sport, up_to=1)
+
+    for ev in (unplayed, league):
+        asked = onSignups(editor, ev, monkeypatch)
+        deleteSignup(editor, ev.signupList().athletes()[0].id)
+        assert asked == []
