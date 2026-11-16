@@ -15,6 +15,7 @@
 		</list>
 		<int type="forceTieBreak">1</int>
 		<int type="quietTieBreak">1</int>
+		<int type="extraTimeOneSideScores">1</int> <!-- only one side scores in an extra end -->
 	</paradigmOptions>
 	
 	<dataPoints name="score">

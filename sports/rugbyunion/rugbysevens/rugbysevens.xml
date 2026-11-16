@@ -26,5 +26,9 @@
 		</list>
 		<string type="tiebreakers">goldengoal</string>
 		<string type="tiebreakerNames"/>
+		<list type="goldenGoalPointValues"> <!-- a try or touchdown ends the game before its conversion -->
+			<int>5</int>
+			<int>5</int>
+		</list>
 	</paradigmOptions>
 </sport>

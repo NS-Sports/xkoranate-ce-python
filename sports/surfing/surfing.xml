@@ -11,6 +11,8 @@
 		<int type="displayDigits">2</int>
 		<int type="attempts">2</int>
 		<string type="sortOrder">descending</string>
+		<double type="scoreMin">0</double> <!-- each wave is judged out of 10 -->
+		<double type="scoreMax">10</double>
 	</paradigmOptions>
 	
 	<dataPoints name="score">

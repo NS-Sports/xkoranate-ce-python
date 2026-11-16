@@ -170,4 +170,15 @@ class XkorSport:
                 a = points[j]
                 b = points[j + 1]
                 break
-        return a[1] + (b[1] - a[1]) / (b[0] - a[0]) * (x - a[0])
+        value = a[1] + (b[1] - a[1]) / (b[0] - a[0]) * (x - a[0])
+
+        # before the first data point and after the last, the line carries
+        # on, so a scale with hard ends (judged out of 100, a wave out of
+        # 10) names them in the sport file as <index>Min and <index>Max
+        floor = self.m_paradigmOptions.get(index + "Min")
+        ceiling = self.m_paradigmOptions.get(index + "Max")
+        if floor is not None:
+            value = max(value, float(floor))
+        if ceiling is not None:
+            value = min(value, float(ceiling))
+        return value

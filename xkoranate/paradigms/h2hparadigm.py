@@ -25,12 +25,18 @@ class XkorH2HParadigm(XkorSQISParadigm):
         home = home.clone()
         away = away.clone()
         scoreType = ("score" if str_ == "" else str_)
-        home.result[scoreType] = (toDouble(home.value(scoreType))
-                                  + int(self.s.h2hScore("etScore", home.athlete.rpSkill,
-                                                        away.athlete.rpSkill)))
-        away.result[scoreType] = (toDouble(away.value(scoreType))
-                                  + int(self.s.h2hScore("etScore", away.athlete.rpSkill,
-                                                        home.athlete.rpSkill)))
+        homeGoals = int(self.s.h2hScore("etScore", home.athlete.rpSkill, away.athlete.rpSkill))
+        awayGoals = int(self.s.h2hScore("etScore", away.athlete.rpSkill, home.athlete.rpSkill))
+
+        rule = self._extraTimeRule()
+        if rule:
+            # the period is drawn as usual, then cut back to what the sport
+            # allows, so no extra random numbers are drawn
+            homeCounts, awayCounts, homeGoals, awayGoals = self._trimExtraTime(
+                rule, [homeGoals], [awayGoals], homeGoals, awayGoals, [1])
+
+        home.result[scoreType] = toDouble(home.value(scoreType)) + homeGoals
+        away.result[scoreType] = toDouble(away.value(scoreType)) + awayGoals
 
         return (home, away)
 

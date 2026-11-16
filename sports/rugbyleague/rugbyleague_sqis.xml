@@ -29,16 +29,15 @@
 		<double type="conversionSuccess">0.75</double>
 		<list type="tiebreakers">
 			<string>extratime</string>
-			<string>shootout</string>
 		</list>
 		<list type="tiebreakerNames">
 			<string>AET</string>
-			<string>pen.</string>
 		</list>
 		<double type="NSFSStyleCoeffA">2.0991677816057</double>
 		<double type="NSFSStyleCoeffB">1.2442581729602</double>
 		<double type="NSFSStyleExponent">-0.42705203296846</double>
 		<double type="NSFSStyleOffset">0.072435335725325</double>
+		<int type="suddenDeathExtraTime">1</int> <!-- golden point: the first score wins, and it repeats until someone scores -->
 	</paradigmOptions>
 	
 	<!-- the style modifier distribution is a bit wonky because negative modifiers are less likely to take effect -->

@@ -12,6 +12,7 @@
 		<int type="displayDigits">0</int>
 		<double type="roundingValue">50</double>
 		<string type="sortOrder">descending</string>
+		<double type="scoreMin">0</double> <!-- no score below zero -->
 	</paradigmOptions>
 	
 	<dataPoints name="score">

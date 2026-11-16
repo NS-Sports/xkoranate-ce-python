@@ -122,13 +122,20 @@ class XkorFootba11erParadigm(XkorAbstractH2HParadigm):
         homeSkill = self._homeWinShare(home.athlete.rpSkill, away.athlete.rpSkill)
 
         # how many points will be scored?
+        # A golden point ends the game the moment it's scored, so a score
+        # that comes with a conversion in regulation (a converted try, a
+        # touchdown and its extra point) is worth only the score itself
+        # here; goldenGoalPointValues gives that worth for each pointValue.
+        goldenGoalPointValues = toList(self.opt.get("goldenGoalPointValues", pointValues))
+
         attackValue = 0
         rand = self.s.randUniform()
         acc = 0.0
         for i in range(min(len(pointValues), len(pointProbs))):
             acc += toDouble(pointProbs[i])
             if acc > rand:
-                attackValue = toInt(pointValues[i])
+                attackValue = toInt(goldenGoalPointValues[i] if i < len(goldenGoalPointValues)
+                                    else pointValues[i])
                 break
 
         # who gets those points?

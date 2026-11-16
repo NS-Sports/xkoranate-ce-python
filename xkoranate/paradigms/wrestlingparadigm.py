@@ -91,12 +91,15 @@ class XkorWrestlingParadigm(XkorAbstractParadigm):
             difference = self.s.randWeightedH2H(awaySkill, homeSkill)
 
         acc = 0.0
+        chosen = probArr[-1][0] if probArr else None
         for i in probArr:
             acc += i[1]
             if difference < acc:
-                if homeRand > awayRand:
-                    rval = i[0]
-                else:
-                    rval = i[0].reverse()
+                chosen = i[0]
                 break
+        # a draw past every outcome (probabilities that add up to less than
+        # 1, or fall short by rounding) takes the last one rather than
+        # leaving a blank 0–0 the sport can't produce
+        if chosen is not None:
+            rval = chosen if homeRand > awayRand else chosen.reverse()
         return rval
