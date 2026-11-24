@@ -17,6 +17,7 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
 
     def __init__(self, sport=None, userOptions=None):
         super().__init__(sport, userOptions)
+        self._tiebrokenGames = set()  # games in res whose tie breakTie has tried
         self.supportedCompetitions["matches"] = True
         self.supportedCompetitions["roundRobin"] = True
 
@@ -25,8 +26,16 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
         tiebreakerNames = self.readOptionList("tiebreakerNames")
 
         for home, away in self._pairs(athletes):
-            score1 = self.findResult(home.id)
-            score2 = self.findResult(away.id)
+            game = self._drawnGame(home, away)
+            if game is None:
+                # not the two sides of one game (archery ranks everyone
+                # together and settles whichever results are level)
+                score1 = self.findResult(home.id)
+                score2 = self.findResult(away.id)
+            else:
+                self._tiebrokenGames.add(game)
+                score1 = self.res[2 * game]
+                score2 = self.res[2 * game + 1]
 
             ni = 0  # parallel iterator over tiebreakerNames
             ti = 0
@@ -56,10 +65,13 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
                     score = (XkorResult(), XkorResult())
 
                 # output the score
-                for j in range(len(self.out)):
-                    if self.out[j][0] == home.name:
-                        self.out[j] = (self.out[j][0],
-                                       self.outputLine(score[0], score[1]))
+                line = self.outputLine(score[0], score[1])
+                if game is not None:
+                    self.out[game] = (self.out[game][0], line)
+                else:
+                    for j in range(len(self.out)):
+                        if self.out[j][0] == home.name:
+                            self.out[j] = (self.out[j][0], line)
 
                 # let the competition know the result
                 # (C++: *score1 = score.first; *score2 = score.second —
@@ -85,6 +97,23 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
 
                 ni += 1
                 ti += 1
+
+    def _drawnGame(self, home, away):
+        """Which game a tiebreak for home v away settles: game k is out[k],
+        with results res[2k] and res[2k + 1].
+
+        One match can hold the same pairing more than once (B, A, B, A), so
+        the teams alone don't say which game is meant. Drawn games are
+        settled in the order they were played, so it's the first level one
+        not yet tiebroken; failing that, the first one between them."""
+        games = [k for k in range(len(self.res) // 2)
+                 if self.res[2 * k].athlete.id == home.id
+                 and self.res[2 * k + 1].athlete.id == away.id]
+        for k in games:
+            if (k not in self._tiebrokenGames
+                    and self.compare(self.res[2 * k], self.res[2 * k + 1]) == 0):
+                return k
+        return games[0] if games else None
 
     def comparisonFunction(self, type=""):
         return XkorH2HResultComparator(type, self.opt)
@@ -132,6 +161,7 @@ class XkorAbstractH2HParadigm(XkorAbstractParadigm):
         # initialize results
         self.out = []
         self.res = []
+        self._tiebrokenGames = set()
 
         for home, away in self._pairs(athletes):
             score = self.generateFTScore(home, away)

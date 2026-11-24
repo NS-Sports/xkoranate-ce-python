@@ -244,3 +244,53 @@ def test_estimateOdds_does_not_perturb_the_shared_rng_sequence():
     sequence_after_estimate = [sport_b.r.next32() for _ in range(5)]
 
     assert sequence_without_estimate == sequence_after_estimate
+
+
+class _ScriptedH2HParadigm(_MinimalH2HParadigm):
+    """Plays the full-time scores it's given in order; extra time gives the
+    home side one more."""
+
+    def __init__(self, sport, ftScores):
+        super().__init__(sport, {})
+        self.opt = {"tiebreakers": ["extratime"], "tiebreakerNames": ["aet"]}
+        self.ftScores = iter(ftScores)
+
+    def generateFTScore(self, home, away):
+        homeScore, awayScore = next(self.ftScores)
+        return (XkorResult(ath=home.clone(), score=homeScore),
+                XkorResult(ath=away.clone(), score=awayScore))
+
+    def generateETScore(self, home, away, str_):
+        home = home.clone()
+        home.setScore(home.score() + 1)
+        return (home, away.clone())
+
+
+def _scores(p):
+    return [r.score() for r in p.res]
+
+
+def test_a_pairing_played_twice_in_one_match_settles_its_own_game():
+    """The forum's knockout setup: B, A, B, A in one match. A drawn second
+    game used to replay the first one and print its line twice."""
+    a, b = make_athlete(name="A", athlete_id="a"), make_athlete(name="B", athlete_id="b")
+    p = _ScriptedH2HParadigm(make_sport(seed=1), [(5, 2), (3, 3)])
+    p.opt["forceTieBreak"] = 1
+
+    p.scorinate([b, a, b, a])
+
+    assert _scores(p) == [5, 2, 4, 3]
+    assert p.out[0] != p.out[1]
+
+
+def test_each_drawn_game_of_a_repeated_pairing_is_settled_once():
+    """As the Matches competition settles draws: one game at a time, after
+    the whole match is scorinated."""
+    a, b = make_athlete(name="A", athlete_id="a"), make_athlete(name="B", athlete_id="b")
+    p = _ScriptedH2HParadigm(make_sport(seed=1), [(2, 2), (3, 3)])
+    p.scorinate([b, a, b, a])
+
+    for home in (0, 2):
+        p.breakTie([p.res[home].athlete, p.res[home + 1].athlete])
+
+    assert _scores(p) == [3, 2, 4, 3]
